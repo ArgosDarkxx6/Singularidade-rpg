@@ -890,7 +890,7 @@ async function routeApi(request, env, ctx) {
 
   const realtimeMatch = pathname.match(/^\/api\/realtime\/([^/]+)$/);
   if (realtimeMatch) {
-    return withBookmark(handleRealtime(request, runtimeEnv, decodeURIComponent(realtimeMatch[1])));
+    return handleRealtime(request, runtimeEnv, decodeURIComponent(realtimeMatch[1]));
   }
 
   const tableMatch = pathname.match(/^\/api\/tables\/([^/]+)$/);
