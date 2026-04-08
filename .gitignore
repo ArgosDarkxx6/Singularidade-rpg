@@ -1,7 +1,6 @@
 .wrangler/
 dist/
 tests/
-scripts/
 tmp_visual_checks/
 CHANGELOG.md
 TEST_REPORT.md

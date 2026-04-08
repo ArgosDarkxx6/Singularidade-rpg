@@ -32,11 +32,32 @@ Aplicação web-first para condução de mesa, fichas, rolagens, ordem, livro de
 - `src/`
 - `assets/`
 - `cloudflare/`
+- `scripts/`
 - `wrangler.jsonc`
 
 ## Deploy
 
 Pré-requisito: `wrangler` autenticado.
+
+```bash
+python scripts/build_release.py
+npx wrangler deploy
+```
+
+## Build do bundle web
+
+O artefato publicado em Cloudflare sai de `dist/cloudflare-public` e precisa conter:
+
+- wrappers `styles.css` e `styles.mobile.css`
+- pasta `styles/` completa
+- `src/`
+- `assets/`
+
+```bash
+python scripts/build_release.py
+```
+
+## Publicação direta
 
 ```bash
 npx wrangler deploy
