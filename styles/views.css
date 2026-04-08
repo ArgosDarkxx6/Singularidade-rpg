@@ -7,6 +7,10 @@
     linear-gradient(180deg, rgba(19, 41, 59, 0.98), rgba(15, 31, 44, 0.98));
 }
 
+.panel--sheet-hero {
+  padding: 24px;
+}
+
 .panel--sheet-support,
 .panel--sheet-side,
 .panel--rolls-side,
@@ -79,6 +83,21 @@
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.15;
+}
+
+.resource-card {
+  position: relative;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(116, 173, 207, 0.16);
+  background:
+    radial-gradient(circle at top right, rgba(113, 213, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(16, 34, 49, 0.96), rgba(10, 23, 33, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.resource-card__glow {
+  opacity: 0.72;
 }
 
 .attribute-row,
@@ -278,6 +297,86 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.sheet-masthead__identity,
+.sheet-masthead__resources {
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.sheet-masthead__resources {
+  border-left: 0;
+  border-top: 0;
+}
+
+.sheet-masthead__resources > .panel__header,
+.sheet-masthead__identity > .panel__header {
+  margin-bottom: 14px;
+}
+
+.resource-list--hero {
+  display: grid;
+  gap: 14px;
+}
+
+.sheet-masthead__resources .resource-card {
+  border-radius: 22px;
+  border: 1px solid rgba(116, 173, 207, 0.14);
+  background:
+    radial-gradient(circle at top right, rgba(113, 213, 255, 0.1), transparent 28%),
+    linear-gradient(180deg, rgba(19, 40, 58, 0.94), rgba(13, 27, 38, 0.98));
+  box-shadow: none;
+}
+
+.sheet-masthead__resources .resource-stepper__group--fields label {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+#orderControlsSection > .order-controls,
+#orderControlsSection > .order-controls.order-controls--flat {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+#orderControlsSection .order-controls__overview {
+  gap: 16px;
+}
+
+#orderControlsSection .order-counters {
+  gap: 14px;
+}
+
+#orderControlsSection .order-counter {
+  border-radius: 20px;
+  border: 1px solid rgba(116, 173, 207, 0.14);
+  background:
+    linear-gradient(180deg, rgba(11, 21, 30, 0.82), rgba(8, 16, 24, 0.94));
+}
+
+#orderControlsSection .order-focus-card {
+  border-radius: 22px;
+  border: 1px solid rgba(116, 173, 207, 0.14);
+  background:
+    radial-gradient(circle at top right, rgba(73, 178, 255, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(16, 33, 47, 0.96), rgba(10, 21, 31, 0.98));
+  box-shadow: none;
+}
+
+#orderControlsSection .status-strip {
+  margin-top: 0;
+}
+
+#orderControlsSection .order-controls__buttons {
+  padding-top: 2px;
 }
 
 @media (max-width: 1320px) {

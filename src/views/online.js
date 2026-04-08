@@ -1,6 +1,6 @@
 import { buildTableContextLabel, buildTableEpisodeLabel, normalizeTableMeta } from '../core/online.js';
 import { escapeHtml } from '../core/utils.js';
-import { renderButtonLabel, renderIcon } from '../ui/icons.js';
+import { renderButtonLabel } from '../ui/icons.js';
 
 function statusTone(status) {
   if (status === 'connected') return 'success';
@@ -23,23 +23,6 @@ function statusLabel(status, platformAvailable) {
 
 function roleLabel(role) {
   return role === 'gm' ? 'Mestre' : role === 'player' ? 'Jogador' : 'Espectador';
-}
-
-export function renderTopbarSyncStatus(ctx) {
-  const { dom, runtime } = ctx;
-  if (!dom.topbarSyncStatus) return;
-
-  const online = runtime.online;
-  const meta = normalizeTableMeta(online.table?.meta || { tableName: online.table?.name || online.session?.tableName });
-  const summary = buildTableEpisodeLabel(meta) || meta.tableName || (online.platformAvailable ? 'Cloudflare ativo' : 'Sem API remota');
-
-  dom.topbarSyncStatus.innerHTML = `
-    <span class="sync-pill sync-pill--${statusTone(online.status)}">
-      ${renderIcon(online.platformAvailable ? 'spark' : 'book', 'ui-icon ui-icon--mini')}
-      <strong>${escapeHtml(statusLabel(online.status, online.platformAvailable))}</strong>
-      <span>${escapeHtml(summary)}</span>
-    </span>
-  `;
 }
 
 function renderEmptyHub(online) {

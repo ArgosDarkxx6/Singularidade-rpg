@@ -11,31 +11,33 @@ export function renderOrderControlsSection(ctx) {
     : null;
 
   dom.orderControlsSection.innerHTML = `
-    <div class="order-controls">
-      <div class="order-counters">
-        <div class="order-counter">
-          <div class="order-counter__label">Round</div>
-          <div class="order-counter__value">${order.round}</div>
+    <div class="order-controls order-controls--flat">
+      <div class="order-controls__overview">
+        <div class="order-counters">
+          <div class="order-counter">
+            <div class="order-counter__label">Round</div>
+            <div class="order-counter__value">${order.round}</div>
+          </div>
+          <div class="order-counter">
+            <div class="order-counter__label">Turno</div>
+            <div class="order-counter__value">${order.entries.length ? order.turn + 1 : 0}</div>
+          </div>
         </div>
-        <div class="order-counter">
-          <div class="order-counter__label">Turno</div>
-          <div class="order-counter__value">${order.entries.length ? order.turn + 1 : 0}</div>
+        <div class="order-focus-card">
+          ${activeEntry ? `
+            <div class="order-focus-card__label">Em turno</div>
+            <strong>${escapeHtml(activeEntry.name)}</strong>
+            <span>${ORDER_ENTRY_TYPE_LABEL[activeEntry.type]}${activeEntry.init !== null && activeEntry.init !== undefined ? ` • Init ${activeEntry.init}` : ''}</span>
+          ` : `
+            <div class="order-focus-card__label">Fila vazia</div>
+            <strong>Adicione PCs ou NPCs</strong>
+            <span>A iniciativa aparece aqui assim que a ordem ganhar ritmo.</span>
+          `}
         </div>
       </div>
       <div class="status-strip">
         ${activeEntry ? `<span class="flag-chip is-info">Ativo: ${escapeHtml(activeEntry.name)}</span>` : '<span class="flag-chip is-info">Sem combatentes na fila.</span>'}
-        ${activeMember ? `<span class="flag-chip is-success">Jogador conectado</span>` : ''}
-      </div>
-      <div class="order-focus-card">
-        ${activeEntry ? `
-          <div class="order-focus-card__label">Em turno</div>
-          <strong>${escapeHtml(activeEntry.name)}</strong>
-          <span>${ORDER_ENTRY_TYPE_LABEL[activeEntry.type]}${activeEntry.init !== null && activeEntry.init !== undefined ? ` • Init ${activeEntry.init}` : ''}</span>
-        ` : `
-          <div class="order-focus-card__label">Fila vazia</div>
-          <strong>Adicione PCs ou NPCs</strong>
-          <span>A iniciativa aparece aqui assim que a ordem ganhar ritmo.</span>
-        `}
+        ${activeMember ? '<span class="flag-chip is-success">Jogador conectado</span>' : ''}
       </div>
       <div class="order-controls__buttons">
         <button id="previousTurnButton" class="control-button">${renderButtonLabel('minus', 'Anterior')}</button>

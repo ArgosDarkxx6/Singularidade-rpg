@@ -21,7 +21,7 @@ Aplicação web-first para condução de mesa, fichas, rolagens, ordem, livro de
 - Tempo real: Durable Object `TableRoom`
 - Uploads: R2 `singularidade-avatars`
 
-## Estrutura publicada
+## Estrutura de runtime
 
 - `index.html`
 - `book.html`
@@ -35,48 +35,52 @@ Aplicação web-first para condução de mesa, fichas, rolagens, ordem, livro de
 - `scripts/`
 - `wrangler.jsonc`
 
-## Deploy
+## Build do bundle
 
-Pré-requisito: `wrangler` autenticado.
+O artefato publicado no Worker sai de `dist/cloudflare-public`.
 
 ```bash
 python scripts/build_release.py
-npx wrangler deploy
 ```
 
-## Build do bundle web
-
-O artefato publicado em Cloudflare sai de `dist/cloudflare-public` e precisa conter:
+O bundle precisa conter:
 
 - wrappers `styles.css` e `styles.mobile.css`
 - pasta `styles/` completa
 - `src/`
 - `assets/`
 
+## Deploy oficial
+
+O fluxo oficial é:
+
+1. atualizar o código
+2. enviar para `main`
+3. GitHub Actions publicar no Cloudflare
+
+Segredos esperados no repositório:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID` (recomendado)
+
+## Deploy local de contingência
+
+Se for necessário publicar manualmente:
+
 ```bash
 python scripts/build_release.py
-```
-
-## Publicação direta
-
-```bash
 npx wrangler deploy
 ```
 
 ## Funcionalidades centrais
 
-- Fichas com recursos, técnicas, passivas, votos e inventário
-- Rolagens guiadas e customizadas com TN e log
-- Ordem de combate com turno e round
-- Livro de regras com busca, navegação e PDF
-- Mesa online com:
-  - links por papel
-  - códigos numéricos de 6 dígitos
-  - presença em tempo real
-  - snapshots e restore
-  - upload de avatar
+- fichas com recursos, técnicas, passivas, votos e inventário
+- rolagens guiadas e customizadas com TN e log
+- ordem de combate com turno e round
+- livro de regras com busca, navegação e PDF
+- mesa online com links, códigos de 6 dígitos, presença em tempo real, snapshots, restore e upload de avatar
 
 ## Observações
 
-- Esta base não preserva compatibilidade com versões antigas do projeto.
-- `dist/`, `tests/` e artefatos locais não fazem parte do repositório final publicado.
+- esta base não preserva compatibilidade com versões antigas do projeto
+- `dist/`, `tests/` e artefatos locais não fazem parte do repositório publicado

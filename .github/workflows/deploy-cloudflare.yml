@@ -1,0 +1,88 @@
+name: Deploy Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Wrangler
+        run: npm install -g wrangler@4.81.0
+
+      - name: Validate Cloudflare secrets
+        run: |
+          python - <<'PY'
+          import os
+          required = ["CLOUDFLARE_API_TOKEN"]
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit(f"Missing required GitHub Actions secrets: {', '.join(missing)}")
+          print("Cloudflare secrets available.")
+          PY
+
+      - name: Build release bundle
+        run: python scripts/build_release.py
+
+      - name: Validate release bundle
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          public_dir = Path("dist/cloudflare-public")
+          required = [
+              "index.html",
+              "book.html",
+              "app.js",
+              "styles.css",
+              "styles.mobile.css",
+              "styles/tokens.css",
+              "styles/components.css",
+              "styles/shell.css",
+              "styles/views.css",
+              "styles/mobile-base.css",
+              "styles/mobile.css",
+              "src/main.js",
+              "src/book-page.js",
+              "assets/icon.png",
+              "assets/logo.png",
+              "assets/cover.png",
+              "assets/Singularidade_Livro_de_Regras.pdf",
+          ]
+
+          missing = [relative for relative in required if not (public_dir / relative).exists()]
+          if missing:
+              raise SystemExit("Missing files in dist/cloudflare-public: " + ", ".join(missing))
+
+          print("Release bundle validated.")
+          PY
+
+      - name: Deploy worker
+        run: wrangler deploy

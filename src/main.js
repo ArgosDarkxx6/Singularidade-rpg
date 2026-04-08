@@ -70,7 +70,7 @@ import {
   renderVowsSection,
   renderWeaponsSection
 } from './views/sheet.js';
-import { renderOnlineHubSection, renderTopbarSyncStatus } from './views/online.js';
+import { renderOnlineHubSection } from './views/online.js';
 import {
   renderCustomRollSection,
   renderGuidedRollSection,
@@ -242,7 +242,6 @@ function cacheDom() {
   dom.mobileChrome = document.getElementById('mobileChrome');
   dom.mobileViewHost = document.getElementById('mobileViewHost');
   dom.miniHud = document.getElementById('miniHud');
-  dom.topbarSyncStatus = document.getElementById('topbarSyncStatus');
   dom.sidebarDisasterMini = document.getElementById('sidebarDisasterMini');
   dom.identitySection = document.getElementById('identitySection');
   dom.sheetQuickLinksSection = document.getElementById('sheetQuickLinksSection');
@@ -1899,7 +1898,6 @@ function renderApp() {
 
   const ctx = getRenderContext();
   renderMobileShell(ctx);
-  renderTopbarSyncStatus(ctx);
   renderOnlineHubSection(ctx);
   renderCharacterList(ctx);
   renderMiniHud(ctx);
