@@ -1,0 +1,335 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Singularidade — Console de Mesa</title>
+  <meta name="description" content="Mesa online de fichas, recursos, combate, compêndio, rolagens e snapshots para o RPG Singularidade." />
+  <link rel="icon" type="image/png" href="/assets/icon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.mobile.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__top">
+        <section class="brand-well brand-well--compact">
+          <div class="brand-well__crest">
+            <img src="/assets/icon.png" alt="Ícone Singularidade" class="sidebar__icon" />
+            <h1 class="brand-well__title">Singularidade</h1>
+          </div>
+        </section>
+
+        <nav class="sidebar__nav" aria-label="Navegação principal">
+          <button class="nav-button is-active" data-view="sheet" data-icon="sheet">Fichas</button>
+          <button class="nav-button" data-view="rolls" data-icon="dice">Rolagens</button>
+          <button class="nav-button" data-view="order" data-icon="order">Ordem</button>
+          <button class="nav-button" data-view="compendium" data-icon="book">Livro</button>
+          <button class="nav-button" data-view="mesa" data-icon="users">Mesa</button>
+        </nav>
+      </div>
+
+      <section class="sidebar__characters">
+        <div class="section-title-inline">
+          <div class="section-title-block">
+            <p class="eyebrow">Personagens</p>
+            <h2>Elenco</h2>
+          </div>
+          <button
+            id="openCharacterManagerButton"
+            class="icon-button section-action-icon icon-only"
+            type="button"
+            data-icon="edit"
+            data-label="Gerenciar personagens"
+            aria-label="Gerenciar personagens"
+            title="Gerenciar personagens"
+          ></button>
+        </div>
+        <div id="characterList" class="character-list" aria-live="polite"></div>
+      </section>
+
+      <section id="onlineHubSection" class="sidebar__online" aria-live="polite"></section>
+
+      <div id="sidebarDisasterMini" class="sidebar-status" aria-live="polite"></div>
+
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="topbar__context">
+          <div class="topbar__brand">
+            <img src="/assets/logo.png" alt="Logo Singularidade" class="topbar__logo" />
+            <div class="topbar__meta">
+              <p class="eyebrow">Console da mesa</p>
+              <strong data-active-view-label>Fichas</strong>
+            </div>
+          </div>
+        </div>
+        <div class="topbar__actions">
+          <button id="editModeToggle" class="control-button control-button--muted" data-icon="edit">Editar</button>
+          <button id="saveStateButton" class="control-button control-button--primary" data-icon="save">Salvar</button>
+        </div>
+      </header>
+
+      <div class="topbar-rail">
+        <div id="topbarSyncStatus" class="topbar__sync-status" aria-live="polite"></div>
+        <div id="miniHud" class="mini-hud" aria-live="polite"></div>
+      </div>
+
+      <div id="mobileChrome" class="mobile-chrome" aria-live="polite"></div>
+
+      <main class="content-shell">
+        <div id="mobileViewHost" class="mobile-view-host" aria-live="polite"></div>
+        <div id="desktopViews" class="desktop-views">
+        <section id="sheetView" class="view is-active" aria-label="Ficha">
+          <section class="panel panel--sheet-hero">
+            <div class="sheet-masthead">
+              <div class="sheet-masthead__identity">
+                <div class="panel__header panel__header--subtle">
+                  <div data-panel-icon="sheet">
+                    <p class="eyebrow">Ficha ativa</p>
+                    <h2>Registro do feiticeiro</h2>
+                  </div>
+                </div>
+                <div id="identitySection"></div>
+              </div>
+
+              <div class="sheet-masthead__resources">
+                <div class="panel__header panel__header--subtle">
+                  <div data-panel-icon="spark">
+                    <p class="eyebrow">Fluxo amaldiçoado</p>
+                    <h2>PV / EA / SAN</h2>
+                  </div>
+                </div>
+                <div id="resourceSection"></div>
+              </div>
+            </div>
+            <div id="sheetQuickLinksSection" class="sheet-quicklinks-shell"></div>
+          </section>
+
+          <div class="sheet-workspace">
+            <div class="sheet-workspace__main">
+              <section id="sheetConditionsPanel" class="panel panel--sheet-support">
+                <div class="panel__header">
+                  <div>
+                    <p class="eyebrow">Status em mesa</p>
+                    <h2>Condi&ccedil;&otilde;es</h2>
+                  </div>
+                  <button id="addConditionButton" class="inline-button" data-icon="tag">Nova condi&ccedil;&atilde;o</button>
+                </div>
+                <div id="conditionsSection"></div>
+              </section>
+
+              <section id="sheetAttributesPanel" class="panel panel--sheet-support">
+                <div class="panel__header">
+                  <div>
+                    <p class="eyebrow">Atributos e ranks</p>
+                    <h2>Atributos</h2>
+                  </div>
+                </div>
+                <div id="attributesSection"></div>
+              </section>
+
+              <section id="sheetTechniquesPanel" class="panel panel--sheet-feature">
+                <div class="panel__header">
+                  <div>
+                    <p class="eyebrow">Energia amaldi&ccedil;oada</p>
+                    <h2>T&eacute;cnicas</h2>
+                  </div>
+                  <button id="addTechniqueButton" class="inline-button edit-only" data-icon="spark">Nova t&eacute;cnica</button>
+                </div>
+                <div id="techniquesSection" class="stack-list"></div>
+              </section>
+            </div>
+
+            <aside class="sheet-workspace__side">
+              <section id="sheetWeaponsPanel" class="panel panel--sheet-side">
+                <div class="panel__header">
+                  <div>
+                    <p class="eyebrow">Arsenal</p>
+                    <h2>Armas / Ferramentas</h2>
+                  </div>
+                  <button id="addWeaponButton" class="inline-button edit-only" data-icon="sword">Nova arma</button>
+                </div>
+                <div id="weaponsSection" class="stack-list"></div>
+              </section>
+
+              <div class="grid grid--split sheet-side-grid">
+                <section class="panel panel--sheet-side">
+                  <div class="panel__header">
+                    <div data-panel-icon="shield">
+                      <p class="eyebrow">Tra&ccedil;os fixos</p>
+                      <h2>Passivas</h2>
+                    </div>
+                    <button id="addPassiveButton" class="inline-button edit-only" data-icon="shield">Nova passiva</button>
+                  </div>
+                  <div id="passivesSection" class="stack-list"></div>
+                </section>
+
+                <section class="panel panel--sheet-side">
+                  <div class="panel__header">
+                    <div data-panel-icon="seal">
+                      <p class="eyebrow">Apostas de poder</p>
+                      <h2>Votos vinculativos</h2>
+                    </div>
+                    <button id="addVowButton" class="inline-button edit-only" data-icon="seal">Novo voto</button>
+                  </div>
+                  <div id="vowsSection" class="stack-list"></div>
+                </section>
+              </div>
+
+              <section id="sheetInventoryPanel" class="panel panel--sheet-side">
+                <div class="panel__header">
+                  <div>
+                    <p class="eyebrow">Itens e recursos</p>
+                    <h2>Invent&aacute;rio</h2>
+                  </div>
+                  <button id="addInventoryItemButton" class="inline-button edit-only" data-icon="bag">Novo item</button>
+                </div>
+                <div id="inventorySection"></div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section id="rollsView" class="view" aria-label="Rolagens">
+          <section class="view-banner view-banner--rolls">
+            <div class="view-banner__content">
+              <p class="eyebrow">Rolagens</p>
+              <h2>Resolver testes</h2>
+              <p>Abra o teste certo, leia o resultado com clareza e mantenha o hist&oacute;rico da cena logo abaixo.</p>
+            </div>
+            <div class="view-banner__chips">
+              <span class="type-pill">1d20 + atributo</span>
+              <span class="type-pill">Dados livres</span>
+            </div>
+          </section>
+
+          <div class="rolls-workspace">
+            <section class="panel panel--rolls-primary">
+              <div class="panel__header">
+                <div data-panel-icon="dice">
+                  <p class="eyebrow">Rolagem guiada</p>
+                  <h2>Teste do sistema</h2>
+                </div>
+              </div>
+              <div id="guidedRollSection"></div>
+            </section>
+
+            <aside class="rolls-workspace__side">
+              <section class="panel panel--rolls-side">
+                <div class="panel__header">
+                  <div data-panel-icon="grid">
+                    <p class="eyebrow">Dados livres</p>
+                    <h2>Rolagem customizada</h2>
+                  </div>
+                </div>
+                <div id="customRollSection"></div>
+              </section>
+
+              <section class="panel panel--rolls-summary">
+                <div class="panel__header">
+                  <div>
+                    <p class="eyebrow">&Uacute;ltimo resultado</p>
+                    <h2>Resumo</h2>
+                  </div>
+                </div>
+                <div id="rollSummarySection"></div>
+              </section>
+            </aside>
+          </div>
+
+          <section class="panel panel--rolls-log">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Hist&oacute;rico</p>
+                <h2>Log de rolagens e eventos</h2>
+              </div>
+              <div class="panel__actions">
+                <button id="copyLogButton" class="inline-button" data-icon="copy">Copiar log</button>
+                <button id="clearLogButton" class="inline-button inline-button--muted" data-icon="trash">Limpar</button>
+              </div>
+            </div>
+            <div id="logSection"></div>
+          </section>
+        </section>
+
+        <section id="orderView" class="view" aria-label="Ordem de combate">
+          <section class="view-banner view-banner--order">
+            <div class="view-banner__content">
+              <p class="eyebrow">Combate</p>
+              <h2>Ordem da cena</h2>
+              <p>Deixe o turno atual em evid&ecirc;ncia, organize a fila com menos ru&iacute;do e avance a rodada com leitura imediata.</p>
+            </div>
+            <div class="view-banner__chips">
+              <span class="type-pill">Round ativo</span>
+              <span class="type-pill">NPCs e PCs</span>
+            </div>
+          </section>
+
+          <div class="order-workspace">
+            <section class="panel panel--order-primary">
+              <div class="panel__header">
+                <div data-panel-icon="users">
+                  <p class="eyebrow">Turnos / combate</p>
+                  <h2>Ordem</h2>
+                </div>
+                <button id="addCombatantButton" class="inline-button" data-icon="users">Adicionar combatente</button>
+              </div>
+              <div id="orderControlsSection"></div>
+            </section>
+
+            <section class="panel panel--order-secondary">
+              <div class="panel__header">
+                <div data-panel-icon="order">
+                  <p class="eyebrow">Fila ativa</p>
+                  <h2>Iniciativa</h2>
+                </div>
+              </div>
+              <div id="orderListSection"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="compendiumView" class="view" aria-label="Livro de regras">
+          <section class="panel panel--compendium">
+            <div id="compendiumSection"></div>
+          </section>
+        </section>
+
+        <section id="mesaView" class="view" aria-label="Mesa online e backup">
+          <section class="view-banner view-banner--export">
+            <div class="view-banner__content">
+              <p class="eyebrow">Mesa online</p>
+              <h2>Sess&atilde;o e convites</h2>
+              <p>Centralize a sess&atilde;o atual, a presen&ccedil;a da mesa e os acessos por link ou c&oacute;digo em uma leitura mais limpa.</p>
+            </div>
+            <div class="view-banner__chips">
+              <span class="type-pill">Epis&oacute;dio</span>
+              <span class="type-pill">Presen&ccedil;a</span>
+              <span class="type-pill">Snapshots</span>
+            </div>
+          </section>
+
+          <section class="panel panel--mesa-shell">
+            <div class="panel__header">
+              <div data-panel-icon="users">
+                <p class="eyebrow">Sess&atilde;o em curso</p>
+                <h2>Mesa</h2>
+              </div>
+            </div>
+            <div id="mesaSection"></div>
+          </section>
+        </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="modalRoot" class="modal-root" aria-live="polite"></div>
+  <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
+

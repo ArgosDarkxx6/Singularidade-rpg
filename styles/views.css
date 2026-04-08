@@ -1,0 +1,291 @@
+.panel--sheet-hero,
+.panel--rolls-primary,
+.panel--order-primary,
+.panel--mesa-shell {
+  background:
+    radial-gradient(circle at top right, rgba(73, 178, 255, 0.1), transparent 26%),
+    linear-gradient(180deg, rgba(19, 41, 59, 0.98), rgba(15, 31, 44, 0.98));
+}
+
+.panel--sheet-support,
+.panel--sheet-side,
+.panel--rolls-side,
+.panel--rolls-summary,
+.panel--rolls-log,
+.panel--order-secondary,
+.export-box--state,
+.export-box--text-sheet,
+.export-box--archive {
+  background: rgba(15, 31, 44, 0.92);
+}
+
+.sheet-masthead__identity > .panel__header,
+.sheet-masthead__resources > .panel__header,
+.panel__header--subtle {
+  margin-bottom: 16px;
+}
+
+.sheet-quicklinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.sheet-quicklinks__button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+}
+
+.identity-hero,
+.resource-card,
+.item-card,
+.roll-summary,
+.log-entry,
+.mesa-empty-shell,
+.mesa-session-hero,
+.mesa-meta-block,
+.mesa-subpanel,
+.cloud-status-card,
+.mesa-summary-card {
+  overflow: hidden;
+}
+
+.identity-hero,
+.item-card,
+.roll-summary,
+.mesa-empty-shell,
+.mesa-session-hero,
+.mesa-meta-block,
+.mesa-subpanel {
+  padding: 18px;
+}
+
+.identity-hero__summary,
+.item-card__description,
+.export-help,
+.log-entry__text,
+.roll-summary__meta,
+.mesa-presence-card__copy span,
+.cloud-snapshot-card__meta span {
+  overflow-wrap: anywhere;
+}
+
+.resource-card__title h3,
+.item-card__title-wrap h3,
+.mesa-summary-card strong,
+.cloud-status-card strong {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.attribute-row,
+.settings-row,
+.resource-stepper__group button,
+.combatant-card,
+.order-turn-hero,
+.order-entry-card,
+.log-entry,
+.cloud-status-card,
+.mesa-presence-card,
+.mesa-code-card,
+.cloud-snapshot-card {
+  border-radius: var(--radius-card);
+}
+
+.attribute-row,
+.combatant-card,
+.order-turn-hero,
+.order-entry-card {
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(116, 173, 207, 0.16);
+}
+
+.attribute-row__meta,
+.settings-row .settings-label,
+.resource-stepper .settings-label,
+.roll-summary__meta,
+.export-help,
+.log-entry__text,
+.cloud-snapshot-card small,
+.mesa-code-card small {
+  color: var(--app-text-soft);
+}
+
+.settings-row {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.settings-label {
+  color: var(--app-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.editable-input,
+.editable-select,
+.editable-textarea,
+textarea,
+input,
+select {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(7, 17, 24, 0.7);
+  border: 1px solid rgba(116, 173, 207, 0.18);
+  color: var(--app-text);
+}
+
+.editable-textarea,
+textarea {
+  resize: vertical;
+}
+
+.editable-input:focus,
+.editable-select:focus,
+.editable-textarea:focus,
+textarea:focus,
+input:focus,
+select:focus {
+  outline: 2px solid rgba(73, 178, 255, 0.22);
+  outline-offset: 1px;
+  border-color: rgba(73, 178, 255, 0.34);
+}
+
+.panel__header .eyebrow,
+.view-banner .eyebrow,
+.section-title-block .eyebrow {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.view-banner--export .view-banner__content h2,
+.view-banner--order .view-banner__content h2,
+.view-banner--rolls .view-banner__content h2 {
+  max-width: 12ch;
+}
+
+.cloud-status-card,
+.mesa-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.online-hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.online-member-chip {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.online-member-chip strong {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(73, 178, 255, 0.18);
+}
+
+.mesa-setup-form,
+.mesa-empty-shell,
+.mesa-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.mesa-empty-shell__content,
+.mesa-entry-stack,
+.mesa-meta-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.mesa-form-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.mesa-form-grid--primary,
+.mesa-form-grid--secondary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mesa-form-grid--advanced {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.roll-summary__reference-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.log-entry__title {
+  font-weight: 700;
+}
+
+.order-workspace,
+.rolls-workspace {
+  align-items: start;
+}
+
+.resource-stepper__group button,
+.sheet-quicklinks__button {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(116, 173, 207, 0.18);
+  color: var(--app-text);
+}
+
+.panel__actions > *,
+.export-actions > * {
+  flex: 0 0 auto;
+}
+
+.roll-form,
+.export-box label,
+.mesa-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attribute-list,
+.stack-list,
+.stack-list--mesa {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (max-width: 1320px) {
+  .mesa-form-grid--primary,
+  .mesa-form-grid--secondary,
+  .mesa-form-grid--advanced,
+  .mesa-dual-grid,
+  .cloud-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "singularidade-online",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-04-07",
+  "assets": {
+    "directory": "./dist/cloudflare-public",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/",
+      "/fichas*",
+      "/rolagens*",
+      "/ordem*",
+      "/livro*",
+      "/mesa*",
+      "/api/*"
+    ],
+    "html_handling": "none",
+    "not_found_handling": "single-page-application"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TABLE_ROOM",
+        "class_name": "TableRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "TableRoom"
+      ]
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "singularidade_db",
+      "database_id": "442122da-05e0-4d74-996d-84ca6567a6af"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "AVATARS",
+      "bucket_name": "singularidade-avatars"
+    }
+  ],
+  "vars": {
+    "REFERENCE_SOURCE": "jujutsu-kaisen-fandom"
+  }
+}
