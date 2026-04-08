@@ -8,7 +8,7 @@ function compactStatusLabel(online) {
   if (!online.platformAvailable) return 'Nuvem offline';
   return {
     connected: 'Ao vivo',
-    syncing: 'Sync',
+    syncing: 'Sincronizando',
     reconnecting: 'Reconexão',
     connecting: 'Entrando',
     offline: 'Nuvem pronta',
@@ -22,41 +22,54 @@ function compactTableLabel(online) {
   return buildTableEpisodeLabel(meta) || meta.campaignName || meta.tableName || 'Mesa ativa';
 }
 
+function buildCharacterContext(ctx) {
+  const activeCharacter = ctx.actions.getActiveCharacter();
+  if (!activeCharacter) return 'Sem ficha ativa';
+  const details = [activeCharacter.name];
+  if (activeCharacter.grade) details.push(`Grau ${activeCharacter.grade}`);
+  return details.join(' • ');
+}
+
+function buildMesaContext(ctx) {
+  const online = ctx.runtime.online;
+  if (!online.session) return 'Abra a Mesa para conectar a sessão';
+  return compactTableLabel(online);
+}
+
 function buildContextActions(ctx) {
   const currentView = ctx.runtime.ui.currentView;
   const actions = [
-    { kind: 'manager', icon: 'users', label: 'Elenco' },
-    { kind: 'view', icon: 'users', label: 'Mesa', view: 'mesa' }
+    { kind: 'manager', icon: 'users', label: 'Elenco' }
   ];
 
   if (currentView === 'sheet') {
-    actions.splice(1, 0, {
+    actions.push({
       kind: 'toggle-edit',
       icon: 'edit',
       label: ctx.runtime.editMode ? 'Fechar edição' : 'Editar'
     });
   } else if (currentView === 'rolls') {
-    actions.splice(1, 0, {
+    actions.push({
       kind: 'scroll',
       icon: 'copy',
-      label: 'Histórico',
+      label: 'Log',
       target: 'mobileRollLogSection'
     });
   } else if (currentView === 'order') {
-    actions.splice(1, 0, {
+    actions.push({
       kind: 'scroll',
       icon: 'order',
       label: 'Turno',
       target: 'mobileOrderActiveSection'
     });
   } else if (currentView === 'compendium') {
-    actions.splice(1, 0, {
+    actions.push({
       kind: 'focus-search',
       icon: 'search',
       label: 'Buscar'
     });
-  } else if (currentView === 'mesa') {
-    actions.splice(1, 0, ctx.runtime.online.session
+  } else {
+    actions.push(ctx.runtime.online.session
       ? {
           kind: 'scroll',
           icon: 'copy',
@@ -71,7 +84,7 @@ function buildContextActions(ctx) {
         });
   }
 
-  return actions.slice(0, 3);
+  return actions.slice(0, 2);
 }
 
 function isMobileViewport() {
@@ -104,7 +117,6 @@ export function renderMobileShell(ctx) {
   }
 
   const online = runtime.online;
-  const activeCharacter = actions.getActiveCharacter();
   const viewLabel = VIEW_LABELS[runtime.ui.currentView] || VIEW_LABELS.sheet;
   const contextActions = buildContextActions(ctx);
 
@@ -113,24 +125,26 @@ export function renderMobileShell(ctx) {
       <div class="mobile-header__top">
         <div class="mobile-header__brand">
           <span class="mobile-header__brand-mark">${renderIcon('spark', 'ui-icon ui-icon--mini')}</span>
-          <div>
+          <div class="mobile-header__brand-copy">
             <p class="eyebrow">Singularidade</p>
             <strong>${escapeHtml(viewLabel)}</strong>
           </div>
         </div>
         <span class="mobile-sync-pill mobile-sync-pill--${escapeHtml(online.status || 'offline')}">${escapeHtml(compactStatusLabel(online))}</span>
       </div>
-      <div class="mobile-header__summary">
-        <div class="mobile-header__character">
-          <span class="mobile-header__label">Ativo</span>
-          <strong>${escapeHtml(activeCharacter?.name || 'Sem ficha')}</strong>
+
+      <div class="mobile-header__rail">
+        <div class="mobile-header__context-pill">
+          <span class="mobile-header__label">Ficha</span>
+          <strong>${escapeHtml(buildCharacterContext(ctx))}</strong>
         </div>
-        <div class="mobile-header__table">
+        <div class="mobile-header__context-pill">
           <span class="mobile-header__label">Mesa</span>
-          <strong>${escapeHtml(compactTableLabel(online))}</strong>
+          <strong>${escapeHtml(buildMesaContext(ctx))}</strong>
         </div>
       </div>
-      <div class="mobile-action-strip">
+
+      <div class="mobile-action-strip mobile-action-strip--compact">
         ${contextActions.map((item) => `
           <button
             type="button"

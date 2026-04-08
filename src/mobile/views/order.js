@@ -22,10 +22,10 @@ function renderActiveEntry(order, members) {
         </div>
         <span class="flag-chip is-info">${activeEntry.init ?? '-'}</span>
       </div>
-      <p>${escapeHtml(ORDER_ENTRY_TYPE_LABEL[activeEntry.type] || 'PC')}${member ? ' - jogador conectado' : ''}${activeEntry.notes ? ` - ${escapeHtml(activeEntry.notes)}` : ''}</p>
+      <p>${escapeHtml(ORDER_ENTRY_TYPE_LABEL[activeEntry.type] || 'PC')}${member ? ' • jogador conectado' : ''}${activeEntry.notes ? ` • ${escapeHtml(activeEntry.notes)}` : ''}</p>
       <div class="mobile-inline-actions mobile-inline-actions--grid">
         <button type="button" class="ghost-button" data-mobile-prev-turn>${renderButtonLabel('minus', 'Anterior')}</button>
-        <button type="button" class="control-button control-button--primary" data-mobile-next-turn>${renderButtonLabel('plus', 'Proximo')}</button>
+        <button type="button" class="control-button control-button--primary" data-mobile-next-turn>${renderButtonLabel('plus', 'Próximo')}</button>
       </div>
     </article>
   `;
@@ -33,7 +33,7 @@ function renderActiveEntry(order, members) {
 
 function renderEntries(order, members) {
   if (!order.entries.length) {
-    return '<div class="mobile-info-card"><span>Fila vazia</span><p>Use o botao de adicionar combatente para montar a iniciativa da cena.</p></div>';
+    return '<div class="mobile-info-card"><span>Fila vazia</span><p>Use o botão de combatente para montar a iniciativa da cena.</p></div>';
   }
 
   return `
@@ -46,7 +46,7 @@ function renderEntries(order, members) {
             <div class="mobile-order-entry__body">
               <div class="mobile-order-entry__top">
                 <strong>${escapeHtml(entry.name)}</strong>
-                <p>${escapeHtml(ORDER_ENTRY_TYPE_LABEL[entry.type] || 'PC')}${member ? ' - conectado' : ''}${entry.notes ? ` - ${escapeHtml(entry.notes)}` : ''}</p>
+                <p>${escapeHtml(ORDER_ENTRY_TYPE_LABEL[entry.type] || 'PC')}${member ? ' • conectado' : ''}${entry.notes ? ` • ${escapeHtml(entry.notes)}` : ''}</p>
               </div>
             </div>
             <div class="mobile-order-entry__actions">
@@ -69,8 +69,8 @@ export function renderMobileOrderView(ctx) {
     <section class="mobile-page mobile-page--order">
       ${renderMobileHero({
         eyebrow: 'Combate',
-        title: 'Ordem, turno e ritmo da cena',
-        body: 'Use a fila condensada para controlar round, presenca e foco do combate sem perder o fluxo.'
+        title: 'De quem é a vez?',
+        body: 'Veja o turno, avance a rodada e acompanhe quem está conectado sem poluir a cena.'
       })}
       <div class="mobile-metric-row">
         ${renderMobileMetric('Round', order.round)}
@@ -80,7 +80,7 @@ export function renderMobileOrderView(ctx) {
       </div>
       ${renderMobilePanel({
         eyebrow: 'Turno atual',
-        title: 'Pressao da cena',
+        title: 'Ritmo da cena',
         body: renderActiveEntry(order, members),
         actions: `
           <div class="mobile-inline-actions mobile-inline-actions--grid">

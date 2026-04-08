@@ -332,6 +332,74 @@ select:focus {
   box-shadow: none;
 }
 
+@keyframes view-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes resource-flow {
+  0%, 100% {
+    filter: saturate(1);
+    box-shadow: 0 0 0 rgba(115, 213, 255, 0);
+  }
+  50% {
+    filter: saturate(1.1);
+    box-shadow: 0 0 18px rgba(115, 213, 255, 0.18);
+  }
+}
+
+.view.is-active {
+  animation: view-surface-in 220ms ease;
+}
+
+.resource-progress span,
+.mini-hud__bar span,
+.status-mini-card__bar span,
+.mobile-resource-card__bar span {
+  transition: width 240ms ease;
+  animation: resource-flow 3.8s ease-in-out infinite;
+}
+
+.online-hub-card,
+.mesa-session-hero,
+.mesa-presence-card,
+.mesa-code-card,
+.cloud-status-card,
+.cloud-snapshot-card,
+.roll-summary,
+.log-entry {
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-mid),
+    background var(--transition-mid);
+}
+
+.online-hub-card:hover,
+.mesa-code-card:hover,
+.cloud-snapshot-card:hover,
+.log-entry:hover {
+  transform: translateY(-1px);
+  border-color: rgba(118, 213, 245, 0.22);
+  box-shadow: 0 18px 38px rgba(3, 11, 18, 0.18);
+}
+
+.online-member-chip,
+.flag-chip {
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.online-member-chip:hover,
+.flag-chip:hover {
+  transform: translateY(-1px);
+}
+
 .sheet-masthead__resources .resource-stepper__group--fields label {
   padding: 0;
   background: transparent;

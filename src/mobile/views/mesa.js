@@ -35,8 +35,8 @@ function validateStateJson(raw) {
     const currentView = typeof parsed?.currentView === 'string' ? parsed.currentView : 'sem guia';
     return {
       tone: 'success',
-      title: 'JSON v?lido',
-      text: `${normalized.characters.length} personagem(ns) detectado(s) e guia ${currentView}`
+      title: 'JSON válido',
+      text: `${normalized.characters.length} personagem(ns) detectado(s) e guia ${currentView}.`
     };
   } catch (error) {
     return { tone: 'danger', title: 'JSON inválido', text: 'O conteúdo não corresponde a um estado válido da versão atual.' };
@@ -48,10 +48,12 @@ function validateTextSheets(raw) {
   if (!text) {
     return { tone: 'info', title: 'Aguardando ficha', text: 'Cole uma ou mais fichas para detectar nomes e quantidade.' };
   }
+
   const characters = parseCharacterSheetsText(text);
   if (!characters.length) {
     return { tone: 'danger', title: 'Nenhuma ficha reconhecida', text: 'O texto não parece seguir o formato esperado.' };
   }
+
   return {
     tone: 'success',
     title: 'Fichas detectadas',
@@ -154,7 +156,7 @@ function renderInviteControls(state, online) {
   if (!online.session) return '';
 
   return `
-    <div class="mobile-form">
+    <div id="mobileMesaInviteSection" class="mobile-form">
       <div class="mobile-form-grid">
         ${renderMobileSelect({
           label: 'Papel',
@@ -179,7 +181,7 @@ function renderInviteControls(state, online) {
   `;
 }
 
-function renderJoinCodeControls(online) {
+function renderJoinCodeControls(state, online) {
   if (!online.session) return '';
   const canManage = online.session.role === 'gm';
   const joinCodes = online.joinCodes || [];
@@ -213,6 +215,7 @@ function renderJoinCodeControls(online) {
           </article>
         `).join('') : '<div class="empty-state empty-state--compact">Nenhum código ativo nesta mesa.</div>'}
       </div>
+      ${!canManage && state.characters?.length ? '<div class="mobile-info-card"><span>Entrada rápida</span><p>Receba um código do mestre para entrar sem depender do link.</p></div>' : ''}
     </div>
   `;
 }
@@ -253,8 +256,8 @@ function renderDisconnectedView(ctx) {
   return `
     ${renderMobileHero({
       eyebrow: 'Mesa',
-      title: 'Você ainda não está dentro de uma mesa online',
-      body: 'Crie uma sessão com os dados essenciais, entre por link ou código e leve a mesa inteira para a nuvem.'
+      title: 'Quem está conectado e qual é a sessão?',
+      body: 'Crie a sessão principal, entre por link ou código e leve a mesa atual para a nuvem.'
     })}
     ${renderStatusMetrics(ctx.runtime.online)}
     ${renderMobilePanel({
@@ -263,7 +266,9 @@ function renderDisconnectedView(ctx) {
       body: `
         <form id="mobileMesaCreateForm" class="mobile-form">
           ${renderMobileField({ label: 'Seu apelido', name: 'nickname', value: ctx.runtime.online.session?.nickname || ctx.state.characters[0]?.name || 'Feiticeiro' })}
-          ${renderMetaForm(defaultMeta, true, 'mobileMesaMetaSeed').replace('<form id="mobileMesaMetaSeed" class="mobile-form">', '').replace('</form>', '')}
+          <div id="mobileMesaCreateSection">
+            ${renderMetaForm(defaultMeta, true, 'mobileMesaMetaSeed').replace('<form id="mobileMesaMetaSeed" class="mobile-form">', '').replace('</form>', '')}
+          </div>
           <button type="submit" class="control-button control-button--primary">${renderButtonLabel('users', 'Criar mesa')}</button>
         </form>
       `
@@ -272,7 +277,7 @@ function renderDisconnectedView(ctx) {
       eyebrow: 'Entrar',
       title: 'Convite da sessão',
       body: `
-        <div id="mobileMesaCreateSection" class="mobile-form">
+        <div class="mobile-form">
           ${renderMobileField({ label: 'Link da mesa', name: 'inviteUrl', value: '', placeholder: 'https://.../mesa/shibuya-08?token=...' })}
           ${renderMobileField({ label: 'Apelido', name: 'joinNickname', value: ctx.state.characters[0]?.name || 'Feiticeiro' })}
           <button type="button" class="ghost-button ghost-button--full" data-mobile-join-table>${renderButtonLabel('book', 'Entrar por convite')}</button>
@@ -283,7 +288,7 @@ function renderDisconnectedView(ctx) {
       eyebrow: 'Entrar',
       title: 'Código da mesa',
       body: `
-        <div id="mobileMesaCodeSection" class="mobile-form">
+        <div class="mobile-form">
           ${renderMobileField({ label: 'Código de 6 dígitos', name: 'joinCode', value: '', placeholder: '123456' })}
           ${renderMobileField({ label: 'Apelido', name: 'joinCodeNickname', value: ctx.state.characters[0]?.name || 'Feiticeiro' })}
           <button type="button" class="control-button control-button--primary" data-mobile-join-code>${renderButtonLabel('users', 'Entrar por código')}</button>
@@ -295,7 +300,7 @@ function renderDisconnectedView(ctx) {
 }
 
 function renderConnectedView(ctx) {
-  const { runtime } = ctx;
+  const { runtime, state } = ctx;
   const online = runtime.online;
   const meta = normalizeTableMeta(online.table?.meta || { tableName: online.table?.name || online.session?.tableName });
   const roleLabel = online.session?.role === 'gm' ? 'Mestre' : online.session?.role === 'player' ? 'Jogador' : 'Espectador';
@@ -328,14 +333,14 @@ function renderConnectedView(ctx) {
       body: `<div id="mobileMesaPresenceSection">${renderPresenceList(online.members || [])}</div>`
     })}
     ${renderMobilePanel({
-      eyebrow: 'Pessoas e convites',
+      eyebrow: 'Convites',
       title: 'Links por papel',
-      body: `<div id="mobileMesaInviteSection">${renderInviteControls(ctx.state, online)}</div>`
+      body: renderInviteControls(state, online)
     })}
     ${renderMobilePanel({
-      eyebrow: 'Pessoas e convites',
+      eyebrow: 'Convites',
       title: 'Códigos de 6 dígitos',
-      body: `<div id="mobileMesaJoinCodeSection">${renderJoinCodeControls(online)}</div>`
+      body: renderJoinCodeControls(state, online)
     })}
     ${renderMobilePanel({
       eyebrow: 'Snapshots',
@@ -370,7 +375,7 @@ function renderBackupUtilities(ctx) {
           ${renderMobileField({ label: 'Importar JSON', name: 'importJson', tag: 'textarea', value: '', wide: true, placeholder: 'Cole aqui o JSON do estado' })}
           <div id="mobileMesaImportJsonValidation"></div>
           <div class="mobile-inline-actions mobile-inline-actions--grid">
-            <button type="button" class="ghost-button" data-mobile-import-json>${renderButtonLabel('download', 'Importar texto')}</button>
+            <button type="button" class="ghost-button" data-mobile-import-json>${renderButtonLabel('download', 'Importar JSON')}</button>
           </div>
           <label class="mobile-form-field">
             <span>Arquivo JSON</span>
@@ -486,8 +491,8 @@ export function bindMobileMesaView(ctx, root) {
   root.querySelector('[data-mobile-copy-last-invite]')?.addEventListener('click', () => ctx.actions.copyInviteLink(ctx.runtime.online.lastInvite));
 
   root.querySelector('[data-mobile-create-join-code]')?.addEventListener('click', async () => {
-    const role = root.querySelector('#mobileMesaJoinCodeSection [name="joinCodeRole"]')?.value || 'player';
-    const label = root.querySelector('#mobileMesaJoinCodeSection [name="joinCodeLabel"]')?.value || '';
+    const role = root.querySelector('[name="joinCodeRole"]')?.value || 'player';
+    const label = root.querySelector('[name="joinCodeLabel"]')?.value || '';
     const joinCode = await ctx.actions.createJoinCode({ role, label });
     if (joinCode?.code) {
       ctx.actions.copyTextSnippet(joinCode.code, {

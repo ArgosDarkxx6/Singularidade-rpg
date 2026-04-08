@@ -17,6 +17,7 @@ import {
   clearOnlineSession,
   createApiClient,
   createRealtimeClient,
+  normalizeRole,
   normalizeTableMeta,
   persistOnlineCache,
   persistOnlineSession,
@@ -29,6 +30,7 @@ import {
   createDisasterEvent,
   createLogEntry,
   makeCharacter,
+  normalizeLogEntry,
   normalizeState,
   uniquifyCharacterName
 } from './core/model.js';
@@ -341,25 +343,94 @@ function applyRemoteState(nextState, meta = {}) {
   runtime.online.isApplyingRemoteState = true;
   runtime.state = normalizeState(nextState);
   reconcileUiState();
-  runtime.lastRoll = null;
   persistState();
   runtime.online.lastSyncAt = meta.updatedAt || new Date().toISOString();
   runtime.online.isApplyingRemoteState = false;
 }
 
+function normalizePresenceMember(member = {}) {
+  const characterId = String(member.characterId || '').trim();
+  const fallbackCharacterName = characterId
+    ? (runtime.state?.characters || []).find((character) => String(character?.id || '').trim() === characterId)?.name || ''
+    : '';
+  return {
+    id: String(member.id || '').trim(),
+    nickname: sanitizeNickname(member.nickname || 'Feiticeiro'),
+    role: normalizeRole(member.role),
+    characterId,
+    characterName: String(member.characterName || fallbackCharacterName || '').trim()
+  };
+}
+
+function buildLocalPresenceMember() {
+  if (!runtime.online.session) return null;
+  const characterId = getPresenceCharacterId();
+  const characterName = characterId
+    ? (runtime.state?.characters || []).find((character) => String(character?.id || '').trim() === characterId)?.name || ''
+    : '';
+
+  return normalizePresenceMember({
+    id: 'local-session',
+    nickname: runtime.online.session.nickname || getActiveCharacter()?.name || 'Feiticeiro',
+    role: runtime.online.session.role || 'viewer',
+    characterId,
+    characterName
+  });
+}
+
+function applyPresenceMembers(members = [], options = {}) {
+  const normalized = Array.isArray(members) ? members.map(normalizePresenceMember) : [];
+  const includeLocal = options.includeLocal !== false;
+  const localMember = includeLocal ? buildLocalPresenceMember() : null;
+  const merged = localMember
+    ? [
+        localMember,
+        ...normalized.filter((member) => !(
+          member.nickname === localMember.nickname &&
+          member.role === localMember.role &&
+          member.characterId === localMember.characterId
+        ))
+      ]
+    : normalized;
+
+  runtime.online.members = merged.sort((left, right) => {
+    if (left.role === right.role) return left.nickname.localeCompare(right.nickname, 'pt-BR');
+    return (left.role === 'gm' ? -1 : left.role === 'player' ? 0 : 1)
+      - (right.role === 'gm' ? -1 : right.role === 'player' ? 0 : 1);
+  });
+  persistOnlineRuntime();
+  if (!options.silent) renderApp();
+}
+
+function buildFallbackRollLogEntry(payload = {}) {
+  const roll = payload.roll || {};
+  if (roll.custom) {
+    return createLogEntry({
+      category: 'Rolagem',
+      title: payload.actor || roll.label || 'Rolagem customizada',
+      text: `${roll.expression || 'Rolagem customizada'} = ${roll.total ?? '-'}`,
+      meta: roll.tn === null || roll.tn === undefined ? '' : `TN ${roll.tn}: ${roll.outcomeLabel || ''}`
+    });
+  }
+
+  return createLogEntry({
+    category: 'Rolagem',
+    title: `${roll.attributeLabel || 'Teste'} — ${payload.actor || roll.characterName || 'Mesa'}`,
+    text: `${roll.characterName || 'Feiticeiro'} | d20 ${roll.natural ?? '-'} ${roll.effectiveModifier >= 0 ? '+' : ''}${roll.effectiveModifier ?? 0} = ${roll.total ?? '-'}`,
+    meta: roll.tn === null || roll.tn === undefined ? '' : `TN ${roll.tn}: ${roll.outcomeLabel || ''}`
+  });
+}
+
 function handleRealtimeMessage(message) {
   if (message.type === 'hello') {
-    runtime.online.members = message.payload?.presence || [];
+    applyPresenceMembers(message.payload?.presence || [], { silent: true, includeLocal: true });
     if (message.payload?.state) applyRemoteState(message.payload.state, { updatedAt: new Date().toISOString() });
-    persistOnlineRuntime();
     renderApp();
     return;
   }
 
   if (message.type === 'presence') {
-    runtime.online.members = message.payload || [];
-    persistOnlineRuntime();
-    renderApp();
+    applyPresenceMembers(message.payload || [], { includeLocal: true });
     return;
   }
 
@@ -378,7 +449,9 @@ function handleRealtimeMessage(message) {
   if (message.type === 'state') {
     if (message.payload?.state) {
       applyRemoteState(message.payload.state, { updatedAt: message.payload.updatedAt });
-      ui.toast('Mesa sincronizada', `${message.payload.actor || 'Outro usuário'} atualizou o estado online.`, 'info');
+      if (message.payload?.reason !== 'roll-sync') {
+        ui.toast('Mesa sincronizada', `${message.payload.actor || 'Outro usuário'} atualizou o estado online.`, 'info');
+      }
       persistOnlineRuntime();
       renderApp();
     }
@@ -388,6 +461,12 @@ function handleRealtimeMessage(message) {
   if (message.type === 'roll.event') {
     if (message.payload?.roll) {
       runtime.lastRoll = message.payload.roll;
+      upsertLogEntry(message.payload?.logEntry || buildFallbackRollLogEntry(message.payload));
+      persistState();
+      persistOnlineRuntime();
+      if (message.payload?.actor && message.payload.actor !== runtime.online.session?.nickname) {
+        ui.toast('Rolagem da mesa', `${message.payload.actor} registrou uma rolagem ao vivo.`, 'info');
+      }
       renderApp();
     }
     return;
@@ -535,6 +614,7 @@ async function joinOnlineSession(session, options = {}) {
     ...session,
     nickname
   };
+  runtime.lastRoll = null;
   setOnlineStatus('connecting');
   renderApp();
 
@@ -556,7 +636,7 @@ async function joinOnlineSession(session, options = {}) {
       lastEditor: payload.table.lastEditor || ''
     };
     runtime.online.snapshots = payload.snapshots || [];
-    runtime.online.members = [];
+    applyPresenceMembers([], { silent: true, includeLocal: true });
     runtime.online.pendingCodeJoin = null;
 
     if (payload.table?.state && options.applyRemote !== false) {
@@ -590,6 +670,7 @@ async function joinOnlineSession(session, options = {}) {
       replace: true,
       tableSlug: runtime.online.session.tableSlug
     });
+    syncRealtimePresence();
     renderApp();
     return true;
   } catch (error) {
@@ -632,6 +713,7 @@ function disconnectOnlineSession() {
   runtime.online.pendingCodeJoin = null;
   runtime.online.lastInvite = null;
   runtime.online.references = [];
+  runtime.lastRoll = null;
   setOnlineStatus(runtime.online.platformAvailable ? 'offline' : 'warning');
   clearOnlineSession();
   persistOnlineRuntime();
@@ -682,8 +764,41 @@ function blockByRole(message, tone = 'warning') {
 }
 
 function pushLog(entry) {
-  runtime.state.log.unshift(entry);
+  const normalized = normalizeLogEntry(entry);
+  runtime.state.log.unshift(normalized);
   runtime.state.log = runtime.state.log.slice(0, 200);
+  return normalized;
+}
+
+function upsertLogEntry(entry) {
+  const normalized = normalizeLogEntry(entry);
+  runtime.state.log = [
+    normalized,
+    ...runtime.state.log.filter((item) => item.id !== normalized.id)
+  ].slice(0, 200);
+  return normalized;
+}
+
+function getPresenceCharacterId() {
+  const linkedCharacterId = String(runtime.online.session?.characterId || '').trim();
+  if (linkedCharacterId) return linkedCharacterId;
+  if (getOnlineRole() === 'viewer') return '';
+  return String(runtime.ui.activeCharacterId || '').trim();
+}
+
+function syncRealtimePresence() {
+  if (!runtime.online.session || !runtime.online.platformAvailable || !realtimeClient) return false;
+  const payload = {
+    nickname: sanitizeNickname(runtime.online.session.nickname || getActiveCharacter()?.name || 'Feiticeiro'),
+    characterId: getPresenceCharacterId()
+  };
+  runtime.online.session = {
+    ...runtime.online.session,
+    nickname: payload.nickname
+  };
+  applyPresenceMembers(runtime.online.members || [], { silent: true, includeLocal: true });
+  persistOnlineRuntime();
+  return realtimeClient.updatePresence(payload);
 }
 
 function pushDisasterHistory(draft, title, text) {
@@ -710,10 +825,11 @@ function commit(mutator, options = {}) {
   queueCloudSync(options.syncReason || 'state-commit');
 }
 
-function publishRealtimeRoll(roll, reason = 'roll-event') {
+function publishRealtimeRoll(roll, reason = 'roll-event', logEntry = null) {
   if (!runtime.online.session || !runtime.online.platformAvailable || !roll) return;
   realtimeClient?.publishRollEvent({
     roll: deepClone(roll),
+    logEntry: logEntry ? deepClone(logEntry) : null,
     actor: runtime.online.session.nickname,
     reason,
     updatedAt: new Date().toISOString()
@@ -805,12 +921,11 @@ function setView(viewName, options = {}) {
 }
 
 function setActiveCharacter(characterId) {
-  if (!canMutateCharacter(characterId) && runtime.online.session) {
-    blockByRole('Este link esta vinculado a outro personagem da mesa.');
-    return;
-  }
+  if (!getCharacterById(characterId)) return;
   runtime.ui.activeCharacterId = characterId;
   reconcileUiState();
+  persistState();
+  syncRealtimePresence();
   renderApp();
 }
 
@@ -1035,6 +1150,7 @@ function executeAttributeRoll(characterId, attributeKey, context, extraBonus = 0
   if (!character) return;
 
   const result = buildRollOutcome(character, attributeKey, context, extraBonus, Math.random, tn);
+  let rollLogEntry = null;
   commit((draft) => {
     runtime.lastRoll = result;
     const draftCharacter = draft.characters.find((item) => item.id === characterId);
@@ -1057,15 +1173,16 @@ function executeAttributeRoll(characterId, attributeKey, context, extraBonus = 0
           ? 'Conflito de domínio'
           : 'Teste padrão';
 
-    pushLog(createLogEntry({
+    rollLogEntry = pushLog(createLogEntry({
       category: 'Rolagem',
       title: `${titleBase} — ${character.name}`,
       text: `${result.attributeLabel} | d20 ${result.natural} ${result.effectiveModifier >= 0 ? '+' : ''}${result.effectiveModifier} = ${result.total}`,
       meta: buildRollMeta(result)
     }));
   }, {
+    syncReason: 'roll-sync',
     after(previousState, nextState) {
-      publishRealtimeRoll(result, 'attribute-roll');
+      publishRealtimeRoll(result, 'attribute-roll', rollLogEntry);
       if (result.isBlackFlash) {
         ui.toast('Black Flash', `${character.name} ativou Black Flash e recuperou +1 EA.`, 'success');
       }
@@ -1112,8 +1229,9 @@ function executeCustomRoll(expression, bonus, label, tn = null) {
     notes: []
   };
 
+  let rollLogEntry = null;
   commit(() => {
-    pushLog(createLogEntry({
+    rollLogEntry = pushLog(createLogEntry({
       category: 'Rolagem',
       title: label || 'Rolagem customizada',
       text: `${parsed.raw}${extraBonus ? ` ${extraBonus >= 0 ? '+' : ''}${extraBonus}` : ''} = ${total}`,
@@ -1122,8 +1240,8 @@ function executeCustomRoll(expression, bonus, label, tn = null) {
         outcome.rolls.length ? `Rolagens: ${outcome.rolls.join(', ')}` : 'Valor fixo'
       ].filter(Boolean).join(' | ')
     }));
-  });
-  publishRealtimeRoll(runtime.lastRoll, 'custom-roll');
+  }, { syncReason: 'roll-sync' });
+  publishRealtimeRoll(runtime.lastRoll, 'custom-roll', rollLogEntry);
 }
 
 function copyLogToClipboard() {

@@ -183,4 +183,204 @@
   .mobile-view-host textarea {
     min-height: 120px;
   }
+
+  .mobile-chrome {
+    padding: 10px 12px 0;
+    background: linear-gradient(180deg, rgba(6, 16, 24, 0.98), rgba(6, 16, 24, 0.84) 72%, transparent);
+  }
+
+  .mobile-header {
+    gap: 10px;
+    padding: 12px;
+    border-radius: 22px;
+    background:
+      linear-gradient(180deg, rgba(18, 38, 53, 0.96), rgba(10, 21, 30, 0.98)),
+      radial-gradient(circle at top left, rgba(110, 224, 255, 0.08), transparent 38%);
+  }
+
+  .mobile-header__top {
+    align-items: center;
+    margin-bottom: 0;
+  }
+
+  .mobile-header__brand {
+    gap: 9px;
+  }
+
+  .mobile-header__brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: rgba(110, 224, 255, 0.12);
+  }
+
+  .mobile-header__brand-copy {
+    min-width: 0;
+  }
+
+  .mobile-header__brand-copy strong {
+    display: block;
+    font-size: 0.98rem;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+  }
+
+  .mobile-sync-pill {
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 0.74rem;
+  }
+
+  .mobile-header__rail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-header__context-pill {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+    padding: 10px 12px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(116, 173, 207, 0.14);
+  }
+
+  .mobile-header__context-pill strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.86rem;
+    line-height: 1.08;
+  }
+
+  .mobile-action-strip--compact {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-action-button {
+    padding: 0 10px;
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .mobile-action-button .button-content {
+    justify-content: center;
+  }
+
+  .mobile-bottom-nav {
+    gap: 6px;
+    padding: 8px;
+    border-radius: 22px;
+  }
+
+  .mobile-nav-button {
+    min-height: 50px;
+    padding: 7px 4px;
+  }
+
+  .mobile-nav-button__label {
+    font-size: 0.68rem;
+  }
+
+  .mobile-view-host {
+    padding: 8px 12px 98px;
+  }
+
+  .mobile-page {
+    gap: 12px;
+  }
+
+  .mobile-page > .mobile-panel:first-of-type,
+  .mobile-page > .mobile-hero-card {
+    scroll-margin-top: 86px;
+  }
+
+  .mobile-hero-card,
+  .mobile-panel {
+    gap: 12px;
+    padding: 15px;
+    border-radius: 22px;
+  }
+
+  .mobile-panel__header h2,
+  .mobile-hero-card h1 {
+    font-size: clamp(1.08rem, 5vw, 1.5rem);
+    line-height: 1.02;
+  }
+
+  .mobile-metric-row {
+    gap: 8px;
+  }
+
+  .mobile-metric {
+    min-height: 88px;
+  }
+
+  .mobile-inline-actions--grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-resource-card__controls {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mobile-resource-card__controls button,
+  .mobile-character-pill,
+  .mobile-filter-row button,
+  .mobile-order-entry__actions .icon-button {
+    min-height: 44px;
+  }
+
+  .mobile-character-strip,
+  .mobile-filter-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .mobile-character-strip::-webkit-scrollbar,
+  .mobile-filter-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-page--sheet .mobile-character-strip {
+    margin-bottom: 2px;
+  }
+
+  .mobile-page--rolls .mobile-panel:first-of-type,
+  .mobile-page--order .mobile-panel:first-of-type,
+  .mobile-page--mesa .mobile-panel:first-of-type {
+    background:
+      linear-gradient(180deg, rgba(22, 42, 58, 0.96), rgba(11, 23, 33, 0.98)),
+      radial-gradient(circle at top left, rgba(113, 213, 255, 0.1), transparent 40%);
+  }
+
+  .mobile-page--mesa .mobile-info-card strong,
+  .mobile-page--rolls .mobile-resource-card strong,
+  .mobile-page--order .mobile-resource-card strong {
+    font-size: 1rem;
+    line-height: 1.08;
+  }
+
+  .mobile-page--mesa .mobile-form,
+  .mobile-page--rolls .mobile-form,
+  .mobile-page--order .mobile-inline-actions--grid {
+    gap: 10px;
+  }
+
+  .mobile-resource-card__bar span {
+    transition: width 240ms ease;
+    animation: resource-flow 3.8s ease-in-out infinite;
+  }
 }

@@ -17,13 +17,13 @@ function renderTnPresets(prefix) {
 function renderLastRoll(runtime) {
   const roll = runtime.lastRoll;
   if (!roll) {
-    return '<div class="mobile-info-card"><span>Ultimo resultado</span><p>Nenhuma rolagem feita nesta sessao ainda.</p></div>';
+    return '<div class="mobile-info-card"><span>Último resultado</span><p>Nenhuma rolagem registrada nesta sessão.</p></div>';
   }
 
   const badges = [];
-  if (roll.tn !== null) badges.push(`<span class="flag-chip is-${roll.tnResult === 'success' ? 'success' : 'danger'}">${escapeHtml(roll.outcomeLabel)} - TN ${roll.tn}</span>`);
-  if (roll.isCritical) badges.push('<span class="flag-chip is-warning">Critico</span>');
-  if (roll.isFumble) badges.push('<span class="flag-chip is-danger">Falha critica</span>');
+  if (roll.tn !== null) badges.push(`<span class="flag-chip is-${roll.tnResult === 'success' ? 'success' : 'danger'}">${escapeHtml(roll.outcomeLabel)} • TN ${roll.tn}</span>`);
+  if (roll.isCritical) badges.push('<span class="flag-chip is-warning">Crítico</span>');
+  if (roll.isFumble) badges.push('<span class="flag-chip is-danger">Falha crítica</span>');
   if (roll.isBlackFlash) badges.push('<span class="flag-chip is-energy">Black Flash</span>');
 
   if (roll.custom) {
@@ -32,17 +32,17 @@ function renderLastRoll(runtime) {
         <span>${escapeHtml(roll.label || 'Rolagem customizada')}</span>
         <strong>${roll.total}</strong>
         <div class="mobile-inline-actions">${badges.join('') || '<span class="type-pill">Sem TN</span>'}</div>
-        <p>${escapeHtml(roll.expression)}${roll.bonus ? ` ${roll.bonus >= 0 ? '+' : ''}${roll.bonus}` : ''} - subtotal ${roll.subtotal}</p>
+        <p>${escapeHtml(roll.expression)}${roll.bonus ? ` ${roll.bonus >= 0 ? '+' : ''}${roll.bonus}` : ''} • subtotal ${roll.subtotal}</p>
       </article>
     `;
   }
 
   return `
     <article class="mobile-resource-card mobile-roll-result">
-      <span>${escapeHtml(roll.characterName)} - ${escapeHtml(roll.attributeLabel)}</span>
+      <span>${escapeHtml(roll.characterName)} • ${escapeHtml(roll.attributeLabel)}</span>
       <strong>${roll.total}</strong>
       <div class="mobile-inline-actions">${badges.join('') || '<span class="type-pill">Sem TN</span>'}</div>
-      <p>${escapeHtml(contextLabel(roll.context))} - d20 ${roll.natural} ${roll.effectiveModifier >= 0 ? '+' : ''}${roll.effectiveModifier} ${roll.extraBonus ? `${roll.extraBonus >= 0 ? '+' : ''}${roll.extraBonus}` : ''}</p>
+      <p>${escapeHtml(contextLabel(roll.context))} • d20 ${roll.natural} ${roll.effectiveModifier >= 0 ? '+' : ''}${roll.effectiveModifier}${roll.extraBonus ? ` ${roll.extraBonus >= 0 ? '+' : ''}${roll.extraBonus}` : ''}</p>
     </article>
   `;
 }
@@ -50,7 +50,7 @@ function renderLastRoll(runtime) {
 function renderLogList(state) {
   const entries = state.log.filter((entry) => entry.category === 'Rolagem').slice(0, 6);
   if (!entries.length) {
-    return '<div class="mobile-info-card"><span>Historico</span><p>As ultimas rolagens da mesa aparecem aqui.</p></div>';
+    return '<div class="mobile-info-card"><span>Log</span><p>As últimas rolagens da mesa aparecem aqui.</p></div>';
   }
 
   return `
@@ -74,11 +74,11 @@ export function renderMobileRollsView(ctx) {
     <section class="mobile-page mobile-page--rolls">
       ${renderMobileHero({
         eyebrow: 'Rolagens',
-        title: 'Guiada, custom e log ao vivo',
-        body: 'Use TN visivel, resultado destacado e historico rapido sem perder o ritmo da mesa.'
+        title: 'O que você vai rolar agora?',
+        body: 'TN visível, resultado forte e log da mesa sem sair do fluxo da sessão.'
       })}
       ${renderMobilePanel({
-        eyebrow: 'Rolagem guiada',
+        eyebrow: 'Teste guiado',
         title: '1d20 + atributo',
         body: `
           <form id="mobileGuidedRollForm" class="mobile-form">
@@ -98,14 +98,14 @@ export function renderMobileRollsView(ctx) {
               <label class="mobile-form-field">
                 <span>Contexto</span>
                 <select name="context">
-                  <option value="standard">Teste padrao</option>
-                  <option value="physical-attack">Ataque fisico</option>
-                  <option value="ranged-attack">Ataque a distancia</option>
-                  <option value="domain-clash">Conflito de dominio</option>
+                  <option value="standard">Teste padrão</option>
+                  <option value="physical-attack">Ataque físico</option>
+                  <option value="ranged-attack">Ataque à distância</option>
+                  <option value="domain-clash">Conflito de domínio</option>
                 </select>
               </label>
               <label class="mobile-form-field">
-                <span>Bonus extra</span>
+                <span>Bônus extra</span>
                 <input name="extraBonus" type="number" value="0" />
               </label>
               <label class="mobile-form-field mobile-form-field--wide">
@@ -114,27 +114,27 @@ export function renderMobileRollsView(ctx) {
               </label>
             </div>
             ${renderTnPresets('guided')}
-            <button type="submit" class="control-button control-button--primary">${renderButtonLabel('dice', 'Rolar teste guiado')}</button>
+            <button type="submit" class="control-button control-button--primary">${renderButtonLabel('dice', 'Rolar teste')}</button>
           </form>
         `
       })}
       ${renderMobilePanel({
-        eyebrow: 'Rolagem custom',
-        title: 'Dados livres',
+        eyebrow: 'Dados livres',
+        title: 'Rolagem customizada',
         body: `
           <form id="mobileCustomRollForm" class="mobile-form">
             <div class="mobile-form-grid">
               <label class="mobile-form-field">
-                <span>Notacao</span>
+                <span>Notação</span>
                 <input name="expression" value="2d6" />
               </label>
               <label class="mobile-form-field">
-                <span>Bonus</span>
+                <span>Bônus</span>
                 <input name="bonus" type="number" value="0" />
               </label>
               <label class="mobile-form-field mobile-form-field--wide">
-                <span>Rotulo</span>
-                <input name="label" placeholder="Ex.: dano da tecnica" />
+                <span>Rótulo</span>
+                <input name="label" placeholder="Ex.: dano da técnica" />
               </label>
               <label class="mobile-form-field mobile-form-field--wide">
                 <span>TN</span>
@@ -148,14 +148,13 @@ export function renderMobileRollsView(ctx) {
       })}
       ${renderMobilePanel({
         eyebrow: 'Resumo',
-        title: 'Ultimo resultado',
+        title: 'Último resultado',
         body: renderLastRoll(ctx.runtime)
       })}
       ${renderMobilePanel({
-        eyebrow: 'Historico',
+        eyebrow: 'Log',
         title: 'Rolagens recentes',
-        body: `<div id="mobileRollLogSection">${renderLogList(ctx.state)}</div>`,
-        actions: `<div class="mobile-inline-actions">${renderButtonLabel('copy', 'Use a guia desktop para copiar o log completo')}</div>`
+        body: `<div id="mobileRollLogSection">${renderLogList(ctx.state)}</div>`
       })}
     </section>
   `;

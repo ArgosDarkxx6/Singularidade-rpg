@@ -1089,6 +1089,7 @@ export class TableRoom {
       payload: {
         state: nextState,
         actor: connection.nickname,
+        reason: sanitizeText(message.payload.reason || 'state-sync', 48),
         updatedAt: nowIso()
       }
     }, socketId);

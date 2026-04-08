@@ -20,7 +20,7 @@ function renderReferenceResults(runtime) {
   }
 
   if (!references.length) {
-    return '<div class="mobile-info-card"><span>Camada online</span><p>Busque um termo para ver referências da wiki e de mídia relacionadas a Jujutsu.</p></div>';
+    return '<div class="mobile-info-card"><span>Camada online</span><p>Busque um termo para ver referências da wiki e de mídia ligadas ao cenário.</p></div>';
   }
 
   return `
@@ -105,8 +105,8 @@ export function renderMobileCompendiumView(ctx) {
     <section class="mobile-page mobile-page--compendium">
       ${renderMobileHero({
         eyebrow: 'Livro',
-        title: 'Busca primeiro, leitura em coluna única',
-        body: 'Use busca, filtros e referências online sem sair da leitura principal do livro.'
+        title: 'Qual regra você precisa agora?',
+        body: 'Busca primeiro, leitura direta e referências externas sem sair do fluxo da mesa.'
       })}
       ${renderMobilePanel({
         eyebrow: 'Busca',
