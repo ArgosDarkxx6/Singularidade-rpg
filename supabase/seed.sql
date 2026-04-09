@@ -1,0 +1,3 @@
+-- Seed intentionally minimal.
+-- Auth users are created through Supabase Auth, so fixtures should be added
+-- after auth records exist or via dedicated test factories.

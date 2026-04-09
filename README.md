@@ -1,86 +1,87 @@
 # Singularidade RPG
 
-Aplicação web-first para condução de mesa, fichas, rolagens, ordem, livro de regras e sessão online de `Singularidade`.
+Remake do site em `Vite + React + TypeScript + Tailwind CSS + Framer Motion + React Hook Form + Zod + Supabase`.
 
-## Produção
+## O que este repositorio entrega
 
-- App: [singularidade-online.salesweslley360.workers.dev](https://singularidade-online.salesweslley360.workers.dev)
-- Rotas:
-  - `/fichas`
-  - `/rolagens`
-  - `/ordem`
-  - `/livro`
-  - `/mesa`
-  - `/mesa/:slug`
+- interface nova para `Fichas`, `Rolagens`, `Ordem`, `Livro` e `Mesa`
+- autenticacao com `email + username + senha`
+- base pronta para Supabase Auth, Postgres, Storage e Realtime
+- deploy no Cloudflare com worker minimo
+- endpoint local de referencias em `/api/references`
 
-## Stack
+## Stack atual
 
-- Frontend: HTML, CSS e JavaScript puro
-- Runtime: Cloudflare Workers
-- Banco: D1
-- Tempo real: Durable Object `TableRoom`
-- Uploads: R2 `singularidade-avatars`
+- Frontend: Vite, React, TypeScript e Tailwind CSS
+- Animacoes: Framer Motion
+- Formularios: React Hook Form + Zod
+- Backend: Supabase
+- Deploy: Cloudflare Workers
 
-## Estrutura de runtime
+## Estrutura operacional
 
-- `index.html`
-- `book.html`
-- `app.js`
-- `styles.css`
-- `styles.mobile.css`
-- `styles/`
-- `src/`
-- `assets/`
-- `cloudflare/`
-- `scripts/`
-- `wrangler.jsonc`
+- `src/`: app React novo
+- `supabase/`: schema, seeds e politicas
+- `cloudflare/worker.ts`: serve o SPA e expoe `/api/references`
+- `public/assets/`: imagens, PDF e artes do livro
 
-## Build do bundle
+## Desenvolvimento local
 
-O artefato publicado no Worker sai de `dist/cloudflare-public`.
+1. Instale dependencias:
 
 ```bash
-python scripts/build_release.py
+npm ci
 ```
 
-O bundle precisa conter:
-
-- wrappers `styles.css` e `styles.mobile.css`
-- pasta `styles/` completa
-- `src/`
-- `assets/`
-
-## Deploy oficial
-
-O fluxo oficial é:
-
-1. atualizar o código
-2. enviar para `main`
-3. GitHub Actions publicar no Cloudflare
-
-Segredos esperados no repositório:
-
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID` (recomendado)
-
-## Deploy local de contingência
-
-Se for necessário publicar manualmente:
+2. Rode o frontend:
 
 ```bash
-python scripts/build_release.py
-npx wrangler deploy
+npm run dev
 ```
 
-## Funcionalidades centrais
+3. Gere a build de producao:
 
-- fichas com recursos, técnicas, passivas, votos e inventário
-- rolagens guiadas e customizadas com TN e log
-- ordem de combate com turno e round
-- livro de regras com busca, navegação e PDF
-- mesa online com links, códigos de 6 dígitos, presença em tempo real, snapshots, restore e upload de avatar
+```bash
+npm run build
+```
 
-## Observações
+4. Se quiser validar o worker localmente, use:
 
-- esta base não preserva compatibilidade com versões antigas do projeto
-- `dist/`, `tests/` e artefatos locais não fazem parte do repositório publicado
+```bash
+npx wrangler dev
+```
+
+## Deploy
+
+O build de producao sai em `dist/` e o Cloudflare publica esse diretorio diretamente.
+
+```bash
+npm run cf:deploy
+```
+
+Esse comando executa a build e depois faz o deploy do worker configurado em `wrangler.jsonc`.
+
+## CI
+
+O workflow em `.github/workflows/deploy-cloudflare.yml`:
+
+- instala dependencias com `npm ci`
+- executa lint e typecheck
+- gera a build
+- valida o bundle do Worker com dry-run
+- publica no Cloudflare somente em push para `main`
+
+## Variaveis de ambiente
+
+Frontend:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Cloudflare opcional:
+
+- `REFERENCE_SOURCE_URL` para buscar referencias externas antes do fallback local
+
+## Observacao sobre o legado
+
+A versao antiga fica preservada pelo historico Git e pela branch anterior ao corte. O workspace atual foi limpo para deixar apenas a arquitetura nova como fonte canônica.
