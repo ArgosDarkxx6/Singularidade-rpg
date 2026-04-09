@@ -61,7 +61,8 @@ export function CharacterProfileEditor() {
     setAttributeRank,
     setCharacterAvatar,
     uploadCharacterAvatar,
-    clearCharacterAvatar
+    clearCharacterAvatar,
+    flushPersistence
   } = useWorkspace();
 
   const profileForm = useForm<CharacterProfileValues>({
@@ -102,8 +103,9 @@ export function CharacterProfileEditor() {
 
           <form
             className="mt-4 grid gap-3"
-            onSubmit={avatarForm.handleSubmit((values) => {
+            onSubmit={avatarForm.handleSubmit(async (values) => {
               setCharacterAvatar(activeCharacter.id, values.avatarUrl, 'url');
+              await flushPersistence();
               toast.success('Avatar por URL atualizado.');
             })}
           >
@@ -126,6 +128,7 @@ export function CharacterProfileEditor() {
                     const file = picker.files?.[0];
                     if (!file) return;
                     await uploadCharacterAvatar(activeCharacter.id, file);
+                    await flushPersistence();
                     toast.success('Avatar local aplicado.');
                   };
                   picker.click();
@@ -135,7 +138,14 @@ export function CharacterProfileEditor() {
                 Upload
               </Button>
             </div>
-            <Button type="button" variant="ghost" onClick={() => clearCharacterAvatar(activeCharacter.id)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={async () => {
+                clearCharacterAvatar(activeCharacter.id);
+                await flushPersistence();
+              }}
+            >
               Remover avatar
             </Button>
           </form>
@@ -169,7 +179,7 @@ export function CharacterProfileEditor() {
 
           <form
             className="mt-5 grid gap-4"
-            onSubmit={profileForm.handleSubmit((values) => {
+            onSubmit={profileForm.handleSubmit(async (values) => {
               updateCharacterField(activeCharacter.id, 'name', values.name);
               updateCharacterField(activeCharacter.id, 'age', values.age);
               updateCharacterField(activeCharacter.id, 'clan', values.clan);
@@ -207,6 +217,7 @@ export function CharacterProfileEditor() {
                 setAttributeRank(activeCharacter.id, attributeKey, attributeRank);
               });
 
+              await flushPersistence();
               toast.success('Ficha principal atualizada.');
             })}
           >

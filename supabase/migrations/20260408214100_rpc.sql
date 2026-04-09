@@ -205,7 +205,7 @@ begin
     coalesce((select display_name from public.profiles where id = auth.uid()), ''),
     true
   )
-  on conflict (table_id, user_id) do update
+  on conflict on constraint table_memberships_unique do update
     set role = excluded.role,
         character_id = excluded.character_id,
         nickname = excluded.nickname,
@@ -278,7 +278,7 @@ begin
     coalesce((select display_name from public.profiles where id = auth.uid()), ''),
     true
   )
-  on conflict (table_id, user_id) do update
+  on conflict on constraint table_memberships_unique do update
     set role = excluded.role,
         character_id = excluded.character_id,
         nickname = excluded.nickname,

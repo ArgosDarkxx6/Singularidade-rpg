@@ -17,6 +17,11 @@ import type {
   WorkspaceState
 } from '@/types/domain';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isUuid(value: string | null | undefined): value is string {
+  return Boolean(value && UUID_PATTERN.test(value));
+}
+
 export function getDefaultRanks(attributes: Record<AttributeKey, number>): Record<AttributeKey, CharacterAttribute['rank']> {
   const ranked = Object.entries(attributes)
     .map(([key, value]) => ({ key: key as AttributeKey, value: safeNumber(value, 0) }))
@@ -219,8 +224,10 @@ export function uniquifyCharacterName(name: string, characters: Character[]): st
 }
 
 export function createDefaultState(): WorkspaceState {
+  const mystoId = crypto.randomUUID();
+  const kayoId = crypto.randomUUID();
   const mysto = makeCharacter({
-    id: 'mysto',
+    id: mystoId,
     name: 'Mysto',
     age: 14,
     appearance: 'Pele branca e fria. Cabelo preto com mechas azuis, olhos azul-escuro e postura eletrica.',
@@ -307,7 +314,7 @@ export function createDefaultState(): WorkspaceState {
   };
 
   const kayo = makeCharacter({
-    id: 'kayo',
+    id: kayoId,
     name: 'Kayo',
     age: 19,
     appearance: 'Cabelos pretos, olhos verdes, corpo marcado por cicatrizes e presenca agressiva em combate.',
@@ -387,22 +394,46 @@ export function createDefaultState(): WorkspaceState {
       })
     ],
     currentView: 'sheet',
-    activeCharacterId: 'mysto'
+    activeCharacterId: mystoId
   };
 }
 
 export function normalizeState(raw: Partial<WorkspaceState> | null | undefined): WorkspaceState {
   const fallback = createDefaultState();
   const base = raw && typeof raw === 'object' ? raw : fallback;
-  const characters = base.characters?.length ? base.characters.map(makeCharacter) : fallback.characters.map(makeCharacter);
-  const activeCharacterId = characters.some((character) => character.id === base.activeCharacterId)
-    ? String(base.activeCharacterId)
+  const draftCharacters = base.characters?.length ? base.characters.map(makeCharacter) : fallback.characters.map(makeCharacter);
+  const remappedCharacterIds = new Map<string, string>();
+  const seenCharacterIds = new Set<string>();
+  const characters = draftCharacters.map((character) => {
+    const currentId = String(character.id || '');
+    const nextId = !isUuid(currentId) || seenCharacterIds.has(currentId) ? crypto.randomUUID() : currentId;
+
+    if (nextId !== currentId) {
+      remappedCharacterIds.set(currentId, nextId);
+    }
+
+    seenCharacterIds.add(nextId);
+    return nextId === currentId ? character : { ...character, id: nextId };
+  });
+  const requestedActiveCharacterId = remappedCharacterIds.get(String(base.activeCharacterId || '')) || String(base.activeCharacterId || '');
+  const activeCharacterId = characters.some((character) => character.id === requestedActiveCharacterId)
+    ? requestedActiveCharacterId
     : characters[0]?.id || '';
+  const order = normalizeOrder(
+    {
+      ...base.order,
+      entries: (base.order?.entries || []).map((entry) => ({
+        ...entry,
+        characterId: entry.characterId ? remappedCharacterIds.get(entry.characterId) || entry.characterId : entry.characterId
+      }))
+    },
+    characters
+  );
 
   return {
     version: CURRENT_VERSION,
     characters,
-    order: normalizeOrder(base.order, characters),
+    order,
     disaster: normalizeDisaster(base.disaster),
     log: base.log?.length ? base.log.map(normalizeLogEntry) : fallback.log,
     currentView: base.currentView || 'sheet',

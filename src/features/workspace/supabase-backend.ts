@@ -127,6 +127,39 @@ function toTableInsert(meta: TableMeta, state: WorkspaceState, ownerId: string, 
   };
 }
 
+function toCharacterRows(tableId: string, ownerId: string, state: WorkspaceState) {
+  return state.characters.map((character, sortOrder) => ({
+    id: character.id,
+    table_id: tableId,
+    owner_id: ownerId,
+    name: character.name || 'Personagem',
+    age: character.age,
+    clan: character.clan || '',
+    grade: character.grade || '',
+    appearance: character.appearance || '',
+    identity_scar: character.identity.scar || '',
+    identity_anchor: character.identity.anchor || '',
+    identity_trigger: character.identity.trigger || '',
+    avatar_url: character.avatarMode === 'url' ? character.avatar : '',
+    avatar_path: character.avatarPath || '',
+    archived: false,
+    sort_order: sortOrder
+  }));
+}
+
+async function syncCharacterRows(tableId: string, ownerId: string, state: WorkspaceState) {
+  const client = assertClient();
+  const rows = toCharacterRows(tableId, ownerId, state);
+
+  if (!rows.length) return;
+
+  const { error } = await client.from('characters').upsert(rows, {
+    onConflict: 'id'
+  });
+
+  if (error) throw error;
+}
+
 async function createUniqueSlug(baseValue: string): Promise<string> {
   const client = assertClient();
   const base = slugify(baseValue);
@@ -476,6 +509,8 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       if (membershipError) throw membershipError;
 
+      await syncCharacterRows(insertedTable.id, user.id, state);
+
       const { error: snapshotError } = await client.from('table_snapshots').insert({
         table_id: insertedTable.id,
         created_by: user.id,
@@ -707,6 +742,14 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     },
     async syncTableState({ session, state, actor }) {
       const client = assertClient();
+      if (session.role === 'gm') {
+        const { data: authState, error: authError } = await client.auth.getUser();
+        if (authError) throw authError;
+        if (authState.user?.id) {
+          await syncCharacterRows(session.tableId, authState.user.id, state);
+        }
+      }
+
       const { error } = await client
         .from('tables')
         .update({

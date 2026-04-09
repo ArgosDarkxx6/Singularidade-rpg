@@ -30,6 +30,7 @@ import { type WorkspaceBackend } from '@features/workspace/backend';
 import { createSupabaseWorkspaceBackend } from '@features/workspace/supabase-backend';
 import type {
   AppView,
+  AuthUser,
   Character,
   Condition,
   CustomRollInput,
@@ -54,6 +55,7 @@ import type {
 type CollectionKey = 'weapons' | 'techniques' | 'passives' | 'vows' | 'inventory';
 
 interface WorkspaceContextValue {
+  isReady: boolean;
   state: WorkspaceState;
   activeCharacter: Character;
   editMode: boolean;
@@ -112,6 +114,7 @@ interface WorkspaceContextValue {
   ) => Promise<{ connected: boolean; pending: boolean; session: TableSession | null }>;
   completeJoinCode: (characterId: string) => Promise<TableSession | null>;
   clearPendingJoinCode: () => void;
+  flushPersistence: () => Promise<void>;
   createInviteLink: (payload: { role: TableSession['role']; characterId: string; label: string }) => Promise<string | null>;
   createJoinCode: (payload: { role: TableSession['role']; label: string; characterId?: string }) => Promise<TableJoinCode | null>;
   revokeJoinCode: (joinCodeId: string) => Promise<TableState | null>;
@@ -202,6 +205,7 @@ function mapPresenceMembers(payload: Record<string, PresenceMember[]>): Presence
 export function WorkspaceProvider({ children, backend }: { children: ReactNode; backend?: WorkspaceBackend }) {
   const workspaceBackend = useMemo(() => backend ?? defaultWorkspaceBackend, [backend]);
   const { user } = useAuth();
+  const [isReady, setIsReady] = useState(false);
   const [state, setState] = useState<WorkspaceState>(createDefaultState());
   const [editMode, setEditMode] = useState(false);
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
@@ -212,6 +216,10 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
   const onlineRef = useRef(online);
   const tableSubscriptionRef = useRef<null | (() => void)>(null);
   const presenceChannelRef = useRef<null | { unsubscribe: () => Promise<'ok' | 'timed out' | 'error'> }>(null);
+  const workspaceSaveRef = useRef<{ user: AuthUser; state: WorkspaceState } | null>(null);
+  const workspaceSaveRunningRef = useRef(false);
+  const tableSyncRef = useRef<{ session: TableSession; state: WorkspaceState; actor: string } | null>(null);
+  const tableSyncRunningRef = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -224,6 +232,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
   const applyRemoteTable = useCallback(
     async (table: TableState, session: TableSession) => {
       const nextState = normalizeState(table.state);
+      stateRef.current = nextState;
       setState(nextState);
       setOnline((current) => buildOnlineState(session, table, current));
 
@@ -241,11 +250,15 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     tableSubscriptionRef.current = null;
 
     if (!user) {
-      setState(createDefaultState());
+      const nextState = createDefaultState();
+      stateRef.current = nextState;
+      setState(nextState);
       setOnline(DEFAULT_ONLINE_STATE);
+      setIsReady(true);
       return () => undefined;
     }
 
+    setIsReady(false);
     setOnline((current) => ({
       ...current,
       status: 'connecting',
@@ -256,11 +269,14 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       try {
         const workspace = await workspaceBackend.loadWorkspace(user);
         if (!isMounted) return;
-        setState(normalizeState(workspace));
+        const nextState = normalizeState(workspace);
+        stateRef.current = nextState;
+        setState(nextState);
 
         const storedSession = readStoredSession(user.id);
         if (!storedSession) {
           setOnline(DEFAULT_ONLINE_STATE);
+          setIsReady(true);
           return;
         }
 
@@ -268,9 +284,13 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           const table = await workspaceBackend.getTable(storedSession);
           if (!isMounted) return;
           await applyRemoteTable(table, storedSession);
+          if (isMounted) setIsReady(true);
         } catch {
           writeStoredSession(user.id, null);
-          if (isMounted) setOnline(DEFAULT_ONLINE_STATE);
+          if (isMounted) {
+            setOnline(DEFAULT_ONLINE_STATE);
+            setIsReady(true);
+          }
         }
       } catch (error) {
         if (!isMounted) return;
@@ -279,6 +299,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           status: 'error',
           error: error instanceof Error ? error.message : 'Nao foi possivel carregar o workspace.'
         }));
+        setIsReady(true);
       }
     })();
 
@@ -299,6 +320,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       workspaceBackend.subscribeToTable(online.session, (table) => {
         if (disposed) return;
         const nextState = normalizeState(table.state);
+        stateRef.current = nextState;
         setState(nextState);
         setOnline((current) => ({
           ...current,
@@ -388,19 +410,98 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
   const activeCharacter =
     state.characters.find((character) => character.id === state.activeCharacterId) || state.characters[0] || createDefaultState().characters[0];
 
-  const persistState = useCallback(
-    (nextState: WorkspaceState, reason = 'Atualizacao local') => {
-      if (!user) return;
+  const flushWorkspaceSave = useCallback(() => {
+    if (workspaceSaveRunningRef.current || !workspaceSaveRef.current) return;
 
-      const normalized = normalizeState(nextState);
-      setState(normalized);
+    workspaceSaveRunningRef.current = true;
 
-      void workspaceBackend.saveWorkspace(user, normalized).catch((error) => {
+    void (async () => {
+      try {
+        while (workspaceSaveRef.current) {
+          const payload = workspaceSaveRef.current;
+          workspaceSaveRef.current = null;
+          await workspaceBackend.saveWorkspace(payload.user, payload.state);
+        }
+      } catch (error) {
         setOnline((current) => ({
           ...current,
           status: current.session ? 'error' : current.status,
           error: error instanceof Error ? error.message : 'Nao foi possivel salvar o workspace.'
         }));
+      } finally {
+        workspaceSaveRunningRef.current = false;
+        if (workspaceSaveRef.current) {
+          flushWorkspaceSave();
+        }
+      }
+    })();
+  }, [workspaceBackend]);
+
+  const queueWorkspaceSave = useCallback(
+    (payload: { user: AuthUser; state: WorkspaceState }) => {
+      workspaceSaveRef.current = payload;
+      flushWorkspaceSave();
+    },
+    [flushWorkspaceSave]
+  );
+
+  const flushTableSync = useCallback(() => {
+    if (tableSyncRunningRef.current || !tableSyncRef.current) return;
+
+    tableSyncRunningRef.current = true;
+
+    void (async () => {
+      try {
+        while (tableSyncRef.current) {
+          const payload = tableSyncRef.current;
+          tableSyncRef.current = null;
+          const table = await workspaceBackend.syncTableState(payload);
+
+          setOnline((current) => ({
+            ...current,
+            table,
+            snapshots: table.snapshots,
+            joinCodes: table.joinCodes,
+            lastSyncAt: table.updatedAt,
+            status: tableSyncRef.current ? 'syncing' : 'connected',
+            error: '',
+            members: shouldUseSupabaseRuntime ? current.members : table.memberships
+          }));
+        }
+      } catch (error) {
+        setOnline((current) => ({
+          ...current,
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Nao foi possivel sincronizar a mesa.'
+        }));
+      } finally {
+        tableSyncRunningRef.current = false;
+        if (tableSyncRef.current) {
+          flushTableSync();
+        }
+      }
+    })();
+  }, [workspaceBackend]);
+
+  const queueTableSync = useCallback(
+    (payload: { session: TableSession; state: WorkspaceState; actor: string }) => {
+      tableSyncRef.current = payload;
+      flushTableSync();
+    },
+    [flushTableSync]
+  );
+
+  const persistState = useCallback(
+    (nextState: WorkspaceState, reason = 'Atualizacao local') => {
+      if (!user) return;
+
+      const normalized = normalizeState(nextState);
+      stateRef.current = normalized;
+      setState(normalized);
+
+      queueWorkspaceSave({
+        user,
+        state: normalized
       });
 
       const currentSession = onlineRef.current.session;
@@ -422,34 +523,31 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           status: 'syncing'
         }));
 
-        void workspaceBackend
-          .syncTableState({
-            session: currentSession,
-            state: normalized,
-            actor: currentSession.nickname || reason
-          })
-          .then((table) => {
-            setOnline((current) => ({
-              ...current,
-              table,
-              snapshots: table.snapshots,
-              joinCodes: table.joinCodes,
-              lastSyncAt: table.updatedAt,
-              status: 'connected',
-              error: '',
-              members: shouldUseSupabaseRuntime ? current.members : table.memberships
-            }));
-          })
-          .catch((error) => {
-            setOnline((current) => ({
-              ...current,
-              status: 'error',
-              error: error instanceof Error ? error.message : 'Nao foi possivel sincronizar a mesa.'
-            }));
-          });
+        queueTableSync({
+          session: currentSession,
+          state: normalized,
+          actor: currentSession.nickname || reason
+        });
       }
     },
-    [user, workspaceBackend]
+    [queueTableSync, queueWorkspaceSave, user]
+  );
+
+  const flushPersistence = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        const waitUntilIdle = () => {
+          if (!workspaceSaveRunningRef.current && !workspaceSaveRef.current && !tableSyncRunningRef.current && !tableSyncRef.current) {
+            resolve();
+            return;
+          }
+
+          window.setTimeout(waitUntilIdle, 40);
+        };
+
+        waitUntilIdle();
+      }),
+    []
   );
 
   const updateCharacters = useCallback(
@@ -481,6 +579,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({
+      isReady,
       state,
       activeCharacter,
       editMode,
@@ -1021,6 +1120,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         return result.session;
       },
       clearPendingJoinCode: () => setOnline((current) => ({ ...current, pendingCodeJoin: null })),
+      flushPersistence,
       createInviteLink: async ({ role, characterId, label }) => {
         const currentSession = onlineRef.current.session;
         if (!currentSession) return null;
@@ -1033,6 +1133,13 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         });
         setOnline((current) => ({
           ...current,
+          table: current.table
+            ? {
+                ...current.table,
+                invites: [invite, ...current.table.invites],
+                updatedAt: new Date().toISOString()
+              }
+            : current.table,
           lastInvite: invite.url
         }));
         return invite.url;
@@ -1048,6 +1155,13 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         });
         setOnline((current) => ({
           ...current,
+          table: current.table
+            ? {
+                ...current.table,
+                joinCodes: [joinCode, ...current.table.joinCodes],
+                updatedAt: new Date().toISOString()
+              }
+            : current.table,
           joinCodes: [joinCode, ...current.joinCodes]
         }));
         return joinCode;
@@ -1105,7 +1219,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         downloadTextFile(`${activeCharacter.name || 'personagem'}.txt`, serializeCharacterToText(activeCharacter));
       }
     }),
-    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, editMode, lastRoll, online, persistState, state, updateCharacters, user, workspaceBackend]
+    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, editMode, flushPersistence, isReady, lastRoll, online, persistState, state, updateCharacters, user, workspaceBackend]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
