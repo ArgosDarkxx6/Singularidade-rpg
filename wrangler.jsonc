@@ -5,6 +5,10 @@
   "compatibility_date": "2026-04-08",
   "migrations": [
     {
+      "tag": "v1",
+      "new_sqlite_classes": ["TableRoom"]
+    },
+    {
       // The legacy Worker created TableRoom in production. The remake removes
       // that Durable Object entirely, so production needs an explicit delete
       // migration before the new Worker can replace the old runtime.
