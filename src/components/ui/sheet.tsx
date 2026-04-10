@@ -17,7 +17,7 @@ export const SheetContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed bottom-0 top-0 z-50 w-[min(86vw,360px)] border-white/10 bg-[linear-gradient(180deg,rgba(14,25,37,0.99),rgba(7,14,23,0.99))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.45)]',
+        'fixed bottom-0 top-0 z-50 w-[min(86vw,360px)] overflow-y-auto overscroll-contain border-white/10 bg-[linear-gradient(180deg,rgba(14,25,37,0.99),rgba(7,14,23,0.99))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.45)]',
         side === 'left' ? 'left-0 border-r' : 'right-0 border-l',
         className
       )}

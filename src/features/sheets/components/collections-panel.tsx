@@ -1,22 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { SectionTitle } from '@components/shared/section-title';
 import { Button } from '@components/ui/button';
 import { Card } from '@components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select, Textarea } from '@components/ui/field';
+import { UtilityPanel } from '@components/ui/panel';
 import { TECHNIQUE_TYPES } from '@lib/domain/constants';
 import { formatMoney, parseTags } from '@lib/domain/utils';
-import {
-  inventoryItemFormSchema,
-  passiveFormSchema,
-  techniqueFormSchema,
-  vowFormSchema,
-  weaponFormSchema
-} from '@schemas/sheets';
-import { searchCanonPresets } from '@features/compendium/data';
+import { inventoryItemFormSchema, passiveFormSchema, techniqueFormSchema, vowFormSchema, weaponFormSchema } from '@schemas/sheets';
 import { useWorkspace } from '@features/workspace/use-workspace';
 import type { InventoryItem, Passive, Technique, Vow, Weapon } from '@/types/domain';
 
@@ -31,496 +27,181 @@ function splitTagText(value: string) {
   return parseTags(value.split(',').map((item) => item.trim()));
 }
 
+function DialogHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+  return (
+    <>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">{eyebrow}</p>
+      <DialogTitle className="mt-2 font-display text-4xl leading-none text-white">{title}</DialogTitle>
+      <DialogDescription className="mt-3 text-sm leading-6 text-soft">{description}</DialogDescription>
+    </>
+  );
+}
+
 function ItemCard({
   title,
   subtitle,
   body,
+  editable,
   onEdit,
   onRemove
 }: {
   title: string;
   subtitle?: string;
   body: string;
+  editable: boolean;
   onEdit: () => void;
   onRemove: () => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/4 px-4 py-4">
-      <div className="flex items-start justify-between gap-3">
+    <UtilityPanel className="rounded-[22px] p-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-semibold text-white">{title}</p>
-          {subtitle ? <p className="mt-1 text-xs uppercase tracking-[0.18em] text-soft">{subtitle}</p> : null}
-          <p className="mt-2 text-sm text-soft">{body}</p>
+          <p className="text-lg font-semibold text-white">{title}</p>
+          {subtitle ? <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted">{subtitle}</p> : null}
+          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-soft">{body}</p>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={onEdit}>
-            Editar
-          </Button>
-          <Button size="sm" variant="danger" onClick={onRemove}>
-            Remover
-          </Button>
-        </div>
+        {editable ? (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={onEdit}>
+              Editar
+            </Button>
+            <Button size="sm" variant="danger" onClick={onRemove}>
+              Remover
+            </Button>
+          </div>
+        ) : null}
       </div>
-    </div>
+    </UtilityPanel>
   );
 }
 
-export function CollectionsPanel({ section = 'all' }: { section?: CollectionsSection }) {
-  const { activeCharacter, saveCollectionItem, removeCollectionItem, setInventoryMoney } = useWorkspace();
-  const [weaponEditId, setWeaponEditId] = useState<string | null>(null);
-  const [techniqueEditId, setTechniqueEditId] = useState<string | null>(null);
-  const [passiveEditId, setPassiveEditId] = useState<string | null>(null);
-  const [vowEditId, setVowEditId] = useState<string | null>(null);
-  const [inventoryEditId, setInventoryEditId] = useState<string | null>(null);
-  const [weaponPresetQuery, setWeaponPresetQuery] = useState('');
-  const [techniquePresetQuery, setTechniquePresetQuery] = useState('');
-  const [passivePresetQuery, setPassivePresetQuery] = useState('');
-  const [inventoryPresetQuery, setInventoryPresetQuery] = useState('');
-
-  const weaponForm = useForm<WeaponValues>({
-    resolver: zodResolver(weaponFormSchema) as never,
-    mode: 'onChange',
-    defaultValues: { name: '', grade: 'Grau 4', damage: '', tags: '', description: '' }
-  });
-  const techniqueForm = useForm<TechniqueValues>({
-    resolver: zodResolver(techniqueFormSchema) as never,
-    mode: 'onChange',
-    defaultValues: { name: '', cost: 0, damage: '', type: 'Ofensiva', tags: '', description: '' }
-  });
-  const passiveForm = useForm<PassiveValues>({
-    resolver: zodResolver(passiveFormSchema) as never,
-    mode: 'onChange',
-    defaultValues: { name: '', tags: '', description: '' }
-  });
-  const vowForm = useForm<VowValues>({
-    resolver: zodResolver(vowFormSchema) as never,
-    mode: 'onChange',
-    defaultValues: { name: '', benefit: '', restriction: '', penalty: '' }
-  });
-  const inventoryForm = useForm<InventoryValues>({
-    resolver: zodResolver(inventoryItemFormSchema) as never,
-    mode: 'onChange',
-    defaultValues: { name: '', quantity: 1, effect: '' }
-  });
-
-  const weaponPresets = searchCanonPresets('weapons', weaponPresetQuery).slice(0, 4);
-  const techniquePresets = searchCanonPresets('techniques', techniquePresetQuery).slice(0, 4);
-  const passivePresets = searchCanonPresets('passives', passivePresetQuery).slice(0, 4);
-  const inventoryPresets = searchCanonPresets('inventory', inventoryPresetQuery).slice(0, 4);
-
-  const weaponEditingItem = weaponEditId ? activeCharacter.weapons.find((item) => item.id === weaponEditId) : null;
-  const techniqueEditingItem = techniqueEditId ? activeCharacter.techniques.find((item) => item.id === techniqueEditId) : null;
-  const passiveEditingItem = passiveEditId ? activeCharacter.passives.find((item) => item.id === passiveEditId) : null;
-  const vowEditingItem = vowEditId ? activeCharacter.vows.find((item) => item.id === vowEditId) : null;
-  const inventoryEditingItem = inventoryEditId ? activeCharacter.inventory.items.find((item) => item.id === inventoryEditId) : null;
+export function CollectionsPanel({ section = 'all', editable = true }: { section?: CollectionsSection; editable?: boolean }) {
+  const { activeCharacter, saveCollectionItem, removeCollectionItem, setInventoryMoney, flushPersistence } = useWorkspace();
+  const [dialog, setDialog] = useState<null | 'weapon' | 'technique' | 'passive' | 'vow' | 'inventory'>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const showInventory = section === 'all' || section === 'inventario';
   const showArsenal = section === 'all' || section === 'arsenal';
   const showTechniques = section === 'all' || section === 'tecnicas';
   const showSupport = section === 'all' || section === 'arsenal';
 
+  const weaponItem = editId ? activeCharacter.weapons.find((item) => item.id === editId) : null;
+  const techniqueItem = editId ? activeCharacter.techniques.find((item) => item.id === editId) : null;
+  const passiveItem = editId ? activeCharacter.passives.find((item) => item.id === editId) : null;
+  const vowItem = editId ? activeCharacter.vows.find((item) => item.id === editId) : null;
+  const inventoryItem = editId ? activeCharacter.inventory.items.find((item) => item.id === editId) : null;
+
+  const weaponForm = useForm<WeaponValues>({ resolver: zodResolver(weaponFormSchema) as never, mode: 'onBlur', defaultValues: { id: '', name: '', grade: 'Grau 4', damage: '', tags: '', description: '' } });
+  const techniqueForm = useForm<TechniqueValues>({ resolver: zodResolver(techniqueFormSchema) as never, mode: 'onBlur', defaultValues: { id: '', name: '', cost: 0, damage: '', type: 'Ofensiva', tags: '', description: '' } });
+  const passiveForm = useForm<PassiveValues>({ resolver: zodResolver(passiveFormSchema) as never, mode: 'onBlur', defaultValues: { id: '', name: '', tags: '', description: '' } });
+  const vowForm = useForm<VowValues>({ resolver: zodResolver(vowFormSchema) as never, mode: 'onBlur', defaultValues: { id: '', name: '', benefit: '', restriction: '', penalty: '' } });
+  const inventoryForm = useForm<InventoryValues>({ resolver: zodResolver(inventoryItemFormSchema) as never, mode: 'onBlur', defaultValues: { id: '', name: '', quantity: 1, effect: '' } });
+
+  const openDialog = (kind: NonNullable<typeof dialog>, item?: Weapon | Technique | Passive | Vow | InventoryItem) => {
+    setEditId(item?.id || null);
+
+    switch (kind) {
+      case 'weapon': {
+        const nextItem = item as Weapon | undefined;
+        weaponForm.reset({
+          id: nextItem?.id || '',
+          name: nextItem?.name || '',
+          grade: nextItem?.grade || 'Grau 4',
+          damage: nextItem?.damage || '',
+          tags: nextItem?.tags.join(', ') || '',
+          description: nextItem?.description || ''
+        });
+        break;
+      }
+      case 'technique': {
+        const nextItem = item as Technique | undefined;
+        techniqueForm.reset({
+          id: nextItem?.id || '',
+          name: nextItem?.name || '',
+          cost: nextItem?.cost || 0,
+          damage: nextItem?.damage || '',
+          type: nextItem?.type || 'Ofensiva',
+          tags: nextItem?.tags.join(', ') || '',
+          description: nextItem?.description || ''
+        });
+        break;
+      }
+      case 'passive': {
+        const nextItem = item as Passive | undefined;
+        passiveForm.reset({
+          id: nextItem?.id || '',
+          name: nextItem?.name || '',
+          tags: nextItem?.tags.join(', ') || '',
+          description: nextItem?.description || ''
+        });
+        break;
+      }
+      case 'vow': {
+        const nextItem = item as Vow | undefined;
+        vowForm.reset({
+          id: nextItem?.id || '',
+          name: nextItem?.name || '',
+          benefit: nextItem?.benefit || '',
+          restriction: nextItem?.restriction || '',
+          penalty: nextItem?.penalty || ''
+        });
+        break;
+      }
+      case 'inventory': {
+        const nextItem = item as InventoryItem | undefined;
+        inventoryForm.reset({
+          id: nextItem?.id || '',
+          name: nextItem?.name || '',
+          quantity: nextItem?.quantity || 1,
+          effect: nextItem?.effect || ''
+        });
+        break;
+      }
+      default:
+        break;
+    }
+
+    setDialog(kind);
+  };
+
   return (
     <div className="grid gap-6">
       {showInventory ? (
         <Card className="p-6">
-        <SectionTitle eyebrow="Inventario" title="Dinheiro e itens" description={`Saldo atual ${formatMoney(activeCharacter.inventory.money)}.`} />
-        <div className="mt-5 grid gap-4">
-          <Field label="Dinheiro">
-            <Input type="number" value={activeCharacter.inventory.money} onChange={(event) => setInventoryMoney(activeCharacter.id, Number(event.target.value || 0))} />
-          </Field>
-          <form
-            className="grid gap-4"
-            onSubmit={inventoryForm.handleSubmit((values) => {
-              saveCollectionItem('inventory', {
-                id: inventoryEditingItem?.id || '',
-                name: values.name,
-                quantity: values.quantity,
-                effect: values.effect
-              } as InventoryItem);
-              inventoryForm.reset({ name: '', quantity: 1, effect: '' });
-              setInventoryEditId(null);
-              toast.success('Item de inventario salvo.');
-            })}
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Item">
-                <Input {...inventoryForm.register('name')} />
-              </Field>
-              <Field label="Quantidade">
-                <Input type="number" {...inventoryForm.register('quantity')} />
-              </Field>
-            </div>
-            <Field label="Efeito">
-              <Textarea {...inventoryForm.register('effect')} />
-            </Field>
-            <Button type="submit" disabled={!inventoryForm.formState.isValid}>
-              {inventoryEditingItem ? 'Atualizar item' : 'Salvar item'}
-            </Button>
-          </form>
-          <Field label="Preset rapido">
-            <Input value={inventoryPresetQuery} onChange={(event) => setInventoryPresetQuery(event.target.value)} placeholder="energetico, kit, talisma..." />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            {inventoryPresets.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => {
-                  saveCollectionItem('inventory', { id: '', name: preset.name, quantity: preset.quantity, effect: preset.effect } as InventoryItem);
-                  toast.success(`Preset ${preset.name} adicionado.`);
-                }}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-soft"
-              >
-                + {preset.name}
-              </button>
-            ))}
+          <SectionTitle eyebrow="Itens & recursos" title="Inventário" description="Itens e dinheiro do personagem ficam juntos, com edição por diálogo." actions={editable ? <Button variant="secondary" onClick={() => openDialog('inventory')}><Plus className="size-4" />Adicionar item</Button> : undefined} />
+          <div className="mt-6 grid gap-4">
+            <UtilityPanel className="rounded-[22px] p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Dinheiro disponível</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{formatMoney(activeCharacter.inventory.money)}</p>
+                </div>
+                {editable ? <div className="w-full max-w-[220px]"><Input type="number" defaultValue={activeCharacter.inventory.money} onBlur={async (event) => { setInventoryMoney(activeCharacter.id, Number(event.target.value || 0)); await flushPersistence(); toast.success('Recursos da ficha atualizados.'); }} /></div> : null}
+              </div>
+            </UtilityPanel>
+            {activeCharacter.inventory.items.length ? activeCharacter.inventory.items.map((item) => <ItemCard key={item.id} title={`${item.quantity}× ${item.name}`} body={item.effect} editable={editable} onEdit={() => openDialog('inventory', item)} onRemove={() => removeCollectionItem('inventory', item.id)} />) : <EmptyState title="Inventário vazio." body="Adicione itens utilitários, consumíveis ou objetos importantes da campanha." />}
           </div>
-          <div className="grid gap-3">
-            {activeCharacter.inventory.items.length ? (
-              activeCharacter.inventory.items.map((item) => (
-                <ItemCard
-                  key={item.id}
-                  title={`${item.quantity}x ${item.name}`}
-                  body={item.effect}
-                  onEdit={() => {
-                    setInventoryEditId(item.id);
-                    inventoryForm.reset({ name: item.name, quantity: item.quantity, effect: item.effect });
-                  }}
-                  onRemove={() => removeCollectionItem('inventory', item.id)}
-                />
-              ))
-            ) : (
-              <EmptyState title="Inventario vazio." body="Adicione itens utilitarios ou use os presets canonicos." />
-            )}
-          </div>
-        </div>
         </Card>
       ) : null}
 
-      {showArsenal || showTechniques ? (
-        <div className="grid gap-6 xl:grid-cols-2">
-          {showArsenal ? (
-            <Card className="p-6">
-          <SectionTitle eyebrow="Arsenal" title="Armas" description="Dano, grau, tags e descricao operacional em um fluxo unico." />
-          <form
-            className="mt-5 grid gap-4"
-            onSubmit={weaponForm.handleSubmit((values) => {
-              saveCollectionItem('weapons', {
-                id: weaponEditingItem?.id || '',
-                name: values.name,
-                grade: values.grade,
-                damage: values.damage,
-                tags: splitTagText(values.tags),
-                description: values.description
-              } as Weapon);
-              weaponForm.reset({ name: '', grade: 'Grau 4', damage: '', tags: '', description: '' });
-              setWeaponEditId(null);
-              toast.success('Arma salva.');
-            })}
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Nome">
-                <Input {...weaponForm.register('name')} />
-              </Field>
-              <Field label="Grau">
-                <Input {...weaponForm.register('grade')} />
-              </Field>
-              <Field label="Dano">
-                <Input {...weaponForm.register('damage')} />
-              </Field>
-              <Field label="Tags">
-                <Input placeholder="corte, corpo a corpo" {...weaponForm.register('tags')} />
-              </Field>
-            </div>
-            <Field label="Descricao">
-              <Textarea {...weaponForm.register('description')} />
-            </Field>
-            <Button type="submit" disabled={!weaponForm.formState.isValid}>
-              {weaponEditingItem ? 'Atualizar arma' : 'Salvar arma'}
-            </Button>
-          </form>
-          <Field label="Preset rapido" className="mt-5">
-            <Input value={weaponPresetQuery} onChange={(event) => setWeaponPresetQuery(event.target.value)} placeholder="katana, corrente..." />
-          </Field>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {weaponPresets.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => {
-                  saveCollectionItem('weapons', {
-                    id: '',
-                    name: preset.name,
-                    grade: preset.grade,
-                    damage: preset.damage,
-                    tags: [...preset.tags],
-                    description: preset.description
-                  } as Weapon);
-                  toast.success(`Preset ${preset.name} adicionado.`);
-                }}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-soft"
-              >
-                + {preset.name}
-              </button>
-            ))}
-          </div>
-          <div className="mt-5 grid gap-3">
-            {activeCharacter.weapons.length ? (
-              activeCharacter.weapons.map((item) => (
-                <ItemCard
-                  key={item.id}
-                  title={item.name}
-                  subtitle={`${item.grade} | ${item.damage}`}
-                  body={item.description}
-                  onEdit={() => {
-                    setWeaponEditId(item.id);
-                    weaponForm.reset({ name: item.name, grade: item.grade, damage: item.damage, tags: item.tags.join(', '), description: item.description });
-                  }}
-                  onRemove={() => removeCollectionItem('weapons', item.id)}
-                />
-              ))
-            ) : (
-              <EmptyState title="Nenhuma arma cadastrada." body="Use o formulario acima para estruturar o arsenal da ficha." />
-            )}
-          </div>
-            </Card>
-          ) : null}
+      {showArsenal || showTechniques ? <div className="grid gap-6 xl:grid-cols-2">
+        {showArsenal ? <Card className="p-6"><SectionTitle eyebrow="Armas" title="Arsenal" description="Armas tratadas como entradas claras da ficha, sem editor fixo brigando com a leitura." actions={editable ? <Button variant="secondary" onClick={() => openDialog('weapon')}><Plus className="size-4" />Adicionar arma</Button> : undefined} /><div className="mt-6 grid gap-4">{activeCharacter.weapons.length ? activeCharacter.weapons.map((item) => <ItemCard key={item.id} title={item.name} subtitle={`${item.grade} · ${item.damage}`} body={item.description} editable={editable} onEdit={() => openDialog('weapon', item)} onRemove={() => removeCollectionItem('weapons', item.id)} />) : <EmptyState title="Nenhuma arma cadastrada." body="Abra o diálogo de arsenal para registrar a primeira arma do personagem." />}</div></Card> : null}
+        {showTechniques ? <Card className="p-6"><SectionTitle eyebrow="Técnica amaldiçoada" title="Repertório técnico" description="Custo, tipo, dano e descrição em uma leitura única, sem formulário permanente." actions={editable ? <Button variant="secondary" onClick={() => openDialog('technique')}><Plus className="size-4" />Adicionar técnica</Button> : undefined} /><div className="mt-6 grid gap-4">{activeCharacter.techniques.length ? activeCharacter.techniques.map((item) => <ItemCard key={item.id} title={item.name} subtitle={`${item.type} · custo ${item.cost}${item.damage ? ` · ${item.damage}` : ''}`} body={item.description} editable={editable} onEdit={() => openDialog('technique', item)} onRemove={() => removeCollectionItem('techniques', item.id)} />) : <EmptyState title="Nenhuma técnica cadastrada." body="Abra o diálogo de técnica para registrar o núcleo amaldiçoado da ficha." />}</div></Card> : null}
+      </div> : null}
 
-          {showTechniques ? (
-            <Card className="p-6">
-          <SectionTitle eyebrow="Tecnicas" title="Tecnicas amaldicoadas" description="Custo, dano, tipo, tags e descricao com presets rapidos da obra." />
-          <form
-            className="mt-5 grid gap-4"
-            onSubmit={techniqueForm.handleSubmit((values) => {
-              saveCollectionItem('techniques', {
-                id: techniqueEditingItem?.id || '',
-                name: values.name,
-                cost: values.cost,
-                damage: values.damage,
-                type: values.type,
-                tags: splitTagText(values.tags),
-                description: values.description
-              } as Technique);
-              techniqueForm.reset({ name: '', cost: 0, damage: '', type: 'Ofensiva', tags: '', description: '' });
-              setTechniqueEditId(null);
-              toast.success('Tecnica salva.');
-            })}
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Nome">
-                <Input {...techniqueForm.register('name')} />
-              </Field>
-              <Field label="Custo">
-                <Input type="number" {...techniqueForm.register('cost')} />
-              </Field>
-              <Field label="Dano">
-                <Input {...techniqueForm.register('damage')} />
-              </Field>
-              <Field label="Tipo">
-                <Select {...techniqueForm.register('type')}>
-                  {TECHNIQUE_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <Field label="Tags">
-              <Input {...techniqueForm.register('tags')} />
-            </Field>
-            <Field label="Descricao">
-              <Textarea {...techniqueForm.register('description')} />
-            </Field>
-            <Button type="submit" disabled={!techniqueForm.formState.isValid}>
-              {techniqueEditingItem ? 'Atualizar tecnica' : 'Salvar tecnica'}
-            </Button>
-          </form>
-          <Field label="Preset rapido" className="mt-5">
-            <Input value={techniquePresetQuery} onChange={(event) => setTechniquePresetQuery(event.target.value)} placeholder="revertimento, troca..." />
-          </Field>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {techniquePresets.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => {
-                  saveCollectionItem('techniques', {
-                    id: '',
-                    name: preset.name,
-                    cost: preset.cost,
-                    damage: preset.damage,
-                    type: preset.type as Technique['type'],
-                    tags: [...preset.tags],
-                    description: preset.description
-                  } as Technique);
-                  toast.success(`Preset ${preset.name} adicionado.`);
-                }}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-soft"
-              >
-                + {preset.name}
-              </button>
-            ))}
-          </div>
-          <div className="mt-5 grid gap-3">
-            {activeCharacter.techniques.length ? (
-              activeCharacter.techniques.map((item) => (
-                <ItemCard
-                  key={item.id}
-                  title={item.name}
-                  subtitle={`${item.type} | Custo ${item.cost} | ${item.damage || 'Sem dano'}`}
-                  body={item.description}
-                  onEdit={() => {
-                    setTechniqueEditId(item.id);
-                    techniqueForm.reset({
-                      name: item.name,
-                      cost: item.cost,
-                      damage: item.damage,
-                      type: item.type,
-                      tags: item.tags.join(', '),
-                      description: item.description
-                    });
-                  }}
-                  onRemove={() => removeCollectionItem('techniques', item.id)}
-                />
-              ))
-            ) : (
-              <EmptyState title="Nenhuma tecnica cadastrada." body="Cadastre o repertorio amaldicoado ou use presets rapidos da obra." />
-            )}
-          </div>
-            </Card>
-          ) : null}
-        </div>
-      ) : null}
+      {showSupport ? <div className="grid gap-6 xl:grid-cols-2">
+        <Card className="p-6"><SectionTitle eyebrow="Passivas" title="Traços constantes" description="Capacidades sempre ativas e leituras permanentes do personagem." actions={editable ? <Button variant="secondary" onClick={() => openDialog('passive')}><Plus className="size-4" />Adicionar passiva</Button> : undefined} /><div className="mt-6 grid gap-4">{activeCharacter.passives.length ? activeCharacter.passives.map((item) => <ItemCard key={item.id} title={item.name} body={item.description} editable={editable} onEdit={() => openDialog('passive', item)} onRemove={() => removeCollectionItem('passives', item.id)} />) : <EmptyState title="Sem passivas registradas." body="Passivas documentam talentos, resistências e vantagens constantes do personagem." />}</div></Card>
+        <Card className="p-6"><SectionTitle eyebrow="Votos vinculativos" title="Promessas & preço" description="Benefício, restrição e penalidade registrados como uma única entrada consistente." actions={editable ? <Button variant="secondary" onClick={() => openDialog('vow')}><Plus className="size-4" />Adicionar voto</Button> : undefined} /><div className="mt-6 grid gap-4">{activeCharacter.vows.length ? activeCharacter.vows.map((item) => <ItemCard key={item.id} title={item.name} subtitle={`Restrição: ${item.restriction || 'Sem restrição'}`} body={`Benefício: ${item.benefit}\nPenalidade: ${item.penalty || 'Sem penalidade'}`} editable={editable} onEdit={() => openDialog('vow', item)} onRemove={() => removeCollectionItem('vows', item.id)} />) : <EmptyState title="Nenhum voto registrado." body="Quando houver um pacto relevante, ele aparece aqui com ganho, restrição e consequência." />}</div></Card>
+      </div> : null}
 
-      {showSupport ? (
-        <div className="grid gap-6 xl:grid-cols-2">
-          <Card className="p-6">
-          <SectionTitle eyebrow="Passivas" title="Tracos constantes" description="Passivas com tags e descricao operacional para leitura rapida de mesa." />
-          <form
-            className="mt-5 grid gap-4"
-            onSubmit={passiveForm.handleSubmit((values) => {
-              saveCollectionItem('passives', {
-                id: passiveEditingItem?.id || '',
-                name: values.name,
-                tags: splitTagText(values.tags),
-                description: values.description
-              } as Passive);
-              passiveForm.reset({ name: '', tags: '', description: '' });
-              setPassiveEditId(null);
-              toast.success('Passiva salva.');
-            })}
-          >
-            <Field label="Nome">
-              <Input {...passiveForm.register('name')} />
-            </Field>
-            <Field label="Tags">
-              <Input {...passiveForm.register('tags')} />
-            </Field>
-            <Field label="Descricao">
-              <Textarea {...passiveForm.register('description')} />
-            </Field>
-            <Button type="submit" disabled={!passiveForm.formState.isValid}>
-              {passiveEditingItem ? 'Atualizar passiva' : 'Salvar passiva'}
-            </Button>
-          </form>
-          <Field label="Preset rapido" className="mt-5">
-            <Input value={passivePresetQuery} onChange={(event) => setPassivePresetQuery(event.target.value)} placeholder="sensor, energia..." />
-          </Field>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {passivePresets.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => {
-                  saveCollectionItem('passives', {
-                    id: '',
-                    name: preset.name,
-                    tags: [...preset.tags],
-                    description: preset.description
-                  } as Passive);
-                  toast.success(`Preset ${preset.name} adicionado.`);
-                }}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-soft"
-              >
-                + {preset.name}
-              </button>
-            ))}
-          </div>
-          <div className="mt-5 grid gap-3">
-            {activeCharacter.passives.length ? (
-              activeCharacter.passives.map((item) => (
-                <ItemCard
-                  key={item.id}
-                  title={item.name}
-                  subtitle={item.tags.join(', ')}
-                  body={item.description}
-                  onEdit={() => {
-                    setPassiveEditId(item.id);
-                    passiveForm.reset({ name: item.name, tags: item.tags.join(', '), description: item.description });
-                  }}
-                  onRemove={() => removeCollectionItem('passives', item.id)}
-                />
-              ))
-            ) : (
-              <EmptyState title="Sem passivas registradas." body="Cadastre tracos permanentes ou puxe presets canonicos." />
-            )}
-          </div>
-          </Card>
+      <Dialog open={dialog === 'weapon'} onOpenChange={(open) => setDialog(open ? 'weapon' : null)}><DialogContent><DialogHeader eyebrow="Arsenal" title={weaponItem ? 'Editar arma' : 'Adicionar arma'} description="Abra ou ajuste uma entrada de arsenal sem quebrar a leitura da ficha." /><form className="mt-6 grid gap-4" onSubmit={weaponForm.handleSubmit(async (values) => { saveCollectionItem('weapons', { id: values.id || weaponItem?.id || '', name: values.name, grade: values.grade, damage: values.damage, tags: splitTagText(values.tags), description: values.description } as Weapon); await flushPersistence(); setDialog(null); toast.success('Arma salva.'); })}><div className="grid gap-4 md:grid-cols-2"><Field label="Nome" error={weaponForm.formState.errors.name?.message}><Input autoComplete="off" {...weaponForm.register('name')} /></Field><Field label="Grau" error={weaponForm.formState.errors.grade?.message}><Input autoComplete="off" {...weaponForm.register('grade')} /></Field><Field label="Dano" error={weaponForm.formState.errors.damage?.message}><Input autoComplete="off" {...weaponForm.register('damage')} /></Field><Field label="Tags"><Input autoComplete="off" placeholder="Corte, corrente, corpo a corpo…" {...weaponForm.register('tags')} /></Field></div><Field label="Descrição" error={weaponForm.formState.errors.description?.message}><Textarea {...weaponForm.register('description')} /></Field><div className="flex flex-wrap gap-2"><Button type="submit" disabled={weaponForm.formState.isSubmitting}>Salvar arma</Button><Button type="button" variant="secondary" onClick={() => setDialog(null)}>Cancelar</Button></div></form></DialogContent></Dialog>
 
-          <Card className="p-6">
-          <SectionTitle eyebrow="Votos" title="Votos vinculativos" description="Beneficio, restricao e penalidade ficam documentados em leitura rapida." />
-          <form
-            className="mt-5 grid gap-4"
-            onSubmit={vowForm.handleSubmit((values) => {
-              saveCollectionItem('vows', {
-                id: vowEditingItem?.id || '',
-                name: values.name,
-                benefit: values.benefit,
-                restriction: values.restriction,
-                penalty: values.penalty
-              } as Vow);
-              vowForm.reset({ name: '', benefit: '', restriction: '', penalty: '' });
-              setVowEditId(null);
-              toast.success('Voto salvo.');
-            })}
-          >
-            <Field label="Nome">
-              <Input {...vowForm.register('name')} />
-            </Field>
-            <Field label="Beneficio">
-              <Textarea {...vowForm.register('benefit')} />
-            </Field>
-            <Field label="Restricao">
-              <Textarea {...vowForm.register('restriction')} />
-            </Field>
-            <Field label="Penalidade">
-              <Textarea {...vowForm.register('penalty')} />
-            </Field>
-            <Button type="submit" disabled={!vowForm.formState.isValid}>
-              {vowEditingItem ? 'Atualizar voto' : 'Salvar voto'}
-            </Button>
-          </form>
-          <div className="mt-5 grid gap-3">
-            {activeCharacter.vows.length ? (
-              activeCharacter.vows.map((item) => (
-                <ItemCard
-                  key={item.id}
-                  title={item.name}
-                  body={`Beneficio: ${item.benefit} | Restricao: ${item.restriction} | Penalidade: ${item.penalty}`}
-                  onEdit={() => {
-                    setVowEditId(item.id);
-                    vowForm.reset({ name: item.name, benefit: item.benefit, restriction: item.restriction, penalty: item.penalty });
-                  }}
-                  onRemove={() => removeCollectionItem('vows', item.id)}
-                />
-              ))
-            ) : (
-              <EmptyState title="Nenhum voto registrado." body="Cadastre pactos, restricoes e ganhos dramaticos desta ficha." />
-            )}
-          </div>
-          </Card>
-        </div>
-      ) : null}
+      <Dialog open={dialog === 'technique'} onOpenChange={(open) => setDialog(open ? 'technique' : null)}><DialogContent><DialogHeader eyebrow="Técnica amaldiçoada" title={techniqueItem ? 'Editar técnica' : 'Adicionar técnica'} description="Cadastre custo, tipo, dano e leitura tática em um fluxo separado da ficha." /><form className="mt-6 grid gap-4" onSubmit={techniqueForm.handleSubmit(async (values) => { saveCollectionItem('techniques', { id: values.id || techniqueItem?.id || '', name: values.name, cost: values.cost, damage: values.damage, type: values.type, tags: splitTagText(values.tags), description: values.description } as Technique); await flushPersistence(); setDialog(null); toast.success('Técnica salva.'); })}><div className="grid gap-4 md:grid-cols-2"><Field label="Nome" error={techniqueForm.formState.errors.name?.message}><Input autoComplete="off" {...techniqueForm.register('name')} /></Field><Field label="Custo"><Input type="number" {...techniqueForm.register('cost')} /></Field><Field label="Dano"><Input autoComplete="off" {...techniqueForm.register('damage')} /></Field><Field label="Tipo"><Select {...techniqueForm.register('type')}>{TECHNIQUE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</Select></Field></div><Field label="Tags"><Input autoComplete="off" placeholder="Suporte, troca, explosão…" {...techniqueForm.register('tags')} /></Field><Field label="Descrição" error={techniqueForm.formState.errors.description?.message}><Textarea {...techniqueForm.register('description')} /></Field><div className="flex flex-wrap gap-2"><Button type="submit" disabled={techniqueForm.formState.isSubmitting}>Salvar técnica</Button><Button type="button" variant="secondary" onClick={() => setDialog(null)}>Cancelar</Button></div></form></DialogContent></Dialog>
+
+      <Dialog open={dialog === 'passive'} onOpenChange={(open) => setDialog(open ? 'passive' : null)}><DialogContent><DialogHeader eyebrow="Passiva" title={passiveItem ? 'Editar passiva' : 'Adicionar passiva'} description="Capacidades sempre ativas ficam fora do miolo principal até o momento da edição." /><form className="mt-6 grid gap-4" onSubmit={passiveForm.handleSubmit(async (values) => { saveCollectionItem('passives', { id: values.id || passiveItem?.id || '', name: values.name, tags: splitTagText(values.tags), description: values.description } as Passive); await flushPersistence(); setDialog(null); toast.success('Passiva salva.'); })}><Field label="Nome" error={passiveForm.formState.errors.name?.message}><Input autoComplete="off" {...passiveForm.register('name')} /></Field><Field label="Tags"><Input autoComplete="off" {...passiveForm.register('tags')} /></Field><Field label="Descrição" error={passiveForm.formState.errors.description?.message}><Textarea {...passiveForm.register('description')} /></Field><div className="flex flex-wrap gap-2"><Button type="submit" disabled={passiveForm.formState.isSubmitting}>Salvar passiva</Button><Button type="button" variant="secondary" onClick={() => setDialog(null)}>Cancelar</Button></div></form></DialogContent></Dialog>
+
+      <Dialog open={dialog === 'vow'} onOpenChange={(open) => setDialog(open ? 'vow' : null)}><DialogContent><DialogHeader eyebrow="Voto vinculativo" title={vowItem ? 'Editar voto' : 'Adicionar voto'} description="Registre benefício, restrição e penalidade no mesmo fluxo de edição." /><form className="mt-6 grid gap-4" onSubmit={vowForm.handleSubmit(async (values) => { saveCollectionItem('vows', { id: values.id || vowItem?.id || '', name: values.name, benefit: values.benefit, restriction: values.restriction, penalty: values.penalty } as Vow); await flushPersistence(); setDialog(null); toast.success('Voto salvo.'); })}><Field label="Nome" error={vowForm.formState.errors.name?.message}><Input autoComplete="off" {...vowForm.register('name')} /></Field><Field label="Benefício" error={vowForm.formState.errors.benefit?.message}><Textarea {...vowForm.register('benefit')} /></Field><Field label="Restrição" error={vowForm.formState.errors.restriction?.message}><Textarea {...vowForm.register('restriction')} /></Field><Field label="Penalidade" error={vowForm.formState.errors.penalty?.message}><Textarea {...vowForm.register('penalty')} /></Field><div className="flex flex-wrap gap-2"><Button type="submit" disabled={vowForm.formState.isSubmitting}>Salvar voto</Button><Button type="button" variant="secondary" onClick={() => setDialog(null)}>Cancelar</Button></div></form></DialogContent></Dialog>
+
+      <Dialog open={dialog === 'inventory'} onOpenChange={(open) => setDialog(open ? 'inventory' : null)}><DialogContent><DialogHeader eyebrow="Inventário" title={inventoryItem ? 'Editar item' : 'Adicionar item'} description="Itens entram por diálogo para manter a ficha limpa e legível." /><form className="mt-6 grid gap-4" onSubmit={inventoryForm.handleSubmit(async (values) => { saveCollectionItem('inventory', { id: values.id || inventoryItem?.id || '', name: values.name, quantity: values.quantity, effect: values.effect } as InventoryItem); await flushPersistence(); setDialog(null); toast.success('Item salvo.'); })}><div className="grid gap-4 md:grid-cols-2"><Field label="Nome" error={inventoryForm.formState.errors.name?.message}><Input autoComplete="off" {...inventoryForm.register('name')} /></Field><Field label="Quantidade" error={inventoryForm.formState.errors.quantity?.message}><Input type="number" {...inventoryForm.register('quantity')} /></Field></div><Field label="Efeito" error={inventoryForm.formState.errors.effect?.message}><Textarea {...inventoryForm.register('effect')} /></Field><div className="flex flex-wrap gap-2"><Button type="submit" disabled={inventoryForm.formState.isSubmitting}>Salvar item</Button><Button type="button" variant="secondary" onClick={() => setDialog(null)}>Cancelar</Button></div></form></DialogContent></Dialog>
     </div>
   );
 }

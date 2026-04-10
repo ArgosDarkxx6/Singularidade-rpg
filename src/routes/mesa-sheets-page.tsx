@@ -3,7 +3,6 @@ import { Avatar } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { Panel, UtilityPanel } from '@components/ui/panel';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { MesaHero, MesaMetricTile, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { CollectionsPanel } from '@features/sheets/components/collections-panel';
 import { ConditionsEditor } from '@features/sheets/components/conditions-editor';
@@ -103,6 +102,10 @@ export function MesaSheetsPage() {
   const canEditActiveCharacter =
     !session || session.role === 'gm' || (session.role === 'player' && session.characterId === activeCharacter.id);
   const isReadonlyViewer = Boolean(session && !canEditActiveCharacter);
+  const visibleCharacters =
+    session?.role === 'player' && session.characterId
+      ? state.characters.filter((character) => character.id === session.characterId)
+      : state.characters;
 
   if (!state.characters.length) {
     return <EmptyState title="Nenhuma ficha carregada." body="Crie uma mesa com personagens ou importe um estado para usar o workspace de fichas." />;
@@ -113,7 +116,7 @@ export function MesaSheetsPage() {
       <MesaHero
         eyebrow="Fichas da mesa"
         title={`${activeCharacter.name} em foco`}
-        description="A área de fichas agora vive dentro da mesa atual. O roster fica separado, a ficha central ganha espaço e a leitura do papel do usuário fica clara."
+        description="A ficha agora corre em um fluxo contínuo: identidade, recursos, atributos, arsenal, técnicas, passivas, votos, inventário e condições sem guias internas quebradas."
         actions={
           <>
             <Button variant="secondary" onClick={() => void copyActiveCharacterText()}>
@@ -146,39 +149,14 @@ export function MesaSheetsPage() {
           {canManageRoster ? (
             <RosterSidebar />
           ) : (
-            <ReadonlyRosterPanel characters={state.characters} activeCharacterId={activeCharacter.id} onSelect={setActiveCharacter} />
+            <ReadonlyRosterPanel characters={visibleCharacters} activeCharacterId={activeCharacter.id} onSelect={setActiveCharacter} />
           )}
         </div>
 
         <div className="grid gap-6">
-          {canEditActiveCharacter ? (
-            <Tabs defaultValue="perfil" className="grid gap-5">
-              <TabsList>
-                <TabsTrigger value="perfil">Perfil</TabsTrigger>
-                <TabsTrigger value="arsenal">Arsenal</TabsTrigger>
-                <TabsTrigger value="tecnicas">Técnicas</TabsTrigger>
-                <TabsTrigger value="inventario">Inventário</TabsTrigger>
-                <TabsTrigger value="condicoes">Condições</TabsTrigger>
-              </TabsList>
-              <TabsContent value="perfil">
-                <CharacterProfileEditor />
-              </TabsContent>
-              <TabsContent value="arsenal">
-                <CollectionsPanel section="arsenal" />
-              </TabsContent>
-              <TabsContent value="tecnicas">
-                <CollectionsPanel section="tecnicas" />
-              </TabsContent>
-              <TabsContent value="inventario">
-                <CollectionsPanel section="inventario" />
-              </TabsContent>
-              <TabsContent value="condicoes">
-                <ConditionsEditor />
-              </TabsContent>
-            </Tabs>
-          ) : (
-            <ReadonlyCharacterSummary character={activeCharacter} />
-          )}
+          {canEditActiveCharacter ? <CharacterProfileEditor /> : <ReadonlyCharacterSummary character={activeCharacter} />}
+          <CollectionsPanel section="all" editable={canEditActiveCharacter} />
+          <ConditionsEditor editable={canEditActiveCharacter} />
         </div>
 
         <div className="page-right-rail">
@@ -203,26 +181,24 @@ export function MesaSheetsPage() {
             </UtilityPanel>
           </MesaRailCard>
 
-          {canEditActiveCharacter ? (
-            <ConditionsEditor />
-          ) : (
-            <MesaRailCard
-              eyebrow="Condições"
-              title="Estados ativos"
-              description="Mesmo em leitura, você continua enxergando pressão, buffs e restrições do personagem selecionado."
-            >
-              {activeCharacter.conditions.length ? (
-                activeCharacter.conditions.map((condition) => (
-                  <UtilityPanel key={condition.id} className="rounded-[20px] p-4">
-                    <p className="text-sm font-semibold text-white">{condition.name}</p>
-                    <p className="mt-2 text-sm text-soft">{condition.note || 'Sem nota adicional.'}</p>
-                  </UtilityPanel>
-                ))
-              ) : (
-                <EmptyState title="Sem condições ativas." body="Este personagem não possui estados registrados no momento." />
-              )}
-            </MesaRailCard>
-          )}
+          <MesaRailCard
+            eyebrow="Leitura rápida"
+            title="Resumo da ficha"
+            description="A rail lateral fica só com contexto operacional; a edição completa acontece no miolo contínuo da ficha."
+          >
+            <UtilityPanel className="rounded-[20px] p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Condições ativas</p>
+              <p className="mt-2 text-sm font-semibold text-white">{activeCharacter.conditions.length}</p>
+            </UtilityPanel>
+            <UtilityPanel className="rounded-[20px] p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Dinheiro</p>
+              <p className="mt-2 text-sm font-semibold text-white">{activeCharacter.inventory.money}</p>
+            </UtilityPanel>
+            <UtilityPanel className="rounded-[20px] p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Passivas</p>
+              <p className="mt-2 text-sm font-semibold text-white">{activeCharacter.passives.length}</p>
+            </UtilityPanel>
+          </MesaRailCard>
 
           {isReadonlyViewer ? (
             <MesaRailCard eyebrow="Leitura" title="Modo visualização" description="A edição foi bloqueada porque esta ficha não pertence ao seu papel na mesa." />

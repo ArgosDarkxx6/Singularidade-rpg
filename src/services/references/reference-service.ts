@@ -35,8 +35,8 @@ export async function searchReferenceCards(query: string, scope: 'all' | 'lore' 
   try {
     const response = await fetch(`/api/references?q=${encodeURIComponent(cleanQuery)}&scope=${encodeURIComponent(scope)}`);
     if (!response.ok) throw new Error('Falha ao consultar referencias.');
-    const payload = (await response.json()) as { cards?: ExternalReferenceCard[] };
-    const cards = payload.cards || [];
+    const payload = (await response.json()) as { cards?: ExternalReferenceCard[]; items?: ExternalReferenceCard[] };
+    const cards = payload.items || payload.cards || [];
     if (cards.length) return cards;
   } catch {
     return buildFallbackCards(cleanQuery).filter((card) => scope === 'all' || card.provider === scope);

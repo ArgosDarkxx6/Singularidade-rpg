@@ -1,11 +1,13 @@
 import type {
   AuthUser,
   Character,
+  GameSession,
   LogEntry,
   TableInvite,
   TableJoinCode,
   TableListItem,
   TableMeta,
+  SessionAttendanceStatus,
   TableRole,
   TableSession,
   TableState,
@@ -55,6 +57,24 @@ export interface WorkspaceBackend {
   createSnapshot: (input: { session: TableSession; label: string; actor: string; state: WorkspaceState }) => Promise<TableState>;
   restoreSnapshot: (input: { session: TableSession; snapshotId: string }) => Promise<TableState>;
   syncTableState: (input: { session: TableSession; state: WorkspaceState; actor: string }) => Promise<TableState>;
+  createGameSession: (input: {
+    session: TableSession;
+    gameSession: Omit<GameSession, 'id' | 'tableId' | 'createdAt' | 'updatedAt'> & Partial<Pick<GameSession, 'isActive'>>;
+  }) => Promise<TableState>;
+  updateGameSession: (input: {
+    session: TableSession;
+    sessionId: string;
+    patch: Partial<Omit<GameSession, 'id' | 'tableId' | 'createdAt' | 'updatedAt'>>;
+  }) => Promise<TableState>;
+  startGameSession: (input: { session: TableSession; sessionId: string }) => Promise<TableState>;
+  endGameSession: (input: { session: TableSession; sessionId?: string }) => Promise<TableState>;
+  markSessionAttendance: (input: {
+    session: TableSession;
+    sessionId: string;
+    membershipId: string;
+    status: SessionAttendanceStatus;
+  }) => Promise<TableState>;
+  clearSessionAttendance: (input: { session: TableSession; sessionId?: string }) => Promise<TableState>;
   saveCharacter: (input: { session: TableSession; userId: string; character: Character }) => Promise<void>;
   appendTableLog: (input: { session: TableSession; userId: string; entry: LogEntry }) => Promise<void>;
   clearTableLogs: (input: { session: TableSession; userId: string }) => Promise<void>;

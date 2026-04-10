@@ -25,6 +25,7 @@ export function MesaOverviewPage() {
   const { state, activeCharacter, online } = useWorkspace();
   const table = online.table;
   const session = online.session;
+  const currentSession = table?.currentSession;
   const members = online.members.length ? online.members : table?.memberships || [];
 
   if (!table || !session) {
@@ -37,8 +38,9 @@ export function MesaOverviewPage() {
         eyebrow="Overview da mesa"
         title={table.name}
         description={
-          table.meta.recap ||
-          table.meta.objective ||
+          currentSession?.recap ||
+          currentSession?.objective ||
+          table.meta.description ||
           'Use este dashboard para se localizar rapidamente antes de entrar nos módulos de ficha, rolagem, ordem e administração.'
         }
         actions={
@@ -76,7 +78,7 @@ export function MesaOverviewPage() {
                   {table.meta.seriesName || 'Série não definida'} <span className="text-sky-200">/ {table.meta.campaignName || 'Campanha principal'}</span>
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-soft">
-                  {table.meta.episodeTitle || 'Sem título de episódio'} · status {table.meta.status || 'Planejamento'} · último sync {formatDateTime(table.updatedAt)}.
+                  {currentSession?.episodeTitle || 'Sem título de episódio'} · status {currentSession?.status || 'Sem sessão'} · último sync {formatDateTime(table.updatedAt)}.
                 </p>
               </div>
               <Link
@@ -90,11 +92,11 @@ export function MesaOverviewPage() {
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
               <UtilityPanel className="rounded-[22px] p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Recapitulação</p>
-                <p className="mt-3 text-sm leading-6 text-soft">{table.meta.recap || 'Nenhum recap preenchido ainda para esta sessão.'}</p>
+                <p className="mt-3 text-sm leading-6 text-soft">{currentSession?.recap || 'Nenhum recap preenchido ainda para esta sessão.'}</p>
               </UtilityPanel>
               <UtilityPanel className="rounded-[22px] p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Objetivo de jogo</p>
-                <p className="mt-3 text-sm leading-6 text-soft">{table.meta.objective || 'Defina um objetivo tático ou narrativo em Configurações.'}</p>
+                <p className="mt-3 text-sm leading-6 text-soft">{currentSession?.objective || 'Defina um objetivo tático ou narrativo em Sessão.'}</p>
               </UtilityPanel>
             </div>
           </Panel>

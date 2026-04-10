@@ -38,7 +38,9 @@ import type {
   OrderEntry,
   Passive,
   PresenceMember,
+  GameSession,
   RollResult,
+  SessionAttendanceStatus,
   TableJoinCode,
   TableListItem,
   TableMeta,
@@ -120,6 +122,25 @@ interface WorkspaceContextValue {
   revokeJoinCode: (joinCodeId: string) => Promise<TableState | null>;
   createCloudSnapshot: (label: string) => Promise<TableState | null>;
   restoreCloudSnapshot: (snapshotId: string) => Promise<TableState | null>;
+  createGameSession: (
+    payload: {
+      gameSession: Omit<GameSession, 'id' | 'tableId' | 'createdAt' | 'updatedAt'> & Partial<Pick<GameSession, 'isActive'>>;
+    }
+  ) => Promise<TableState | null>;
+  updateGameSession: (
+    payload: {
+      sessionId: string;
+      patch: Partial<Omit<GameSession, 'id' | 'tableId' | 'createdAt' | 'updatedAt'>>;
+    }
+  ) => Promise<TableState | null>;
+  startGameSession: (payload: { sessionId: string }) => Promise<TableState | null>;
+  endGameSession: (payload?: { sessionId?: string }) => Promise<TableState | null>;
+  markSessionAttendance: (payload: {
+    sessionId: string;
+    membershipId: string;
+    status: SessionAttendanceStatus;
+  }) => Promise<TableState | null>;
+  clearSessionAttendance: (payload?: { sessionId?: string }) => Promise<TableState | null>;
   leaveCurrentTable: () => Promise<void>;
   disconnectOnline: () => Promise<void>;
   copyActiveCharacterText: () => Promise<void>;
@@ -133,6 +154,8 @@ const DEFAULT_ONLINE_STATE: OnlineState = {
   status: 'offline',
   session: null,
   table: null,
+  currentSession: null,
+  sessionAttendances: [],
   members: [],
   snapshots: [],
   joinCodes: [],
@@ -180,6 +203,9 @@ function buildOnlineState(session: TableSession, table: TableState, current: Onl
     status: 'connected',
     session,
     table,
+    currentSession: table.currentSession,
+    sessionAttendances: table.sessionAttendances,
+    sessionHistoryPreview: table.sessionHistoryPreview,
     members: shouldUseSupabaseRuntime ? current.members : table.memberships,
     snapshots: table.snapshots,
     joinCodes: table.joinCodes,
@@ -200,6 +226,33 @@ function mapPresenceMembers(payload: Record<string, PresenceMember[]>): Presence
       characterId: member.characterId,
       characterName: member.characterName
     }));
+}
+
+function syncTableIntoOnlineState(current: OnlineState, table: TableState, status: OnlineState['status'] = 'connected') {
+  return {
+    ...current,
+    table,
+    currentSession: table.currentSession,
+    sessionAttendances: table.sessionAttendances,
+    sessionHistoryPreview: table.sessionHistoryPreview,
+    snapshots: table.snapshots,
+    joinCodes: table.joinCodes,
+    lastSyncAt: table.updatedAt,
+    status,
+    error: '',
+    members: shouldUseSupabaseRuntime ? current.members : table.memberships
+  } satisfies OnlineState;
+}
+
+function alignStateToSession(state: WorkspaceState, session: TableSession | null): WorkspaceState {
+  if (!session || session.role !== 'player' || !session.characterId) {
+    return normalizeState(state);
+  }
+
+  return normalizeState({
+    ...state,
+    activeCharacterId: session.characterId
+  });
 }
 
 export function WorkspaceProvider({ children, backend }: { children: ReactNode; backend?: WorkspaceBackend }) {
@@ -236,10 +289,14 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
 
   const applyRemoteTable = useCallback(
     async (table: TableState, session: TableSession) => {
-      const nextState = normalizeState(table.state);
+      const nextState = alignStateToSession(table.state, session);
+      const nextTable = {
+        ...table,
+        state: nextState
+      };
       stateRef.current = nextState;
       setState(nextState);
-      setOnline((current) => buildOnlineState(session, table, current));
+      setOnline((current) => buildOnlineState(session, nextTable, current));
     },
     []
   );
@@ -327,19 +384,14 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     void Promise.resolve(
       workspaceBackend.subscribeToTable(online.session, (table) => {
         if (disposed) return;
-        const nextState = normalizeState(table.state);
+        const nextState = alignStateToSession(table.state, online.session);
+        const nextTable = {
+          ...table,
+          state: nextState
+        };
         stateRef.current = nextState;
         setState(nextState);
-        setOnline((current) => ({
-          ...current,
-          table,
-          snapshots: table.snapshots,
-          joinCodes: table.joinCodes,
-          lastSyncAt: table.updatedAt,
-          status: 'connected',
-          error: '',
-          members: shouldUseSupabaseRuntime ? current.members : table.memberships
-        }));
+        setOnline((current) => syncTableIntoOnlineState(current, nextTable));
       })
     ).then((unsubscribe) => {
       if (disposed) {
@@ -458,19 +510,11 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       try {
         while (tableSyncRef.current) {
           const payload = tableSyncRef.current;
+          const hasQueuedSync = Boolean(tableSyncRef.current);
           tableSyncRef.current = null;
           const table = await workspaceBackend.syncTableState(payload);
 
-          setOnline((current) => ({
-            ...current,
-            table,
-            snapshots: table.snapshots,
-            joinCodes: table.joinCodes,
-            lastSyncAt: table.updatedAt,
-            status: tableSyncRef.current ? 'syncing' : 'connected',
-            error: '',
-            members: shouldUseSupabaseRuntime ? current.members : table.memberships
-          }));
+          setOnline((current) => syncTableIntoOnlineState(current, table, hasQueuedSync ? 'syncing' : 'connected'));
         }
       } catch (error) {
         setOnline((current) => ({
@@ -569,20 +613,40 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     (nextState: WorkspaceState, reason = 'Atualizacao local') => {
       if (!user) return;
 
+      const currentSession = onlineRef.current.session;
+      const currentTable = onlineRef.current.table;
+
+      if (currentSession?.role === 'viewer') {
+        setOnline((current) => ({
+          ...current,
+          status: 'error',
+          error: 'Seu papel atual permite apenas leitura.'
+        }));
+        return;
+      }
+
+      if (currentSession?.role === 'player') {
+        setOnline((current) => ({
+          ...current,
+          status: 'error',
+          error: 'Players só podem editar a própria ficha vinculada.'
+        }));
+        return;
+      }
+
       const normalized = normalizeState(nextState);
       stateRef.current = normalized;
       setState(normalized);
 
-      const currentSession = onlineRef.current.session;
-      const currentTable = onlineRef.current.table;
       if (!currentSession) {
         queueWorkspaceSave({
           user,
           state: normalized
         });
+        return;
       }
 
-      if (currentSession?.role === 'gm' && currentTable) {
+      if (currentTable) {
         const optimisticTable: TableState = {
           ...currentTable,
           state: normalized,
@@ -590,35 +654,14 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           updatedAt: new Date().toISOString()
         };
 
-        setOnline((current) => ({
-          ...current,
-          table: optimisticTable,
-          snapshots: optimisticTable.snapshots,
-          joinCodes: optimisticTable.joinCodes,
-          lastSyncAt: optimisticTable.updatedAt,
-          status: 'syncing'
-        }));
+        setOnline((current) => syncTableIntoOnlineState(current, optimisticTable, 'syncing'));
+      }
 
         queueTableSync({
           session: currentSession,
           state: normalized,
           actor: currentSession.nickname || reason
         });
-        return;
-      }
-
-      if (currentSession && currentTable) {
-        setOnline((current) => ({
-          ...current,
-          table: current.table
-            ? {
-                ...current.table,
-                state: normalized
-              }
-            : current.table,
-          status: 'connected'
-        }));
-      }
     },
     [queueTableSync, queueWorkspaceSave, user]
   );
@@ -660,14 +703,80 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     return nextTables;
   }, [user, workspaceBackend]);
 
+  const setLocalActiveCharacter = useCallback(
+    (characterId: string) => {
+      const nextState = normalizeState({
+        ...stateRef.current,
+        activeCharacterId: characterId
+      });
+
+      stateRef.current = nextState;
+      setState(nextState);
+
+      if (!user) return;
+
+      const currentSession = onlineRef.current.session;
+      if (!currentSession) {
+        queueWorkspaceSave({
+          user,
+          state: nextState
+        });
+        return;
+      }
+
+      setOnline((current) =>
+        current.table
+          ? {
+              ...current,
+              table: {
+                ...current.table,
+                state: nextState
+              }
+            }
+          : current
+      );
+    },
+    [queueWorkspaceSave, user]
+  );
+
   const updateCharacters = useCallback(
     (updater: (characters: Character[]) => Character[], reason: string) => {
-      const nextCharacters = updater(stateRef.current.characters);
+      const currentSession = onlineRef.current.session;
+      const currentCharacters = stateRef.current.characters;
+
+      if (currentSession?.role === 'viewer') {
+        setOnline((current) => ({
+          ...current,
+          status: 'error',
+          error: 'Seu papel atual permite apenas leitura.'
+        }));
+        return;
+      }
+
+      let nextCharacters = updater(currentCharacters);
+
+      if (currentSession?.role === 'player') {
+        const ownedCharacter = currentCharacters.find((character) => character.id === currentSession.characterId);
+        const nextOwnedCharacter = nextCharacters.find((character) => character.id === currentSession.characterId);
+
+        if (!ownedCharacter || !nextOwnedCharacter) {
+          setOnline((current) => ({
+            ...current,
+            status: 'error',
+            error: 'Sua membership nao possui uma ficha vinculada valida para edicao.'
+          }));
+          return;
+        }
+
+        nextCharacters = currentCharacters.map((character) =>
+          character.id === currentSession.characterId ? nextOwnedCharacter : character
+        );
+      }
+
       const nextState = normalizeState({
         ...stateRef.current,
         characters: nextCharacters
       });
-      const currentSession = onlineRef.current.session;
 
       stateRef.current = nextState;
       setState(nextState);
@@ -692,14 +801,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
             updatedAt: new Date().toISOString()
           };
 
-          setOnline((current) => ({
-            ...current,
-            table: optimisticTable,
-            snapshots: optimisticTable.snapshots,
-            joinCodes: optimisticTable.joinCodes,
-            lastSyncAt: optimisticTable.updatedAt,
-            status: 'syncing'
-          }));
+          setOnline((current) => syncTableIntoOnlineState(current, optimisticTable, 'syncing'));
         }
 
         queueTableSync({
@@ -712,14 +814,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
 
       if (currentSession.role === 'player' && currentSession.characterId) {
         const ownedCharacter = nextState.characters.find((character) => character.id === currentSession.characterId);
-        if (!ownedCharacter) {
-          setOnline((current) => ({
-            ...current,
-            status: 'error',
-            error: 'Sua membership nao possui uma ficha vinculada valida para edicao.'
-          }));
-          return;
-        }
+        if (!ownedCharacter) return;
 
         queueCharacterSave({
           session: currentSession,
@@ -801,7 +896,20 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       compendiumCategory,
       online,
       tables,
-      setActiveCharacter: (characterId) => persistState({ ...stateRef.current, activeCharacterId: characterId }, 'Troca de personagem ativo'),
+      setActiveCharacter: (characterId) => {
+        const currentSession = onlineRef.current.session;
+
+        if (currentSession?.role === 'player' && currentSession.characterId && currentSession.characterId !== characterId) {
+          setOnline((current) => ({
+            ...current,
+            status: 'error',
+            error: 'Players só podem acessar a própria ficha vinculada.'
+          }));
+          return;
+        }
+
+        setLocalActiveCharacter(characterId);
+      },
       setCompendiumQuery,
       setCompendiumCategory,
       adjustResource: (characterId, resourceKey, delta) =>
@@ -1296,14 +1404,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           session: onlineRef.current.session,
           meta
         });
-        setOnline((current) => ({
-          ...current,
-          table,
-          snapshots: table.snapshots,
-          joinCodes: table.joinCodes,
-          lastSyncAt: table.updatedAt,
-          status: 'connected'
-        }));
+        setOnline((current) => syncTableIntoOnlineState(current, table));
         return table;
       },
       connectToInvite: async (inviteUrl, nickname) => {
@@ -1380,17 +1481,21 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           label,
           origin: window.location.origin
         });
-        setOnline((current) => ({
-          ...current,
-          table: current.table
+        setOnline((current) =>
+          current.table
             ? {
-                ...current.table,
-                invites: [invite, ...current.table.invites],
-                updatedAt: new Date().toISOString()
+                ...syncTableIntoOnlineState(current, {
+                  ...current.table,
+                  invites: [invite, ...current.table.invites],
+                  updatedAt: new Date().toISOString()
+                }),
+                lastInvite: invite.url
               }
-            : current.table,
-          lastInvite: invite.url
-        }));
+            : {
+                ...current,
+                lastInvite: invite.url
+              }
+        );
         return invite.url;
       },
       createJoinCode: async ({ role, label, characterId }) => {
@@ -1402,28 +1507,25 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           label,
           characterId
         });
-        setOnline((current) => ({
-          ...current,
-          table: current.table
-            ? {
-                ...current.table,
-                joinCodes: [joinCode, ...current.table.joinCodes],
-                updatedAt: new Date().toISOString()
-              }
-            : current.table,
-          joinCodes: [joinCode, ...current.joinCodes]
-        }));
+        setOnline((current) =>
+          current.table
+            ? syncTableIntoOnlineState(
+                current,
+                {
+                  ...current.table,
+                  joinCodes: [joinCode, ...current.table.joinCodes],
+                  updatedAt: new Date().toISOString()
+                }
+              )
+            : current
+        );
         return joinCode;
       },
       revokeJoinCode: async (joinCodeId) => {
         const currentSession = onlineRef.current.session;
         if (!currentSession) return null;
         const table = await workspaceBackend.revokeJoinCode(currentSession, joinCodeId);
-        setOnline((current) => ({
-          ...current,
-          table,
-          joinCodes: table.joinCodes
-        }));
+        setOnline((current) => syncTableIntoOnlineState(current, table));
         return table;
       },
       createCloudSnapshot: async (label) => {
@@ -1435,11 +1537,70 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           actor: currentSession.nickname,
           state: stateRef.current
         });
-        setOnline((current) => ({
-          ...current,
-          table,
-          snapshots: table.snapshots
-        }));
+        setOnline((current) => syncTableIntoOnlineState(current, table));
+        return table;
+      },
+      createGameSession: async ({ gameSession }) => {
+        const currentSession = onlineRef.current.session;
+        if (!currentSession) return null;
+        const table = await workspaceBackend.createGameSession({
+          session: currentSession,
+          gameSession
+        });
+        setOnline((current) => syncTableIntoOnlineState(current, table));
+        return table;
+      },
+      updateGameSession: async ({ sessionId, patch }) => {
+        const currentSession = onlineRef.current.session;
+        if (!currentSession) return null;
+        const table = await workspaceBackend.updateGameSession({
+          session: currentSession,
+          sessionId,
+          patch
+        });
+        setOnline((current) => syncTableIntoOnlineState(current, table));
+        return table;
+      },
+      startGameSession: async ({ sessionId }) => {
+        const currentSession = onlineRef.current.session;
+        if (!currentSession) return null;
+        const table = await workspaceBackend.startGameSession({
+          session: currentSession,
+          sessionId
+        });
+        setOnline((current) => syncTableIntoOnlineState(current, table));
+        return table;
+      },
+      endGameSession: async (payload) => {
+        const currentSession = onlineRef.current.session;
+        if (!currentSession) return null;
+        const table = await workspaceBackend.endGameSession({
+          session: currentSession,
+          sessionId: payload?.sessionId
+        });
+        setOnline((current) => syncTableIntoOnlineState(current, table));
+        return table;
+      },
+      markSessionAttendance: async ({ sessionId, membershipId, status }) => {
+        const currentSession = onlineRef.current.session;
+        if (!currentSession) return null;
+        const table = await workspaceBackend.markSessionAttendance({
+          session: currentSession,
+          sessionId,
+          membershipId,
+          status
+        });
+        setOnline((current) => syncTableIntoOnlineState(current, table));
+        return table;
+      },
+      clearSessionAttendance: async (payload) => {
+        const currentSession = onlineRef.current.session;
+        if (!currentSession) return null;
+        const table = await workspaceBackend.clearSessionAttendance({
+          session: currentSession,
+          sessionId: payload?.sessionId
+        });
+        setOnline((current) => syncTableIntoOnlineState(current, table));
         return table;
       },
       restoreCloudSnapshot: async (snapshotId) => {
@@ -1484,7 +1645,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         downloadTextFile(`${activeCharacter.name || 'personagem'}.txt`, serializeCharacterToText(activeCharacter));
       }
     }),
-    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, flushPersistence, isReady, lastRoll, legacyState, online, persistState, refreshTables, state, tables, updateCharacters, user, workspaceBackend]
+    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, flushPersistence, isReady, lastRoll, legacyState, online, persistState, refreshTables, setLocalActiveCharacter, state, tables, updateCharacters, user, workspaceBackend]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

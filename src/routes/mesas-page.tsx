@@ -8,14 +8,14 @@ import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
-import { Field, Input, Select, Textarea } from '@components/ui/field';
+import { Field, Input, Textarea } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { MesaHero, MesaMetricTile, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { hasMeaningfulLegacyWorkspace } from '@features/mesa/lib/legacy-workspace';
 import { useWorkspace } from '@features/workspace/use-workspace';
-import { DEFAULT_TABLE_META, LEGACY_MIGRATION_STORAGE_KEY, TABLE_STATUS_OPTIONS } from '@lib/domain/constants';
+import { DEFAULT_TABLE_META, LEGACY_MIGRATION_STORAGE_KEY } from '@lib/domain/constants';
 import { createTableSchema, joinCodeSchema, joinInviteSchema } from '@schemas/mesa';
 import type { WorkspaceState } from '@/types/domain';
 
@@ -43,8 +43,7 @@ function buildCreateDefaults(nickname: string): CreateTableValues {
     nickname,
     meta: {
       ...DEFAULT_TABLE_META,
-      seriesName: 'Jujutsu Kaisen',
-      status: TABLE_STATUS_OPTIONS[0]
+      seriesName: 'Jujutsu Kaisen'
     }
   };
 }
@@ -401,35 +400,11 @@ export function MesasPage() {
               <Field label="Campanha">
                 <Input {...createForm.register('meta.campaignName')} />
               </Field>
-              <Field label="Episódio">
-                <Input {...createForm.register('meta.episodeNumber')} />
+              <Field label="Vagas">
+                <Input type="number" min={0} {...createForm.register('meta.slotCount', { valueAsNumber: true })} />
               </Field>
-              <Field label="Título do episódio">
-                <Input {...createForm.register('meta.episodeTitle')} />
-              </Field>
-              <Field label="Data da sessão">
-                <Input type="date" {...createForm.register('meta.sessionDate')} />
-              </Field>
-              <Field label="Status">
-                <Select {...createForm.register('meta.status')}>
-                  {TABLE_STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Local" className="md:col-span-2">
-                <Input {...createForm.register('meta.location')} />
-              </Field>
-              <Field label="Elenco esperado" className="md:col-span-2">
-                <Input {...createForm.register('meta.expectedRoster')} />
-              </Field>
-              <Field label="Recap" className="md:col-span-2">
-                <Textarea {...createForm.register('meta.recap')} />
-              </Field>
-              <Field label="Objetivo" className="md:col-span-2">
-                <Textarea {...createForm.register('meta.objective')} />
+              <Field label="Descrição" className="md:col-span-2">
+                <Textarea {...createForm.register('meta.description')} />
               </Field>
             </div>
 

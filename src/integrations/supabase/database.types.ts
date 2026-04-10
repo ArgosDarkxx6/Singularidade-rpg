@@ -810,12 +810,125 @@ export type Database = {
           },
         ]
       }
+      table_session_attendances: {
+        Row: {
+          created_at: string
+          id: string
+          marked_at: string
+          membership_id: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          marked_at?: string
+          membership_id: string
+          session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          marked_at?: string
+          membership_id?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_session_attendances_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "table_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_session_attendances_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "table_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_sessions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          episode_number: string
+          episode_title: string
+          id: string
+          is_active: boolean
+          location: string
+          notes: string
+          objective: string
+          recap: string
+          session_date: string | null
+          status: string
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          episode_number?: string
+          episode_title?: string
+          id?: string
+          is_active?: boolean
+          location?: string
+          notes?: string
+          objective?: string
+          recap?: string
+          session_date?: string | null
+          status?: string
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          episode_number?: string
+          episode_title?: string
+          id?: string
+          is_active?: boolean
+          location?: string
+          notes?: string
+          objective?: string
+          recap?: string
+          session_date?: string | null
+          status?: string
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_sessions_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tables: {
         Row: {
           campaign_name: string
           created_at: string
           current_round: number
+          current_session_id: string | null
           current_turn_index: number
+          description: string
           episode_number: string
           episode_title: string
           expected_roster: string
@@ -830,6 +943,7 @@ export type Database = {
           series_name: string
           session_date: string | null
           slug: string
+          slot_count: number
           state: Json
           status: string
           updated_at: string
@@ -838,7 +952,9 @@ export type Database = {
           campaign_name?: string
           created_at?: string
           current_round?: number
+          current_session_id?: string | null
           current_turn_index?: number
+          description?: string
           episode_number?: string
           episode_title?: string
           expected_roster?: string
@@ -853,6 +969,7 @@ export type Database = {
           series_name?: string
           session_date?: string | null
           slug: string
+          slot_count?: number
           state?: Json
           status?: string
           updated_at?: string
@@ -861,7 +978,9 @@ export type Database = {
           campaign_name?: string
           created_at?: string
           current_round?: number
+          current_session_id?: string | null
           current_turn_index?: number
+          description?: string
           episode_number?: string
           episode_title?: string
           expected_roster?: string
@@ -876,6 +995,7 @@ export type Database = {
           series_name?: string
           session_date?: string | null
           slug?: string
+          slot_count?: number
           state?: Json
           status?: string
           updated_at?: string
@@ -886,6 +1006,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tables_current_session_id_fkey"
+            columns: ["current_session_id"]
+            isOneToOne: false
+            referencedRelation: "table_sessions"
             referencedColumns: ["id"]
           },
         ]

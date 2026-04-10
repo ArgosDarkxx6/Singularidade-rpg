@@ -16,6 +16,48 @@ import { searchReferenceCards } from '@services/references/reference-service';
 
 type ReferenceScope = 'all' | 'lore' | 'media';
 
+const GLOSSARY_GROUP_STYLES: Record<string, { badge: string; panel: string; accent: string }> = {
+  ferramentas: {
+    badge: 'from-sky-400/25 via-cyan-400/18 to-blue-500/14',
+    panel: 'border-sky-300/14 bg-sky-500/7',
+    accent: 'text-sky-200'
+  },
+  tecnicas: {
+    badge: 'from-violet-400/22 via-indigo-400/16 to-sky-500/14',
+    panel: 'border-violet-300/14 bg-violet-500/7',
+    accent: 'text-violet-200'
+  },
+  objetos: {
+    badge: 'from-emerald-400/22 via-teal-400/16 to-cyan-500/14',
+    panel: 'border-emerald-300/14 bg-emerald-500/7',
+    accent: 'text-emerald-200'
+  },
+  dominios: {
+    badge: 'from-amber-400/22 via-orange-400/16 to-rose-500/14',
+    panel: 'border-amber-300/14 bg-amber-500/7',
+    accent: 'text-amber-200'
+  }
+};
+
+function getGlossaryGroupStyle(groupKey: string) {
+  return (
+    GLOSSARY_GROUP_STYLES[groupKey] ?? {
+      badge: 'from-white/12 via-white/8 to-white/4',
+      panel: 'border-white/10 bg-white/5',
+      accent: 'text-white/70'
+    }
+  );
+}
+
+function getGlossaryGroupMark(label: string) {
+  return label
+    .split(' ')
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+}
+
 function filterChapters(chapters: readonly BookChapter[], query: string) {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return chapters;
@@ -346,10 +388,14 @@ export function MesaCompendiumPage() {
           >
             {filteredGlossary.length ? (
               filteredGlossary.slice(0, 4).map((group) => (
-                <UtilityPanel key={group.key} className="rounded-[20px] p-4">
+                <UtilityPanel key={group.key} className={`rounded-[22px] p-4 ${getGlossaryGroupStyle(group.key).panel}`}>
                   <div className="flex items-center gap-3">
-                    <img src={`/${group.art}`} alt="" className="size-14 rounded-2xl object-cover" />
-                    <div>
+                    <div className={`flex size-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br ${getGlossaryGroupStyle(group.key).badge} shadow-[0_10px_30px_rgba(2,8,15,0.35)]`}>
+                      <span className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${getGlossaryGroupStyle(group.key).accent}`}>
+                        {getGlossaryGroupMark(group.label)}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{group.label}</p>
                       <p className="mt-1 text-sm text-soft">{group.entries.length} verbetes</p>
                     </div>

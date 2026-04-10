@@ -57,6 +57,12 @@
     font: inherit;
   }
 
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
   [data-sonner-toaster] {
     pointer-events: none;
   }
@@ -141,16 +147,25 @@
   .page-grid {
     display: grid;
     gap: 1.5rem;
+    min-width: 0;
   }
 
   .page-shell {
     display: grid;
     gap: 1.5rem;
+    min-width: 0;
   }
 
   .page-right-rail {
     display: grid;
     gap: 1rem;
     align-content: start;
+    min-width: 0;
+  }
+
+  .page-shell > *,
+  .page-grid > *,
+  .page-right-rail > * {
+    min-width: 0;
   }
 }
