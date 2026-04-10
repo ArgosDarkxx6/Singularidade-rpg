@@ -175,7 +175,7 @@ export function CharacterProfileEditor() {
         </div>
 
         <div>
-          <SectionTitle eyebrow="Editor tipado" title="Identidade, recursos e atributos" description="Todos os campos principais da ficha foram concentrados em um único formulário validado." />
+          <SectionTitle eyebrow="Editor tipado" title="Identidade, recursos e atributos" description="Todos os campos principais da ficha foram concentrados em um unico formulario validado." />
 
           <form
             className="mt-5 grid gap-4"
@@ -228,7 +228,7 @@ export function CharacterProfileEditor() {
               <Field label="Idade">
                 <Input type="number" {...profileForm.register('age')} />
               </Field>
-              <Field label="Cla">
+              <Field label="Clan">
                 <Input {...profileForm.register('clan')} />
               </Field>
               <Field label="Grau">
@@ -306,4 +306,3 @@ export function CharacterProfileEditor() {
     </Card>
   );
 }
-

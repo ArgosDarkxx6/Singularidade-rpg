@@ -3,23 +3,23 @@ import * as React from 'react';
 import { cn } from '@lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 rounded-[18px] border px-4 py-2.5 text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         primary:
-          'border-sky-300/30 bg-linear-to-b from-sky-400/28 to-sky-500/14 text-white shadow-[0_10px_30px_rgba(87,187,255,0.18)] hover:border-sky-300/50 hover:from-sky-400/34 hover:to-sky-500/20',
+          'border-sky-300/24 bg-linear-to-b from-blue-500 to-sky-500 text-white shadow-[0_18px_40px_rgba(78,140,255,0.28)] hover:border-sky-200/50 hover:brightness-105',
         secondary:
-          'border-white/10 bg-white/3 text-white hover:border-white/20 hover:bg-white/5',
+          'border-white/10 bg-white/[0.04] text-white hover:border-white/18 hover:bg-white/[0.08]',
         ghost:
-          'border-transparent bg-transparent text-[var(--text-soft)] hover:border-white/10 hover:bg-white/5 hover:text-white',
+          'border-transparent bg-transparent text-[var(--text-soft)] hover:border-white/10 hover:bg-white/[0.05] hover:text-white',
         danger:
-          'border-rose-300/20 bg-rose-500/10 text-rose-100 hover:border-rose-300/40 hover:bg-rose-500/16'
+          'border-rose-300/18 bg-rose-500/12 text-rose-100 hover:border-rose-300/38 hover:bg-rose-500/18'
       },
       size: {
-        sm: 'px-3 py-2 text-xs',
-        md: 'px-4 py-2.5 text-sm',
-        lg: 'px-5 py-3 text-sm'
+        sm: 'min-h-9 px-3 py-2 text-xs',
+        md: 'min-h-11 px-4 py-2.5 text-sm',
+        lg: 'min-h-12 px-5 py-3 text-sm'
       }
     },
     defaultVariants: {

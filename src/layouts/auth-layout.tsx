@@ -1,47 +1,50 @@
 import { motion } from 'framer-motion';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { LogoLockup } from '@components/shared/logo-lockup';
 
-export function AuthLayout() {
-  return (
-    <div className="relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10">
-      <img
-        src="/assets/book_art/ornaments/ritual-ring-2.png"
-        alt=""
-        className="pointer-events-none absolute -right-20 top-[-80px] w-[460px] max-w-none opacity-25"
-      />
-      <img
-        src="/assets/book_art/figures/gojo-infinity-hero.png"
-        alt=""
-        className="pointer-events-none absolute bottom-0 right-0 hidden h-[78vh] opacity-22 xl:block"
-      />
+const authBenefits = [
+  'Crie ou entre em mesas privadas por código e convite.',
+  'Centralize fichas, ordem, rolagens e compêndio dentro da campanha certa.',
+  'Use uma shell mais limpa, premium e preparada para sessão real.'
+];
 
-      <div className="relative mx-auto grid min-h-[calc(100vh-3rem)] max-w-[1440px] overflow-hidden rounded-[36px] border border-white/8 bg-slate-950/65 shadow-[0_40px_120px_rgba(2,8,15,0.55)] backdrop-blur-xl lg:grid-cols-[1.15fr_0.85fr]">
+export function AuthLayout() {
+  const location = useLocation();
+  const isRegister = location.pathname.startsWith('/cadastro');
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,rgba(4,8,15,1),rgba(7,12,19,1))] px-4 py-4 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(87,187,255,0.18),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(78,140,255,0.12),transparent_24%)]" />
+
+      <div className="relative mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1560px] overflow-hidden rounded-[36px] border border-white/8 bg-slate-950/78 shadow-[0_40px_120px_rgba(2,8,15,0.55)] backdrop-blur-xl lg:grid-cols-[1.12fr_0.88fr]">
         <section className="relative hidden overflow-hidden lg:flex">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(87,187,255,0.25),transparent_28%),linear-gradient(160deg,rgba(9,20,31,0.92),rgba(5,13,21,0.98))]" />
-          <div className="absolute inset-0 bg-[url('/assets/book_art/ornaments/paper-grain-a.jpg')] bg-cover opacity-8 mix-blend-screen" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_20%,rgba(87,187,255,0.24),transparent_22%),radial-gradient(circle_at_68%_74%,rgba(78,140,255,0.16),transparent_26%),linear-gradient(160deg,rgba(7,13,22,0.94),rgba(4,9,16,0.98))]" />
+          <div className="absolute inset-0 bg-[url('/assets/book_art/ornaments/paper-grain-a.jpg')] bg-cover opacity-10 mix-blend-screen" />
+          <img
+            src={isRegister ? '/assets/book_art/figures/yuji-uppercut-panel.png' : '/assets/book_art/figures/gojo-infinity-hero.png'}
+            alt=""
+            className="pointer-events-none absolute bottom-0 right-0 h-[78vh] opacity-22"
+          />
+
           <div className="relative z-10 flex h-full w-full flex-col justify-between p-10 xl:p-14">
             <LogoLockup />
+
             <div className="max-w-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-accent">Mesa, livro e presenca online</p>
-              <h2 className="mt-4 font-display text-6xl leading-none text-white xl:text-7xl">Um grimorio operacional para campanha, combate e sessao.</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-accent">Singularidade RPG</p>
+              <h2 className="mt-4 font-display text-6xl leading-none text-white xl:text-7xl">
+                {isRegister ? 'Abra sua presença e entre em campanhas privadas.' : 'Volte para a sua rede de mesas.'}
+              </h2>
               <p className="mt-5 max-w-lg text-base leading-7 text-soft">
-                O remake reorganiza fichas, rolagens, ordem, compendio e mesa online em uma shell unica, responsiva e pronta para crescer.
+                Inspirado em dashboards premium, mas moldado para a sua energia azul: menos ruído, mais clareza e toda a campanha contextualizada dentro da mesa certa.
               </p>
             </div>
-            <div className="grid max-w-xl grid-cols-3 gap-3">
-              <div className="rounded-3xl border border-white/10 bg-white/3 p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Fichas</p>
-                <p className="mt-2 text-sm text-soft">Roster, avatar, tecnicas, votos, condicoes e inventario.</p>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/3 p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Mesa</p>
-                <p className="mt-2 text-sm text-soft">Links, codigos, snapshots, presenca e restore.</p>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/3 p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Livro</p>
-                <p className="mt-2 text-sm text-soft">Capitulos editoriais, glossario, busca e PDF.</p>
-              </div>
+
+            <div className="grid max-w-2xl gap-3">
+              {authBenefits.map((benefit) => (
+                <div key={benefit} className="rounded-[24px] border border-white/10 bg-white/[0.04] px-5 py-4">
+                  <p className="text-sm leading-6 text-soft">{benefit}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -50,12 +53,12 @@ export function AuthLayout() {
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            className="surface-panel-strong w-full max-w-xl rounded-[32px] p-6 sm:p-8"
+            className="surface-panel-strong w-full max-w-[560px] rounded-[32px] p-6 sm:p-8"
           >
             <div className="mb-8 flex items-center justify-between gap-4">
               <LogoLockup compact className="lg:hidden" />
-              <Link to="/fichas" className="text-xs font-semibold uppercase tracking-[0.2em] text-soft hover:text-white">
-                Ver demo local
+              <Link to={isRegister ? '/entrar' : '/cadastro'} className="text-xs font-semibold uppercase tracking-[0.2em] text-soft transition hover:text-white">
+                {isRegister ? 'Já possui conta?' : 'Criar conta'}
               </Link>
             </div>
             <Outlet />

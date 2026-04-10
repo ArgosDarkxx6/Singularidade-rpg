@@ -2,32 +2,32 @@
 
 Remake do site em `Vite + React + TypeScript + Tailwind CSS + Framer Motion + React Hook Form + Zod + Supabase`.
 
-## O que este repositorio entrega
+## O que este repositório entrega
 
-- interface nova para `Fichas`, `Rolagens`, `Ordem`, `Livro` e `Mesa`
-- autenticacao com `email + username + senha`
+- interface nova centrada em mesas para `Fichas`, `Rolagens`, `Ordem`, `Livro` e administração
+- autenticação com `email + username + senha`
 - base pronta para Supabase Auth, Postgres, Storage e Realtime
-- deploy no Cloudflare com worker minimo
-- endpoint local de referencias em `/api/references`
+- deploy no Cloudflare com worker mínimo
+- endpoint local de referências em `/api/references`
 
 ## Stack atual
 
 - Frontend: Vite, React, TypeScript e Tailwind CSS
-- Animacoes: Framer Motion
-- Formularios: React Hook Form + Zod
+- Animações: Framer Motion
+- Formulários: React Hook Form + Zod
 - Backend: Supabase
 - Deploy: Cloudflare Workers
 
 ## Estrutura operacional
 
 - `src/`: app React novo
-- `supabase/`: schema, seeds e politicas
-- `cloudflare/worker.ts`: serve o SPA e expoe `/api/references`
+- `supabase/`: schema, seeds e políticas
+- `cloudflare/worker.ts`: serve o SPA e expõe `/api/references`
 - `public/assets/`: imagens, PDF e artes do livro
 
 ## Desenvolvimento local
 
-1. Instale dependencias:
+1. Instale dependências:
 
 ```bash
 npm ci
@@ -39,7 +39,7 @@ npm ci
 npm run dev
 ```
 
-3. Gere a build de producao:
+3. Gere a build de produção:
 
 ```bash
 npm run build
@@ -53,7 +53,7 @@ npx wrangler dev
 
 ## Deploy
 
-O build de producao sai em `dist/` e o Cloudflare publica esse diretorio diretamente.
+O build de produção sai em `dist/` e o Cloudflare publica esse diretório diretamente.
 
 ```bash
 npm run cf:deploy
@@ -65,13 +65,13 @@ Esse comando executa a build e depois faz o deploy do worker configurado em `wra
 
 O workflow em `.github/workflows/deploy-cloudflare.yml`:
 
-- instala dependencias com `npm ci`
+- instala dependências com `npm ci`
 - executa lint e typecheck
 - gera a build
 - valida o bundle do Worker com dry-run
 - publica no Cloudflare somente em push para `main`
 
-## Variaveis de ambiente
+## Variáveis de ambiente
 
 Frontend:
 
@@ -80,8 +80,8 @@ Frontend:
 
 Cloudflare opcional:
 
-- `REFERENCE_SOURCE_URL` para buscar referencias externas antes do fallback local
+- `REFERENCE_SOURCE_URL` para buscar referências externas antes do fallback local
 
-## Observacao sobre o legado
+## Observação sobre o legado
 
-A versao antiga fica preservada pelo historico Git e pela branch anterior ao corte. O workspace atual foi limpo para deixar apenas a arquitetura nova como fonte canônica.
+A versão antiga fica preservada pelo histórico Git e pela branch anterior ao corte. O produto atual é centrado em mesas, com portal autenticado em `/mesas` e shell contextual em `/mesa/:slug/*`.

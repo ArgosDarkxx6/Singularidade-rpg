@@ -25,11 +25,9 @@ import { ONLINE_SESSION_STORAGE_KEY } from '@lib/domain/constants';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { shouldUseSupabaseRuntime } from '@integrations/supabase/env';
 import { supabase } from '@integrations/supabase/client';
-import { createLocalWorkspaceBackend } from '@features/workspace/local-backend';
 import { type WorkspaceBackend } from '@features/workspace/backend';
-import { createSupabaseWorkspaceBackend } from '@features/workspace/supabase-backend';
+import { runtimeWorkspaceBackend } from '@features/workspace/runtime-backend';
 import type {
-  AppView,
   AuthUser,
   Character,
   Condition,
@@ -42,6 +40,7 @@ import type {
   PresenceMember,
   RollResult,
   TableJoinCode,
+  TableListItem,
   TableMeta,
   TableSession,
   TableState,
@@ -57,15 +56,14 @@ type CollectionKey = 'weapons' | 'techniques' | 'passives' | 'vows' | 'inventory
 interface WorkspaceContextValue {
   isReady: boolean;
   state: WorkspaceState;
+  legacyState: WorkspaceState | null;
   activeCharacter: Character;
-  editMode: boolean;
   lastRoll: RollResult | null;
   compendiumQuery: string;
   compendiumCategory: string;
   online: OnlineState;
-  setView: (view: AppView) => void;
+  tables: TableListItem[];
   setActiveCharacter: (characterId: string) => void;
-  toggleEditMode: () => void;
   setCompendiumQuery: (query: string) => void;
   setCompendiumCategory: (category: string) => void;
   adjustResource: (characterId: string, resourceKey: 'hp' | 'energy' | 'sanity', delta: number) => void;
@@ -88,7 +86,7 @@ interface WorkspaceContextValue {
   setInventoryMoney: (characterId: string, money: number) => void;
   executeAttributeRoll: (input: GuidedRollInput) => RollResult | null;
   executeCustomRoll: (input: CustomRollInput) => RollResult | null;
-  clearLog: () => void;
+  clearLog: () => Promise<void>;
   addCharacter: (payload: Partial<Character>) => void;
   removeCharacter: (characterId: string) => void;
   addCombatant: (payload: { type: 'pc' | 'npc'; characterId?: string; name?: string; modifier?: number; notes?: string }) => void;
@@ -104,7 +102,9 @@ interface WorkspaceContextValue {
   importStateFromFile: (file: File) => Promise<void>;
   exportState: () => void;
   resetState: () => void;
-  createTableSession: (meta: TableMeta, nickname: string) => Promise<TableSession | null>;
+  createTableSession: (meta: TableMeta, nickname: string, initialState?: WorkspaceState) => Promise<TableSession | null>;
+  switchTable: (tableSlug: string) => Promise<TableSession | null>;
+  refreshTables: () => Promise<TableListItem[]>;
   updateTableMeta: (meta: TableMeta) => Promise<TableState | null>;
   connectToInvite: (inviteUrl: string, nickname: string) => Promise<TableSession | null>;
   connectToJoinCode: (
@@ -120,13 +120,13 @@ interface WorkspaceContextValue {
   revokeJoinCode: (joinCodeId: string) => Promise<TableState | null>;
   createCloudSnapshot: (label: string) => Promise<TableState | null>;
   restoreCloudSnapshot: (snapshotId: string) => Promise<TableState | null>;
+  leaveCurrentTable: () => Promise<void>;
   disconnectOnline: () => Promise<void>;
   copyActiveCharacterText: () => Promise<void>;
   downloadActiveCharacterText: () => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
-const defaultWorkspaceBackend = shouldUseSupabaseRuntime ? createSupabaseWorkspaceBackend() : createLocalWorkspaceBackend();
 
 const DEFAULT_ONLINE_STATE: OnlineState = {
   platformAvailable: true,
@@ -203,15 +203,16 @@ function mapPresenceMembers(payload: Record<string, PresenceMember[]>): Presence
 }
 
 export function WorkspaceProvider({ children, backend }: { children: ReactNode; backend?: WorkspaceBackend }) {
-  const workspaceBackend = useMemo(() => backend ?? defaultWorkspaceBackend, [backend]);
+  const workspaceBackend = useMemo(() => backend ?? runtimeWorkspaceBackend, [backend]);
   const { user } = useAuth();
   const [isReady, setIsReady] = useState(false);
   const [state, setState] = useState<WorkspaceState>(createDefaultState());
-  const [editMode, setEditMode] = useState(false);
+  const [legacyState, setLegacyState] = useState<WorkspaceState | null>(null);
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
   const [compendiumQuery, setCompendiumQuery] = useState('');
   const [compendiumCategory, setCompendiumCategory] = useState('all');
   const [online, setOnline] = useState<OnlineState>(DEFAULT_ONLINE_STATE);
+  const [tables, setTables] = useState<TableListItem[]>([]);
   const stateRef = useRef(state);
   const onlineRef = useRef(online);
   const tableSubscriptionRef = useRef<null | (() => void)>(null);
@@ -220,6 +221,10 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
   const workspaceSaveRunningRef = useRef(false);
   const tableSyncRef = useRef<{ session: TableSession; state: WorkspaceState; actor: string } | null>(null);
   const tableSyncRunningRef = useRef(false);
+  const characterSaveRef = useRef<{ session: TableSession; userId: string; character: Character } | null>(null);
+  const characterSaveRunningRef = useRef(false);
+  const tableLogRef = useRef<{ session: TableSession; userId: string; entry: LogEntry } | null>(null);
+  const tableLogRunningRef = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -235,12 +240,8 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       stateRef.current = nextState;
       setState(nextState);
       setOnline((current) => buildOnlineState(session, table, current));
-
-      if (user) {
-        await workspaceBackend.saveWorkspace(user, nextState);
-      }
     },
-    [user, workspaceBackend]
+    []
   );
 
   useEffect(() => {
@@ -253,7 +254,9 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       const nextState = createDefaultState();
       stateRef.current = nextState;
       setState(nextState);
+      setLegacyState(null);
       setOnline(DEFAULT_ONLINE_STATE);
+      setTables([]);
       setIsReady(true);
       return () => undefined;
     }
@@ -267,14 +270,16 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
 
     void (async () => {
       try {
-        const workspace = await workspaceBackend.loadWorkspace(user);
+        const [workspace, userTables] = await Promise.all([workspaceBackend.loadWorkspace(user), workspaceBackend.listUserTables(user)]);
         if (!isMounted) return;
         const nextState = normalizeState(workspace);
-        stateRef.current = nextState;
-        setState(nextState);
+        setLegacyState(nextState);
+        setTables(userTables);
 
         const storedSession = readStoredSession(user.id);
         if (!storedSession) {
+          stateRef.current = nextState;
+          setState(nextState);
           setOnline(DEFAULT_ONLINE_STATE);
           setIsReady(true);
           return;
@@ -284,10 +289,13 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           const table = await workspaceBackend.getTable(storedSession);
           if (!isMounted) return;
           await applyRemoteTable(table, storedSession);
+          setTables(await workspaceBackend.listUserTables(user));
           if (isMounted) setIsReady(true);
         } catch {
           writeStoredSession(user.id, null);
           if (isMounted) {
+            stateRef.current = nextState;
+            setState(nextState);
             setOnline(DEFAULT_ONLINE_STATE);
             setIsReady(true);
           }
@@ -332,10 +340,6 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           error: '',
           members: shouldUseSupabaseRuntime ? current.members : table.memberships
         }));
-
-        if (user) {
-          void workspaceBackend.saveWorkspace(user, nextState);
-        }
       })
     ).then((unsubscribe) => {
       if (disposed) {
@@ -491,6 +495,76 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     [flushTableSync]
   );
 
+  const flushCharacterSave = useCallback(() => {
+    if (characterSaveRunningRef.current || !characterSaveRef.current) return;
+
+    characterSaveRunningRef.current = true;
+
+    void (async () => {
+      try {
+        while (characterSaveRef.current) {
+          const payload = characterSaveRef.current;
+          characterSaveRef.current = null;
+          await workspaceBackend.saveCharacter(payload);
+        }
+      } catch (error) {
+        setOnline((current) => ({
+          ...current,
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Nao foi possivel salvar a ficha vinculada.'
+        }));
+      } finally {
+        characterSaveRunningRef.current = false;
+        if (characterSaveRef.current) {
+          flushCharacterSave();
+        }
+      }
+    })();
+  }, [workspaceBackend]);
+
+  const queueCharacterSave = useCallback(
+    (payload: { session: TableSession; userId: string; character: Character }) => {
+      characterSaveRef.current = payload;
+      flushCharacterSave();
+    },
+    [flushCharacterSave]
+  );
+
+  const flushTableLog = useCallback(() => {
+    if (tableLogRunningRef.current || !tableLogRef.current) return;
+
+    tableLogRunningRef.current = true;
+
+    void (async () => {
+      try {
+        while (tableLogRef.current) {
+          const payload = tableLogRef.current;
+          tableLogRef.current = null;
+          await workspaceBackend.appendTableLog(payload);
+        }
+      } catch (error) {
+        setOnline((current) => ({
+          ...current,
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Nao foi possivel registrar o log desta mesa.'
+        }));
+      } finally {
+        tableLogRunningRef.current = false;
+        if (tableLogRef.current) {
+          flushTableLog();
+        }
+      }
+    })();
+  }, [workspaceBackend]);
+
+  const queueTableLog = useCallback(
+    (payload: { session: TableSession; userId: string; entry: LogEntry }) => {
+      tableLogRef.current = payload;
+      flushTableLog();
+    },
+    [flushTableLog]
+  );
+
   const persistState = useCallback(
     (nextState: WorkspaceState, reason = 'Atualizacao local') => {
       if (!user) return;
@@ -499,14 +573,16 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       stateRef.current = normalized;
       setState(normalized);
 
-      queueWorkspaceSave({
-        user,
-        state: normalized
-      });
-
       const currentSession = onlineRef.current.session;
       const currentTable = onlineRef.current.table;
-      if (currentSession && currentSession.role !== 'viewer' && currentTable) {
+      if (!currentSession) {
+        queueWorkspaceSave({
+          user,
+          state: normalized
+        });
+      }
+
+      if (currentSession?.role === 'gm' && currentTable) {
         const optimisticTable: TableState = {
           ...currentTable,
           state: normalized,
@@ -528,6 +604,20 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           state: normalized,
           actor: currentSession.nickname || reason
         });
+        return;
+      }
+
+      if (currentSession && currentTable) {
+        setOnline((current) => ({
+          ...current,
+          table: current.table
+            ? {
+                ...current.table,
+                state: normalized
+              }
+            : current.table,
+          status: 'connected'
+        }));
       }
     },
     [queueTableSync, queueWorkspaceSave, user]
@@ -537,7 +627,16 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     () =>
       new Promise<void>((resolve) => {
         const waitUntilIdle = () => {
-          if (!workspaceSaveRunningRef.current && !workspaceSaveRef.current && !tableSyncRunningRef.current && !tableSyncRef.current) {
+          if (
+            !workspaceSaveRunningRef.current &&
+            !workspaceSaveRef.current &&
+            !tableSyncRunningRef.current &&
+            !tableSyncRef.current &&
+            !characterSaveRunningRef.current &&
+            !characterSaveRef.current &&
+            !tableLogRunningRef.current &&
+            !tableLogRef.current
+          ) {
             resolve();
             return;
           }
@@ -550,49 +649,159 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     []
   );
 
+  const refreshTables = useCallback(async () => {
+    if (!user) {
+      setTables([]);
+      return [];
+    }
+
+    const nextTables = await workspaceBackend.listUserTables(user);
+    setTables(nextTables);
+    return nextTables;
+  }, [user, workspaceBackend]);
+
   const updateCharacters = useCallback(
     (updater: (characters: Character[]) => Character[], reason: string) => {
       const nextCharacters = updater(stateRef.current.characters);
-      persistState(
-        {
-          ...stateRef.current,
-          characters: nextCharacters
-        },
-        reason
-      );
+      const nextState = normalizeState({
+        ...stateRef.current,
+        characters: nextCharacters
+      });
+      const currentSession = onlineRef.current.session;
+
+      stateRef.current = nextState;
+      setState(nextState);
+
+      if (!user) return;
+
+      if (!currentSession) {
+        queueWorkspaceSave({
+          user,
+          state: nextState
+        });
+        return;
+      }
+
+      if (currentSession.role === 'gm') {
+        const currentTable = onlineRef.current.table;
+        if (currentTable) {
+          const optimisticTable: TableState = {
+            ...currentTable,
+            state: nextState,
+            lastEditor: currentSession.nickname || reason,
+            updatedAt: new Date().toISOString()
+          };
+
+          setOnline((current) => ({
+            ...current,
+            table: optimisticTable,
+            snapshots: optimisticTable.snapshots,
+            joinCodes: optimisticTable.joinCodes,
+            lastSyncAt: optimisticTable.updatedAt,
+            status: 'syncing'
+          }));
+        }
+
+        queueTableSync({
+          session: currentSession,
+          state: nextState,
+          actor: currentSession.nickname || reason
+        });
+        return;
+      }
+
+      if (currentSession.role === 'player' && currentSession.characterId) {
+        const ownedCharacter = nextState.characters.find((character) => character.id === currentSession.characterId);
+        if (!ownedCharacter) {
+          setOnline((current) => ({
+            ...current,
+            status: 'error',
+            error: 'Sua membership nao possui uma ficha vinculada valida para edicao.'
+          }));
+          return;
+        }
+
+        queueCharacterSave({
+          session: currentSession,
+          userId: user.id,
+          character: ownedCharacter
+        });
+      }
     },
-    [persistState]
+    [queueCharacterSave, queueTableSync, queueWorkspaceSave, user]
   );
 
   const appendLog = useCallback(
     (entry: LogEntry) => {
-      persistState(
-        {
-          ...stateRef.current,
-          log: [entry, ...stateRef.current.log]
-        },
-        entry.title
-      );
+      const nextState = normalizeState({
+        ...stateRef.current,
+        log: [entry, ...stateRef.current.log]
+      });
+      stateRef.current = nextState;
+      setState(nextState);
+
+      if (!user) return;
+
+      const currentSession = onlineRef.current.session;
+      if (!currentSession) {
+        queueWorkspaceSave({
+          user,
+          state: nextState
+        });
+        return;
+      }
+
+      if (currentSession.role === 'viewer') return;
+
+      if (currentSession.role === 'gm') {
+        const currentTable = onlineRef.current.table;
+        if (currentTable) {
+          const optimisticTable: TableState = {
+            ...currentTable,
+            state: nextState,
+            lastEditor: currentSession.nickname || entry.title,
+            updatedAt: new Date().toISOString()
+          };
+
+          setOnline((current) => ({
+            ...current,
+            table: optimisticTable,
+            snapshots: optimisticTable.snapshots,
+            joinCodes: optimisticTable.joinCodes,
+            lastSyncAt: optimisticTable.updatedAt,
+            status: 'syncing'
+          }));
+        }
+
+        queueTableSync({
+          session: currentSession,
+          state: nextState,
+          actor: currentSession.nickname || entry.title
+        });
+        return;
+      }
+
+      queueTableLog({
+        session: currentSession,
+        userId: user.id,
+        entry
+      });
     },
-    [persistState]
+    [queueTableLog, queueTableSync, queueWorkspaceSave, user]
   );
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({
       isReady,
       state,
+      legacyState,
       activeCharacter,
-      editMode,
       lastRoll,
       compendiumQuery,
       compendiumCategory,
       online,
-      setView: (view) => {
-        if (stateRef.current.currentView === view) return;
-        persistState({ ...stateRef.current, currentView: view }, `Mudanca de tela: ${view}`);
-      },
+      tables,
       setActiveCharacter: (characterId) => persistState({ ...stateRef.current, activeCharacterId: characterId }, 'Troca de personagem ativo'),
-      toggleEditMode: () => setEditMode((current) => !current),
       setCompendiumQuery,
       setCompendiumCategory,
       adjustResource: (characterId, resourceKey, delta) =>
@@ -858,7 +1067,30 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         );
         return result;
       },
-      clearLog: () => persistState({ ...stateRef.current, log: [] }, 'Limpeza de log'),
+      clearLog: async () => {
+        const currentSession = onlineRef.current.session;
+
+        if (!currentSession || !user) {
+          persistState({ ...stateRef.current, log: [] }, 'Limpeza de log');
+          return;
+        }
+
+        if (currentSession.role !== 'gm') {
+          setOnline((current) => ({
+            ...current,
+            status: 'error',
+            error: 'Apenas GMs podem limpar o log compartilhado da mesa.'
+          }));
+          return;
+        }
+
+        await workspaceBackend.clearTableLogs({
+          session: currentSession,
+          userId: user.id
+        });
+
+        persistState({ ...stateRef.current, log: [] }, 'Limpeza de log');
+      },
       addCharacter: (payload) => {
         const base = makeCharacter({
           ...payload,
@@ -1031,19 +1263,33 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       },
       exportState: () => downloadTextFile('singularidade-state.json', JSON.stringify(stateRef.current, null, 2), 'application/json;charset=utf-8'),
       resetState: () => persistState(createDefaultState(), 'Reset de estado'),
-      createTableSession: async (meta, nickname) => {
+      createTableSession: async (meta, nickname, initialState) => {
         if (!user) return null;
         setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
         const created = await workspaceBackend.createTable({
           user,
           nickname,
           meta,
-          state: stateRef.current
+          state: initialState ? normalizeState(initialState) : stateRef.current
         });
         writeStoredSession(user.id, created.session);
         await applyRemoteTable(created.table, created.session);
+        await refreshTables();
         return created.session;
       },
+      switchTable: async (tableSlug) => {
+        if (!user) return null;
+        setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
+        const next = await workspaceBackend.switchTable({
+          user,
+          tableSlug
+        });
+        writeStoredSession(user.id, next.session);
+        await applyRemoteTable(next.table, next.session);
+        await refreshTables();
+        return next.session;
+      },
+      refreshTables,
       updateTableMeta: async (meta) => {
         if (!onlineRef.current.session) return null;
         const table = await workspaceBackend.updateTableMeta({
@@ -1070,6 +1316,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         });
         writeStoredSession(user.id, joined.session);
         await applyRemoteTable(joined.table, joined.session);
+        await refreshTables();
         return joined.session;
       },
       connectToJoinCode: async (code, nickname, characterId) => {
@@ -1099,6 +1346,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
 
         writeStoredSession(user.id, result.session);
         await applyRemoteTable(result.table, result.session);
+        await refreshTables();
         return { connected: true, pending: false, session: result.session };
       },
       completeJoinCode: async (characterId) => {
@@ -1117,6 +1365,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
 
         writeStoredSession(user.id, result.session);
         await applyRemoteTable(result.table, result.session);
+        await refreshTables();
         return result.session;
       },
       clearPendingJoinCode: () => setOnline((current) => ({ ...current, pendingCodeJoin: null })),
@@ -1203,6 +1452,19 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         await applyRemoteTable(table, currentSession);
         return table;
       },
+      leaveCurrentTable: async () => {
+        if (!onlineRef.current.session || !user) return;
+        await workspaceBackend.leaveTable({
+          session: onlineRef.current.session,
+          userId: user.id
+        });
+        writeStoredSession(user.id, null);
+        const fallbackState = legacyState ?? createDefaultState();
+        stateRef.current = fallbackState;
+        setState(fallbackState);
+        setOnline(DEFAULT_ONLINE_STATE);
+        await refreshTables();
+      },
       disconnectOnline: async () => {
         if (!onlineRef.current.session || !user) return;
         await workspaceBackend.disconnectSession({
@@ -1210,6 +1472,9 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           userId: user.id
         });
         writeStoredSession(user.id, null);
+        const fallbackState = legacyState ?? createDefaultState();
+        stateRef.current = fallbackState;
+        setState(fallbackState);
         setOnline(DEFAULT_ONLINE_STATE);
       },
       copyActiveCharacterText: async () => {
@@ -1219,7 +1484,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         downloadTextFile(`${activeCharacter.name || 'personagem'}.txt`, serializeCharacterToText(activeCharacter));
       }
     }),
-    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, editMode, flushPersistence, isReady, lastRoll, online, persistState, state, updateCharacters, user, workspaceBackend]
+    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, flushPersistence, isReady, lastRoll, legacyState, online, persistState, refreshTables, state, tables, updateCharacters, user, workspaceBackend]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

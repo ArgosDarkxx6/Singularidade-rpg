@@ -2,24 +2,27 @@
 @import "tailwindcss";
 
 :root {
-  --bg-950: #050d15;
-  --bg-900: #081522;
-  --bg-880: #0d1b2b;
-  --panel-900: rgba(12, 27, 42, 0.86);
-  --panel-800: rgba(17, 36, 56, 0.92);
-  --panel-700: rgba(24, 47, 72, 0.94);
-  --line: rgba(120, 173, 215, 0.18);
-  --line-strong: rgba(120, 173, 215, 0.35);
+  --bg-975: #04080f;
+  --bg-950: #071019;
+  --bg-920: #0b1624;
+  --bg-900: #101c2b;
+  --panel-950: rgba(8, 14, 22, 0.94);
+  --panel-900: rgba(12, 22, 34, 0.92);
+  --panel-860: rgba(16, 29, 43, 0.94);
+  --panel-800: rgba(18, 33, 48, 0.94);
+  --line: rgba(133, 179, 223, 0.12);
+  --line-strong: rgba(133, 179, 223, 0.24);
   --text-strong: #eff6ff;
-  --text-soft: rgba(223, 236, 248, 0.8);
-  --text-muted: rgba(194, 210, 227, 0.56);
-  --accent-500: #57bbff;
-  --accent-400: #83d7ff;
+  --text-soft: rgba(223, 236, 248, 0.78);
+  --text-muted: rgba(194, 210, 227, 0.5);
+  --accent-500: #4e8cff;
+  --accent-450: #57bbff;
+  --accent-400: #8fe4ff;
   --danger-500: #ff6b74;
   --success-500: #6dd7a3;
   --warning-500: #ffca69;
-  --shadow-strong: 0 32px 96px rgba(1, 8, 14, 0.42);
-  --shadow-soft: 0 20px 44px rgba(2, 12, 20, 0.22);
+  --shadow-strong: 0 34px 120px rgba(1, 6, 13, 0.46);
+  --shadow-soft: 0 18px 44px rgba(2, 8, 17, 0.22);
   --font-display: "Cormorant Garamond", serif;
   --font-body: "Manrope", sans-serif;
 }
@@ -31,14 +34,15 @@
 
   html {
     scroll-behavior: smooth;
+    color-scheme: dark;
   }
 
   body {
     min-height: 100vh;
     background:
-      radial-gradient(circle at top right, rgba(87, 187, 255, 0.22), transparent 24%),
-      radial-gradient(circle at left 20%, rgba(94, 123, 255, 0.14), transparent 28%),
-      linear-gradient(180deg, var(--bg-900) 0%, var(--bg-950) 100%);
+      radial-gradient(circle at top right, rgba(87, 187, 255, 0.2), transparent 26%),
+      radial-gradient(circle at left 18%, rgba(78, 140, 255, 0.14), transparent 24%),
+      linear-gradient(180deg, var(--bg-920) 0%, var(--bg-975) 100%);
     color: var(--text-strong);
     font-family: var(--font-body);
     text-rendering: optimizeLegibility;
@@ -51,6 +55,15 @@
   textarea,
   select {
     font: inherit;
+  }
+
+  [data-sonner-toaster] {
+    pointer-events: none;
+  }
+
+  [data-sonner-toast],
+  [data-sonner-toast] * {
+    pointer-events: auto;
   }
 
   ::selection {
@@ -68,25 +81,31 @@
   }
 
   .surface-panel {
-    background: var(--panel-900);
+    background: linear-gradient(180deg, rgba(17, 28, 41, 0.92), rgba(10, 18, 28, 0.96));
     border: 1px solid var(--line);
     box-shadow: var(--shadow-soft);
     backdrop-filter: blur(22px);
   }
 
   .surface-panel-strong {
-    background: linear-gradient(180deg, var(--panel-800), var(--panel-900));
-    border: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(20, 32, 47, 0.96), rgba(10, 18, 29, 0.98));
+    border: 1px solid var(--line-strong);
     box-shadow: var(--shadow-strong);
     backdrop-filter: blur(28px);
   }
 
   .surface-shell {
-    background:
-      linear-gradient(180deg, rgba(15, 29, 45, 0.98), rgba(8, 17, 28, 0.98));
-    border: 1px solid rgba(120, 173, 215, 0.1);
+    background: linear-gradient(180deg, rgba(11, 20, 31, 0.98), rgba(6, 12, 20, 0.98));
+    border: 1px solid rgba(133, 179, 223, 0.08);
     box-shadow: var(--shadow-strong);
     backdrop-filter: blur(26px);
+  }
+
+  .surface-utility {
+    background: linear-gradient(180deg, rgba(18, 27, 38, 0.95), rgba(9, 16, 25, 0.98));
+    border: 1px solid rgba(133, 179, 223, 0.08);
+    box-shadow: 0 16px 34px rgba(2, 8, 17, 0.24);
+    backdrop-filter: blur(18px);
   }
 
   .text-soft {
@@ -122,5 +141,16 @@
   .page-grid {
     display: grid;
     gap: 1.5rem;
+  }
+
+  .page-shell {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .page-right-rail {
+    display: grid;
+    gap: 1rem;
+    align-content: start;
   }
 }

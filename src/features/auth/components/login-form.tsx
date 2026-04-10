@@ -12,11 +12,11 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting, isValid },
+    formState: { errors, isSubmitting },
     setError
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    mode: 'onChange',
+    mode: 'onBlur',
     defaultValues: {
       email: '',
       password: ''
@@ -29,27 +29,29 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       onSuccess();
     } catch (error) {
       setError('root', {
-        message: error instanceof Error ? error.message : 'Nao foi possivel entrar.'
+        message: error instanceof Error ? error.message : 'Não foi possível entrar.'
       });
     }
   });
 
   return (
-    <form className="grid gap-4" onSubmit={onSubmit}>
+    <form className="grid gap-5" onSubmit={onSubmit}>
       <Field label="Email">
-        <Input type="email" placeholder="voce@exemplo.com" {...register('email')} />
+        <Input type="email" placeholder="voce@exemplo.com" autoComplete="email" {...register('email')} />
         {errors.email ? <span className="text-xs text-rose-200">{errors.email.message}</span> : null}
       </Field>
 
       <Field label="Senha">
-        <Input type="password" placeholder="Sua senha" {...register('password')} />
+        <Input type="password" placeholder="Sua senha" autoComplete="current-password" {...register('password')} />
         {errors.password ? <span className="text-xs text-rose-200">{errors.password.message}</span> : null}
       </Field>
 
-      {errors.root ? <p className="text-sm text-rose-200">{errors.root.message}</p> : null}
+      {errors.root ? (
+        <div className="rounded-[18px] border border-rose-300/18 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{errors.root.message}</div>
+      ) : null}
 
-      <Button type="submit" size="lg" disabled={!isValid || isSubmitting}>
-        {isSubmitting ? 'Entrando...' : 'Entrar'}
+      <Button type="submit" size="lg" disabled={isSubmitting}>
+        {isSubmitting ? 'Entrando…' : 'Entrar no portal'}
       </Button>
     </form>
   );

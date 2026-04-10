@@ -26,7 +26,7 @@ export function ConditionsEditor() {
 
   return (
     <Card className="p-6">
-      <SectionTitle eyebrow="Condicoes" title="Estados ativos" description="Marque pressão, ferimentos, buffs ou restrições com cor e nota curta." />
+      <SectionTitle eyebrow="Condicoes" title="Estados ativos" description="Marque pressao, ferimentos, buffs ou restricoes com cor e nota curta." />
 
       <form
         className="mt-5 grid gap-4"
@@ -79,7 +79,7 @@ export function ConditionsEditor() {
             </div>
           ))
         ) : (
-          <EmptyState title="Nenhuma condicao ativa." body="Use o formulário acima para sinalizar estados importantes da cena." />
+          <EmptyState title="Nenhuma condicao ativa." body="Use o formulario acima para sinalizar estados importantes da cena." />
         )}
       </div>
     </Card>

@@ -26,7 +26,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <Toaster
             richColors
             closeButton
-            position="top-right"
+            position="bottom-right"
             toastOptions={{
               className: 'surface-panel text-white'
             }}

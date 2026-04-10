@@ -1,6 +1,9 @@
 import { createBrowserRouter } from 'react-router-dom';
+import { MesaLayout } from '@layouts/mesa-layout';
 import { GuestLayout } from '@routes/guest-layout';
+import { LegacyRouteRedirect } from '@routes/legacy-route-redirect';
 import { LoginPage } from '@routes/login-page';
+import { MesasPage } from '@routes/mesas-page';
 import { NotFoundPage } from '@routes/not-found-page';
 import { ProtectedLayout } from '@routes/protected-layout';
 import { RegisterPage } from '@routes/register-page';
@@ -32,28 +35,62 @@ export const router = createBrowserRouter([
     element: <ProtectedLayout />,
     children: [
       {
+        path: '/mesas',
+        element: <MesasPage />
+      },
+      {
         path: '/fichas',
-        lazy: async () => ({ Component: (await import('@routes/sheets-page')).SheetsPage })
+        element: <LegacyRouteRedirect section="fichas" />
       },
       {
         path: '/rolagens',
-        lazy: async () => ({ Component: (await import('@routes/rolls-page')).RollsPage })
+        element: <LegacyRouteRedirect section="rolagens" />
       },
       {
         path: '/ordem',
-        lazy: async () => ({ Component: (await import('@routes/order-page')).OrderPage })
+        element: <LegacyRouteRedirect section="ordem" />
       },
       {
         path: '/livro',
-        lazy: async () => ({ Component: (await import('@routes/compendium-page')).CompendiumPage })
+        element: <LegacyRouteRedirect section="livro" />
       },
       {
         path: '/mesa',
-        lazy: async () => ({ Component: (await import('@routes/mesa-page')).MesaPage })
+        element: <LegacyRouteRedirect />
       },
       {
         path: '/mesa/:slug',
-        lazy: async () => ({ Component: (await import('@routes/mesa-room-page')).MesaRoomPage })
+        element: <MesaLayout />,
+        children: [
+          {
+            index: true,
+            lazy: async () => ({ Component: (await import('@routes/mesa-overview-page')).MesaOverviewPage })
+          },
+          {
+            path: 'fichas',
+            lazy: async () => ({ Component: (await import('@routes/mesa-sheets-page')).MesaSheetsPage })
+          },
+          {
+            path: 'rolagens',
+            lazy: async () => ({ Component: (await import('@routes/mesa-rolls-page')).MesaRollsPage })
+          },
+          {
+            path: 'ordem',
+            lazy: async () => ({ Component: (await import('@routes/mesa-order-page')).MesaOrderPage })
+          },
+          {
+            path: 'livro',
+            lazy: async () => ({ Component: (await import('@routes/mesa-compendium-page')).MesaCompendiumPage })
+          },
+          {
+            path: 'membros',
+            lazy: async () => ({ Component: (await import('@routes/mesa-members-page')).MesaMembersPage })
+          },
+          {
+            path: 'configuracoes',
+            lazy: async () => ({ Component: (await import('@routes/mesa-settings-page')).MesaSettingsPage })
+          }
+        ]
       }
     ],
     hydrateFallbackElement: <Placeholder />

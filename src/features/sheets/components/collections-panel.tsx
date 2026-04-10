@@ -20,6 +20,7 @@ import { searchCanonPresets } from '@features/compendium/data';
 import { useWorkspace } from '@features/workspace/use-workspace';
 import type { InventoryItem, Passive, Technique, Vow, Weapon } from '@/types/domain';
 
+type CollectionsSection = 'all' | 'arsenal' | 'tecnicas' | 'inventario';
 type WeaponValues = import('zod').infer<typeof weaponFormSchema>;
 type TechniqueValues = import('zod').infer<typeof techniqueFormSchema>;
 type PassiveValues = import('zod').infer<typeof passiveFormSchema>;
@@ -64,7 +65,7 @@ function ItemCard({
   );
 }
 
-export function CollectionsPanel() {
+export function CollectionsPanel({ section = 'all' }: { section?: CollectionsSection }) {
   const { activeCharacter, saveCollectionItem, removeCollectionItem, setInventoryMoney } = useWorkspace();
   const [weaponEditId, setWeaponEditId] = useState<string | null>(null);
   const [techniqueEditId, setTechniqueEditId] = useState<string | null>(null);
@@ -112,10 +113,15 @@ export function CollectionsPanel() {
   const passiveEditingItem = passiveEditId ? activeCharacter.passives.find((item) => item.id === passiveEditId) : null;
   const vowEditingItem = vowEditId ? activeCharacter.vows.find((item) => item.id === vowEditId) : null;
   const inventoryEditingItem = inventoryEditId ? activeCharacter.inventory.items.find((item) => item.id === inventoryEditId) : null;
+  const showInventory = section === 'all' || section === 'inventario';
+  const showArsenal = section === 'all' || section === 'arsenal';
+  const showTechniques = section === 'all' || section === 'tecnicas';
+  const showSupport = section === 'all' || section === 'arsenal';
 
   return (
     <div className="grid gap-6">
-      <Card className="p-6">
+      {showInventory ? (
+        <Card className="p-6">
         <SectionTitle eyebrow="Inventario" title="Dinheiro e itens" description={`Saldo atual ${formatMoney(activeCharacter.inventory.money)}.`} />
         <div className="mt-5 grid gap-4">
           <Field label="Dinheiro">
@@ -183,15 +189,18 @@ export function CollectionsPanel() {
                 />
               ))
             ) : (
-              <EmptyState title="Inventario vazio." body="Adicione itens utilitarios ou use os presets canônicos." />
+              <EmptyState title="Inventario vazio." body="Adicione itens utilitarios ou use os presets canonicos." />
             )}
           </div>
         </div>
-      </Card>
+        </Card>
+      ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="p-6">
-          <SectionTitle eyebrow="Arsenal" title="Armas" description="Dano, grau, tags e descrição operacional em um fluxo único." />
+      {showArsenal || showTechniques ? (
+        <div className="grid gap-6 xl:grid-cols-2">
+          {showArsenal ? (
+            <Card className="p-6">
+          <SectionTitle eyebrow="Arsenal" title="Armas" description="Dano, grau, tags e descricao operacional em um fluxo unico." />
           <form
             className="mt-5 grid gap-4"
             onSubmit={weaponForm.handleSubmit((values) => {
@@ -260,7 +269,7 @@ export function CollectionsPanel() {
                 <ItemCard
                   key={item.id}
                   title={item.name}
-                  subtitle={`${item.grade} · ${item.damage}`}
+                  subtitle={`${item.grade} | ${item.damage}`}
                   body={item.description}
                   onEdit={() => {
                     setWeaponEditId(item.id);
@@ -270,13 +279,15 @@ export function CollectionsPanel() {
                 />
               ))
             ) : (
-              <EmptyState title="Nenhuma arma cadastrada." body="Use o formulário acima para estruturar o arsenal da ficha." />
+              <EmptyState title="Nenhuma arma cadastrada." body="Use o formulario acima para estruturar o arsenal da ficha." />
             )}
           </div>
-        </Card>
+            </Card>
+          ) : null}
 
-        <Card className="p-6">
-          <SectionTitle eyebrow="Tecnicas" title="Tecnicas amaldiçoadas" description="Custo, dano, tipo, tags e descrição com presets rápidos da obra." />
+          {showTechniques ? (
+            <Card className="p-6">
+          <SectionTitle eyebrow="Tecnicas" title="Tecnicas amaldicoadas" description="Custo, dano, tipo, tags e descricao com presets rapidos da obra." />
           <form
             className="mt-5 grid gap-4"
             onSubmit={techniqueForm.handleSubmit((values) => {
@@ -356,7 +367,7 @@ export function CollectionsPanel() {
                 <ItemCard
                   key={item.id}
                   title={item.name}
-                  subtitle={`${item.type} · Custo ${item.cost} · ${item.damage || 'Sem dano'}`}
+                  subtitle={`${item.type} | Custo ${item.cost} | ${item.damage || 'Sem dano'}`}
                   body={item.description}
                   onEdit={() => {
                     setTechniqueEditId(item.id);
@@ -373,15 +384,18 @@ export function CollectionsPanel() {
                 />
               ))
             ) : (
-              <EmptyState title="Nenhuma tecnica cadastrada." body="Cadastre o repertorio amaldiçoado ou use presets rápidos da obra." />
+              <EmptyState title="Nenhuma tecnica cadastrada." body="Cadastre o repertorio amaldicoado ou use presets rapidos da obra." />
             )}
           </div>
-        </Card>
-      </div>
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="p-6">
-          <SectionTitle eyebrow="Passivas" title="Traços constantes" description="Passivas com tags e descrição operacional para leitura rápida de mesa." />
+      {showSupport ? (
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card className="p-6">
+          <SectionTitle eyebrow="Passivas" title="Tracos constantes" description="Passivas com tags e descricao operacional para leitura rapida de mesa." />
           <form
             className="mt-5 grid gap-4"
             onSubmit={passiveForm.handleSubmit((values) => {
@@ -448,13 +462,13 @@ export function CollectionsPanel() {
                 />
               ))
             ) : (
-              <EmptyState title="Sem passivas registradas." body="Cadastre traços permanentes ou puxe presets canônicos." />
+              <EmptyState title="Sem passivas registradas." body="Cadastre tracos permanentes ou puxe presets canonicos." />
             )}
           </div>
-        </Card>
+          </Card>
 
-        <Card className="p-6">
-          <SectionTitle eyebrow="Votos" title="Votos vinculativos" description="Benefício, restrição e penalidade ficam documentados em leitura rápida." />
+          <Card className="p-6">
+          <SectionTitle eyebrow="Votos" title="Votos vinculativos" description="Beneficio, restricao e penalidade ficam documentados em leitura rapida." />
           <form
             className="mt-5 grid gap-4"
             onSubmit={vowForm.handleSubmit((values) => {
@@ -501,12 +515,12 @@ export function CollectionsPanel() {
                 />
               ))
             ) : (
-              <EmptyState title="Nenhum voto registrado." body="Cadastre pactos, restrições e ganhos dramáticos desta ficha." />
+              <EmptyState title="Nenhum voto registrado." body="Cadastre pactos, restricoes e ganhos dramaticos desta ficha." />
             )}
           </div>
-        </Card>
-      </div>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }
-

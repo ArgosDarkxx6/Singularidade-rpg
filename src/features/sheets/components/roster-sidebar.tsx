@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FileJson, FileText, Plus, RefreshCcw, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { SectionTitle } from '@components/shared/section-title';
@@ -47,9 +47,20 @@ function RosterCard({
 
 export function RosterSidebar() {
   const { state, activeCharacter, setActiveCharacter, addCharacter, removeCharacter, importCharactersFromText, importStateFromFile, resetState } = useWorkspace();
+  const [search, setSearch] = useState('');
   const [textImportValue, setTextImportValue] = useState('');
   const textFileRef = useRef<HTMLInputElement | null>(null);
   const jsonFileRef = useRef<HTMLInputElement | null>(null);
+  const filteredCharacters = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return state.characters;
+    return state.characters.filter((character) =>
+      [character.name, character.clan, character.grade]
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [search, state.characters]);
 
   const createForm = useForm<CharacterCreateValues>({
     resolver: zodResolver(characterCreateSchema) as never,
@@ -66,12 +77,17 @@ export function RosterSidebar() {
     <div className="grid gap-6">
       <Card className="p-5">
         <SectionTitle eyebrow="Roster" title="Personagens" description="Selecione a ficha ativa, crie novas entradas ou remova duplicatas do workspace." />
+        <div className="mt-5">
+          <Field label="Buscar no roster">
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, cla ou grau..." />
+          </Field>
+        </div>
         <div className="mt-5 grid gap-3">
-          {state.characters.map((character) => (
+          {filteredCharacters.map((character) => (
             <RosterCard
               key={character.id}
               name={character.name}
-              meta={`${character.clan || 'Sem cla'} · ${character.grade || 'Sem grau'}`}
+              meta={`${character.clan || 'Sem clan'} | ${character.grade || 'Sem grau'}`}
               active={character.id === activeCharacter.id}
               onSelect={() => setActiveCharacter(character.id)}
               onRemove={() => {
@@ -83,6 +99,7 @@ export function RosterSidebar() {
               }}
             />
           ))}
+          {!filteredCharacters.length ? <EmptyState title="Nenhum personagem encontrado." body="Ajuste o termo de busca para voltar ao roster completo." /> : null}
         </div>
       </Card>
 
@@ -104,7 +121,7 @@ export function RosterSidebar() {
           <Field label="Nome">
             <Input {...createForm.register('name')} />
           </Field>
-          <Field label="Cla">
+          <Field label="Clan">
             <Input {...createForm.register('clan')} />
           </Field>
           <Field label="Grau">

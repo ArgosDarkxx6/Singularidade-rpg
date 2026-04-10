@@ -393,7 +393,6 @@ export function createDefaultState(): WorkspaceState {
         text: 'Estado inicial criado com Mysto e Kayo.'
       })
     ],
-    currentView: 'sheet',
     activeCharacterId: mystoId
   };
 }
@@ -436,7 +435,6 @@ export function normalizeState(raw: Partial<WorkspaceState> | null | undefined):
     order,
     disaster: normalizeDisaster(base.disaster),
     log: base.log?.length ? base.log.map(normalizeLogEntry) : fallback.log,
-    currentView: base.currentView || 'sheet',
     activeCharacterId
   };
 }

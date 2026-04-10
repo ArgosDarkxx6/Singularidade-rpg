@@ -15,6 +15,7 @@ export default tseslint.config(
       'supabase/.temp',
       'cloudflare/*.js',
       'cloudflare/*.d.ts',
+      'src/integrations/supabase/database.types.ts',
       'src/features/compendium/data/source/*.js',
       'eslint.config.js',
       'playwright.config.js',

@@ -6,6 +6,7 @@ import type {
   PresenceMember,
   TableInvite,
   TableJoinCode,
+  TableListItem,
   TableSnapshot,
   TableState,
   WorkspaceState
@@ -95,6 +96,24 @@ function uniqueSlug(name: string): string {
   return `${base}-${index}`;
 }
 
+function toTableSummary(table: StoredTableRecord, membership: StoredMembership): TableListItem {
+  return {
+    id: table.id,
+    slug: table.slug,
+    name: table.name,
+    role: membership.role,
+    nickname: membership.nickname,
+    characterId: membership.characterId,
+    createdAt: table.createdAt,
+    updatedAt: table.updatedAt,
+    joinedAt: table.createdAt,
+    isOwner: table.ownerUserId === membership.userId,
+    seriesName: table.meta.seriesName,
+    campaignName: table.meta.campaignName,
+    status: table.meta.status
+  };
+}
+
 function getTableRecordById(tableId: string): StoredTableRecord {
   const table = readTables().find((entry) => entry.id === tableId);
   if (!table) throw new Error('Mesa nao encontrada.');
@@ -125,8 +144,37 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
     async saveWorkspace(user, state) {
       writeJson(workspaceKey(user.id), state);
     },
+    async listUserTables(user) {
+      return readTables()
+        .flatMap((table) =>
+          table.memberships
+            .filter((membership) => membership.userId === user.id)
+            .map((membership) => toTableSummary(table, membership))
+        )
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    },
     async getTable(session) {
       return toPublicTable(getTableRecordById(session.tableId));
+    },
+    async switchTable({ user, tableSlug }) {
+      const table = readTables().find((entry) => entry.slug === tableSlug);
+      if (!table) throw new Error('Mesa nao encontrada.');
+      const membership = table.memberships.find((entry) => entry.userId === user.id);
+      if (!membership) throw new Error('Voce nao participa desta mesa.');
+
+      return {
+        table: toPublicTable(table),
+        session: {
+          tableId: table.id,
+          membershipId: membership.id,
+          tableSlug: table.slug,
+          tableName: table.name,
+          role: membership.role,
+          nickname: membership.nickname,
+          characterId: membership.characterId,
+          lastJoinedAt: new Date().toISOString()
+        }
+      };
     },
     subscribeToTable(session, callback) {
       const channel = createTableChannel(session.tableId);
@@ -373,7 +421,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
     },
     async createSnapshot({ session, label, actor, state }) {
       const table = getTableRecordById(session.tableId);
-      if (session.role === 'viewer') throw new Error('Seu papel nao permite salvar snapshots.');
+      if (session.role !== 'gm') throw new Error('Apenas GMs podem salvar snapshots da mesa.');
       const snapshot: TableSnapshot = {
         id: uid('snapshot'),
         label: label.trim() || 'Snapshot manual',
@@ -414,6 +462,80 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
       };
       writeUpdatedTable(nextTable);
       return toPublicTable(nextTable);
+    },
+    async saveCharacter({ session, character }) {
+      const table = getTableRecordById(session.tableId);
+      const nextCharacters = table.state.characters.some((entry) => entry.id === character.id)
+        ? table.state.characters.map((entry) => (entry.id === character.id ? character : entry))
+        : [...table.state.characters, character];
+
+      const nextMemberships = table.memberships.map((membership) =>
+        membership.characterId === character.id
+          ? {
+              ...membership,
+              characterName: character.name
+            }
+          : membership
+      );
+
+      const nextTable = {
+        ...table,
+        state: normalizeState({
+          ...table.state,
+          characters: nextCharacters
+        }),
+        memberships: nextMemberships,
+        updatedAt: new Date().toISOString(),
+        lastEditor: session.nickname
+      };
+      writeUpdatedTable(nextTable);
+    },
+    async appendTableLog({ session, entry }) {
+      const table = getTableRecordById(session.tableId);
+      const nextTable = {
+        ...table,
+        state: normalizeState({
+          ...table.state,
+          log: [entry, ...table.state.log]
+        }),
+        updatedAt: new Date().toISOString(),
+        lastEditor: session.nickname
+      };
+      writeUpdatedTable(nextTable);
+    },
+    async clearTableLogs({ session }) {
+      const table = getTableRecordById(session.tableId);
+      const nextTable = {
+        ...table,
+        state: normalizeState({
+          ...table.state,
+          log: []
+        }),
+        updatedAt: new Date().toISOString(),
+        lastEditor: session.nickname
+      };
+      writeUpdatedTable(nextTable);
+    },
+    async leaveTable({ session, userId }) {
+      const table = getTableRecordById(session.tableId);
+      if (table.ownerUserId === userId) {
+        throw new Error('O criador da mesa nao pode sair sem transferir a administracao.');
+      }
+
+      const membership = table.memberships.find((entry) => entry.userId === userId);
+      if (!membership) return;
+
+      const activeGmCount = table.memberships.filter((entry) => entry.role === 'gm').length;
+      if (membership.role === 'gm' && activeGmCount <= 1) {
+        throw new Error('Promova outro GM antes de sair desta mesa.');
+      }
+
+      const nextTable = {
+        ...table,
+        memberships: table.memberships.filter((entry) => entry.userId !== userId),
+        updatedAt: new Date().toISOString()
+      };
+      writeUpdatedTable(nextTable);
     },
     async disconnectSession({ session, userId }) {
       const table = getTableRecordById(session.tableId);

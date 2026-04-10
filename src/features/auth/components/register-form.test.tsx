@@ -1,33 +1,27 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { RegisterForm } from '@features/auth/components/register-form';
 import { AuthProvider } from '@features/auth/hooks/use-auth';
+import { RegisterForm } from './register-form';
 import type { AuthService } from '@services/auth/types';
 
+function createAuthServiceMock(overrides: Partial<AuthService> = {}): AuthService {
+  return {
+    initialize: vi.fn().mockResolvedValue(null),
+    subscribe: vi.fn().mockReturnValue(() => undefined),
+    signUp: vi.fn().mockResolvedValue({ session: null, requiresEmailConfirmation: true }),
+    signIn: vi.fn().mockResolvedValue(null),
+    signOut: vi.fn().mockResolvedValue(undefined),
+    updateProfile: vi.fn().mockResolvedValue(null),
+    ...overrides
+  };
+}
+
 describe('RegisterForm', () => {
-  it('submits a new account and calls onSuccess', async () => {
-    const onSuccess = vi.fn();
+  it('submits email, username and password while keeping the button available before submit', async () => {
     const user = userEvent.setup();
-    const service: AuthService = {
-      initialize: async () => null,
-      subscribe: () => () => undefined,
-      signUp: async ({ email, username, displayName }) => ({
-        session: {
-          user: {
-            id: 'user_test',
-            email,
-            username,
-            displayName
-          },
-          token: 'token_test'
-        },
-        requiresEmailConfirmation: false
-      }),
-      signIn: async () => null,
-      signOut: async () => undefined,
-      updateProfile: async () => null
-    };
+    const onSuccess = vi.fn();
+    const service = createAuthServiceMock();
 
     render(
       <AuthProvider service={service}>
@@ -35,18 +29,27 @@ describe('RegisterForm', () => {
       </AuthProvider>
     );
 
-    await user.type(screen.getByPlaceholderText('Mysto'), 'Mysto');
-    await user.type(screen.getByPlaceholderText('mysto'), 'mysto');
-    await user.type(screen.getByPlaceholderText('voce@exemplo.com'), 'mysto@example.com');
+    const submitButton = screen.getByRole('button', { name: 'Criar conta' });
+    expect(submitButton).toBeEnabled();
+
+    await user.type(screen.getByLabelText('Nome público'), 'Mysto');
+    await user.type(screen.getByLabelText('Username'), 'mysto');
+    await user.type(screen.getByLabelText('Email'), 'mysto@example.com');
     await user.type(screen.getByPlaceholderText('Crie uma senha'), 'senha123');
     await user.type(screen.getByPlaceholderText('Repita a senha'), 'senha123');
-    await user.click(screen.getByRole('button', { name: /criar conta/i }));
+    await user.click(submitButton);
 
-    expect(onSuccess).toHaveBeenCalledTimes(1);
-    expect(onSuccess).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requiresEmailConfirmation: false
-      })
-    );
+    await waitFor(() => {
+      expect(service.signUp).toHaveBeenCalledWith({
+        displayName: 'Mysto',
+        username: 'mysto',
+        email: 'mysto@example.com',
+        password: 'senha123'
+      });
+    });
+    expect(onSuccess).toHaveBeenCalledWith({
+      session: null,
+      requiresEmailConfirmation: true
+    });
   });
 });

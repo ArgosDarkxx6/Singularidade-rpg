@@ -1,7 +1,20 @@
 import type { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
-import type { AuthUser, Character, PresenceMember, TableInvite, TableJoinCode, TableMeta, TableSession, TableSnapshot, TableState, WorkspaceState } from '@/types/domain';
+import type {
+  AuthUser,
+  Character,
+  LogEntry,
+  PresenceMember,
+  TableInvite,
+  TableJoinCode,
+  TableListItem,
+  TableMeta,
+  TableSession,
+  TableSnapshot,
+  TableState,
+  WorkspaceState
+} from '@/types/domain';
 import { DEFAULT_TABLE_META } from '@lib/domain/constants';
-import { createDefaultState, normalizeState } from '@lib/domain/state';
+import { createDefaultState, makeCharacter, normalizeLogEntry, normalizeState } from '@lib/domain/state';
 import { deepClone, sanitizeJoinCode, slugify, uid } from '@lib/domain/utils';
 import { workspaceStateSchema } from '@schemas/domain';
 import { supabase } from '@integrations/supabase/client';
@@ -127,11 +140,112 @@ function toTableInsert(meta: TableMeta, state: WorkspaceState, ownerId: string, 
   };
 }
 
-function toCharacterRows(tableId: string, ownerId: string, state: WorkspaceState) {
-  return state.characters.map((character, sortOrder) => ({
+type CharacterRow = {
+  id: string;
+  table_id: string;
+  owner_id: string | null;
+  name: string;
+  age: number;
+  clan: string;
+  grade: string;
+  appearance: string;
+  identity_scar: string;
+  identity_anchor: string;
+  identity_trigger: string;
+  avatar_url: string;
+  avatar_path: string;
+  money: number;
+  archived: boolean;
+  sort_order: number;
+};
+
+type CharacterResourceRow = {
+  character_id: string;
+  resource_key: 'hp' | 'energy' | 'sanity';
+  current_value: number;
+  max_value: number;
+  sort_order: number;
+};
+
+type CharacterAttributeRow = {
+  character_id: string;
+  attribute_key: keyof Character['attributes'];
+  value: number;
+  rank: Character['attributes'][keyof Character['attributes']]['rank'];
+  sort_order: number;
+};
+
+type CharacterWeaponRow = {
+  id: string;
+  character_id: string;
+  name: string;
+  grade: string;
+  damage: string;
+  tags: string[];
+  description: string;
+  sort_order: number;
+};
+
+type CharacterTechniqueRow = {
+  id: string;
+  character_id: string;
+  name: string;
+  cost: number;
+  damage: string;
+  technique_type: Character['techniques'][number]['type'];
+  tags: string[];
+  description: string;
+  sort_order: number;
+};
+
+type CharacterPassiveRow = {
+  id: string;
+  character_id: string;
+  name: string;
+  tags: string[];
+  description: string;
+  sort_order: number;
+};
+
+type CharacterVowRow = {
+  id: string;
+  character_id: string;
+  name: string;
+  benefit: string;
+  restriction: string;
+  penalty: string;
+  sort_order: number;
+};
+
+type CharacterInventoryItemRow = {
+  id: string;
+  character_id: string;
+  name: string;
+  quantity: number;
+  effect: string;
+  sort_order: number;
+};
+
+type CharacterConditionRow = {
+  id: string;
+  character_id: string;
+  name: string;
+  color: Character['conditions'][number]['color'];
+  note: string;
+  sort_order: number;
+};
+
+function buildCharacterRow(
+  tableId: string,
+  character: Character,
+  sortOrder: number,
+  fallbackOwnerId: string,
+  existingOwnerId?: string | null
+) {
+  return {
     id: character.id,
     table_id: tableId,
-    owner_id: ownerId,
+    owner_id: existingOwnerId ?? fallbackOwnerId,
     name: character.name || 'Personagem',
     age: character.age,
     clan: character.clan || '',
@@ -142,22 +256,229 @@ function toCharacterRows(tableId: string, ownerId: string, state: WorkspaceState
     identity_trigger: character.identity.trigger || '',
     avatar_url: character.avatarMode === 'url' ? character.avatar : '',
     avatar_path: character.avatarPath || '',
+    money: character.inventory.money || 0,
     archived: false,
+    sort_order: sortOrder
+  };
+}
+
+function buildResourceRows(character: Character): CharacterResourceRow[] {
+  return ([
+    ['hp', character.resources.hp],
+    ['energy', character.resources.energy],
+    ['sanity', character.resources.sanity]
+  ] as const).map(([resourceKey, resource], sortOrder) => ({
+    character_id: character.id,
+    resource_key: resourceKey,
+    current_value: resource.current,
+    max_value: resource.max,
     sort_order: sortOrder
   }));
 }
 
+function buildAttributeRows(character: Character): CharacterAttributeRow[] {
+  return (Object.entries(character.attributes) as Array<
+    [keyof Character['attributes'], Character['attributes'][keyof Character['attributes']]]
+  >).map(([attributeKey, attribute], sortOrder) => ({
+    character_id: character.id,
+    attribute_key: attributeKey,
+    value: attribute.value,
+    rank: attribute.rank,
+    sort_order: sortOrder
+  }));
+}
+
+function buildWeaponRows(character: Character): CharacterWeaponRow[] {
+  return character.weapons.map((weapon, sortOrder) => ({
+    id: weapon.id,
+    character_id: character.id,
+    name: weapon.name,
+    grade: weapon.grade,
+    damage: weapon.damage,
+    tags: weapon.tags,
+    description: weapon.description,
+    sort_order: sortOrder
+  }));
+}
+
+function buildTechniqueRows(character: Character): CharacterTechniqueRow[] {
+  return character.techniques.map((technique, sortOrder) => ({
+    id: technique.id,
+    character_id: character.id,
+    name: technique.name,
+    cost: technique.cost,
+    damage: technique.damage,
+    technique_type: technique.type,
+    tags: technique.tags,
+    description: technique.description,
+    sort_order: sortOrder
+  }));
+}
+
+function buildPassiveRows(character: Character): CharacterPassiveRow[] {
+  return character.passives.map((passive, sortOrder) => ({
+    id: passive.id,
+    character_id: character.id,
+    name: passive.name,
+    tags: passive.tags,
+    description: passive.description,
+    sort_order: sortOrder
+  }));
+}
+
+function buildVowRows(character: Character): CharacterVowRow[] {
+  return character.vows.map((vow, sortOrder) => ({
+    id: vow.id,
+    character_id: character.id,
+    name: vow.name,
+    benefit: vow.benefit,
+    restriction: vow.restriction,
+    penalty: vow.penalty,
+    sort_order: sortOrder
+  }));
+}
+
+function buildInventoryItemRows(character: Character): CharacterInventoryItemRow[] {
+  return character.inventory.items.map((item, sortOrder) => ({
+    id: item.id,
+    character_id: character.id,
+    name: item.name,
+    quantity: item.quantity,
+    effect: item.effect,
+    sort_order: sortOrder
+  }));
+}
+
+function buildConditionRows(character: Character): CharacterConditionRow[] {
+  return character.conditions.map((condition, sortOrder) => ({
+    id: condition.id,
+    character_id: character.id,
+    name: condition.name,
+    color: condition.color,
+    note: condition.note,
+    sort_order: sortOrder
+  }));
+}
+
+async function fetchExistingCharacterOwnership(tableId: string) {
+  const client = assertClient();
+  const { data, error } = await client.from('characters').select('id, owner_id').eq('table_id', tableId);
+  if (error) throw error;
+  return new Map((data || []).map((row) => [row.id, row.owner_id]));
+}
+
+async function replaceCharacterChildren(character: Character) {
+  const client = assertClient();
+
+  const resourceRows = buildResourceRows(character);
+  const attributeRows = buildAttributeRows(character);
+  const weaponRows = buildWeaponRows(character);
+  const techniqueRows = buildTechniqueRows(character);
+  const passiveRows = buildPassiveRows(character);
+  const vowRows = buildVowRows(character);
+  const inventoryRows = buildInventoryItemRows(character);
+  const conditionRows = buildConditionRows(character);
+
+  const deleteTables = [
+    'character_resources',
+    'character_attributes',
+    'character_weapons',
+    'character_techniques',
+    'character_passives',
+    'character_vows',
+    'character_inventory_items',
+    'character_conditions'
+  ] as const;
+
+  for (const tableName of deleteTables) {
+    const { error } = await client.from(tableName).delete().eq('character_id', character.id);
+    if (error) throw error;
+  }
+
+  if (resourceRows.length) {
+    const { error } = await client.from('character_resources').insert(resourceRows);
+    if (error) throw error;
+  }
+
+  if (attributeRows.length) {
+    const { error } = await client.from('character_attributes').insert(attributeRows);
+    if (error) throw error;
+  }
+
+  if (weaponRows.length) {
+    const { error } = await client.from('character_weapons').insert(weaponRows);
+    if (error) throw error;
+  }
+
+  if (techniqueRows.length) {
+    const { error } = await client.from('character_techniques').insert(techniqueRows);
+    if (error) throw error;
+  }
+
+  if (passiveRows.length) {
+    const { error } = await client.from('character_passives').insert(passiveRows);
+    if (error) throw error;
+  }
+
+  if (vowRows.length) {
+    const { error } = await client.from('character_vows').insert(vowRows);
+    if (error) throw error;
+  }
+
+  if (inventoryRows.length) {
+    const { error } = await client.from('character_inventory_items').insert(inventoryRows);
+    if (error) throw error;
+  }
+
+  if (conditionRows.length) {
+    const { error } = await client.from('character_conditions').insert(conditionRows);
+    if (error) throw error;
+  }
+}
+
 async function syncCharacterRows(tableId: string, ownerId: string, state: WorkspaceState) {
   const client = assertClient();
-  const rows = toCharacterRows(tableId, ownerId, state);
+  const ownershipMap = await fetchExistingCharacterOwnership(tableId);
+  const rows = state.characters.map((character, sortOrder) =>
+    buildCharacterRow(tableId, character, sortOrder, ownerId, ownershipMap.get(character.id))
+  );
 
-  if (!rows.length) return;
+  if (rows.length) {
+    const { error } = await client.from('characters').upsert(rows, {
+      onConflict: 'id'
+    });
+    if (error) throw error;
+  }
 
-  const { error } = await client.from('characters').upsert(rows, {
+  const activeIds = rows.map((row) => row.id);
+  const archivedIds = [...ownershipMap.keys()].filter((id) => !activeIds.includes(id));
+  if (archivedIds.length) {
+    const { error } = await client.from('characters').update({ archived: true }).in('id', archivedIds);
+    if (error) throw error;
+  }
+
+  for (const character of state.characters) {
+    await replaceCharacterChildren(character);
+  }
+}
+
+async function saveCharacterGraph(tableId: string, userId: string, character: Character) {
+  const client = assertClient();
+  const { data: existingRows, error: existingError } = await client
+    .from('characters')
+    .select('sort_order')
+    .eq('table_id', tableId)
+    .eq('id', character.id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  const row = buildCharacterRow(tableId, character, existingRows?.sort_order ?? 0, userId, userId);
+  const { error } = await client.from('characters').upsert(row, {
     onConflict: 'id'
   });
-
   if (error) throw error;
+
+  await replaceCharacterChildren(character);
 }
 
 async function createUniqueSlug(baseValue: string): Promise<string> {
@@ -296,15 +617,274 @@ async function fetchMemberships(tableId: string, state: WorkspaceState): Promise
   return mapMemberships(data || [], state);
 }
 
+async function fetchRelationalCharacters(tableId: string, fallbackState: WorkspaceState): Promise<Character[]> {
+  const client = assertClient();
+  const { data, error } = await client
+    .from('characters')
+    .select('id, table_id, owner_id, name, age, clan, grade, appearance, identity_scar, identity_anchor, identity_trigger, avatar_url, avatar_path, money, archived, sort_order')
+    .eq('table_id', tableId)
+    .eq('archived', false)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw error;
+
+  const rows = ((data || []) as CharacterRow[]).filter((row) => !row.archived);
+  if (!rows.length) {
+    return hydrateStateAvatars(fallbackState).then((state) => state.characters);
+  }
+
+  const characterIds = rows.map((row) => row.id);
+  const fallbackMap = new Map(fallbackState.characters.map((character) => [character.id, character]));
+
+  const [
+    resourceRowsResult,
+    attributeRowsResult,
+    weaponRowsResult,
+    techniqueRowsResult,
+    passiveRowsResult,
+    vowRowsResult,
+    inventoryRowsResult,
+    conditionRowsResult
+  ] = await Promise.all([
+    client.from('character_resources').select('character_id, resource_key, current_value, max_value, sort_order').in('character_id', characterIds),
+    client.from('character_attributes').select('character_id, attribute_key, value, rank, sort_order').in('character_id', characterIds),
+    client.from('character_weapons').select('id, character_id, name, grade, damage, tags, description, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
+    client.from('character_techniques').select('id, character_id, name, cost, damage, technique_type, tags, description, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
+    client.from('character_passives').select('id, character_id, name, tags, description, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
+    client.from('character_vows').select('id, character_id, name, benefit, restriction, penalty, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
+    client.from('character_inventory_items').select('id, character_id, name, quantity, effect, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
+    client.from('character_conditions').select('id, character_id, name, color, note, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true })
+  ]);
+
+  const rowResults = [
+    resourceRowsResult,
+    attributeRowsResult,
+    weaponRowsResult,
+    techniqueRowsResult,
+    passiveRowsResult,
+    vowRowsResult,
+    inventoryRowsResult,
+    conditionRowsResult
+  ];
+
+  for (const result of rowResults) {
+    if (result.error) throw result.error;
+  }
+
+  const resourceRows = (resourceRowsResult.data || []) as CharacterResourceRow[];
+  const attributeRows = (attributeRowsResult.data || []) as CharacterAttributeRow[];
+  const weaponRows = (weaponRowsResult.data || []) as CharacterWeaponRow[];
+  const techniqueRows = (techniqueRowsResult.data || []) as CharacterTechniqueRow[];
+  const passiveRows = (passiveRowsResult.data || []) as CharacterPassiveRow[];
+  const vowRows = (vowRowsResult.data || []) as CharacterVowRow[];
+  const inventoryRows = (inventoryRowsResult.data || []) as CharacterInventoryItemRow[];
+  const conditionRows = (conditionRowsResult.data || []) as CharacterConditionRow[];
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const fallback = fallbackMap.get(row.id);
+      const avatar = row.avatar_path ? await createSignedAvatarUrl(row.avatar_path) : row.avatar_url;
+      const resourceEntries = resourceRows.filter((entry) => entry.character_id === row.id);
+      const attributeEntries = attributeRows.filter((entry) => entry.character_id === row.id);
+      const hpEntry = resourceEntries.find((entry) => entry.resource_key === 'hp');
+      const energyEntry = resourceEntries.find((entry) => entry.resource_key === 'energy');
+      const sanityEntry = resourceEntries.find((entry) => entry.resource_key === 'sanity');
+
+      return makeCharacter({
+        ...fallback,
+        id: row.id,
+        name: row.name,
+        age: row.age,
+        clan: row.clan,
+        grade: row.grade,
+        appearance: row.appearance,
+        avatarMode: row.avatar_path ? 'upload' : row.avatar_url ? 'url' : 'none',
+        avatar,
+        avatarPath: row.avatar_path || '',
+        identity: {
+          scar: row.identity_scar,
+          anchor: row.identity_anchor,
+          trigger: row.identity_trigger
+        },
+        resources: resourceEntries.length
+          ? {
+              hp: hpEntry
+                ? {
+                    current: hpEntry.current_value,
+                    max: hpEntry.max_value
+                  }
+                : (fallback?.resources.hp ?? { current: 0, max: 0 }),
+              energy: energyEntry
+                ? {
+                    current: energyEntry.current_value,
+                    max: energyEntry.max_value
+                  }
+                : (fallback?.resources.energy ?? { current: 0, max: 0 }),
+              sanity: sanityEntry
+                ? {
+                    current: sanityEntry.current_value,
+                    max: sanityEntry.max_value
+                  }
+                : (fallback?.resources.sanity ?? { current: 0, max: 0 })
+            }
+          : fallback?.resources,
+        attributes: attributeEntries.length
+          ? ({
+              strength: attributeEntries.find((entry) => entry.attribute_key === 'strength')
+                ? {
+                    value: attributeEntries.find((entry) => entry.attribute_key === 'strength')!.value,
+                    rank: attributeEntries.find((entry) => entry.attribute_key === 'strength')!.rank
+                  }
+                : fallback?.attributes.strength,
+              resistance: attributeEntries.find((entry) => entry.attribute_key === 'resistance')
+                ? {
+                    value: attributeEntries.find((entry) => entry.attribute_key === 'resistance')!.value,
+                    rank: attributeEntries.find((entry) => entry.attribute_key === 'resistance')!.rank
+                  }
+                : fallback?.attributes.resistance,
+              dexterity: attributeEntries.find((entry) => entry.attribute_key === 'dexterity')
+                ? {
+                    value: attributeEntries.find((entry) => entry.attribute_key === 'dexterity')!.value,
+                    rank: attributeEntries.find((entry) => entry.attribute_key === 'dexterity')!.rank
+                  }
+                : fallback?.attributes.dexterity,
+              speed: attributeEntries.find((entry) => entry.attribute_key === 'speed')
+                ? {
+                    value: attributeEntries.find((entry) => entry.attribute_key === 'speed')!.value,
+                    rank: attributeEntries.find((entry) => entry.attribute_key === 'speed')!.rank
+                  }
+                : fallback?.attributes.speed,
+              fight: attributeEntries.find((entry) => entry.attribute_key === 'fight')
+                ? {
+                    value: attributeEntries.find((entry) => entry.attribute_key === 'fight')!.value,
+                    rank: attributeEntries.find((entry) => entry.attribute_key === 'fight')!.rank
+                  }
+                : fallback?.attributes.fight,
+              precision: attributeEntries.find((entry) => entry.attribute_key === 'precision')
+                ? {
+                    value: attributeEntries.find((entry) => entry.attribute_key === 'precision')!.value,
+                    rank: attributeEntries.find((entry) => entry.attribute_key === 'precision')!.rank
+                  }
+                : fallback?.attributes.precision,
+              intelligence: attributeEntries.find((entry) => entry.attribute_key === 'intelligence')
+                ? {
+                    value: attributeEntries.find((entry) => entry.attribute_key === 'intelligence')!.value,
+                    rank: attributeEntries.find((entry) => entry.attribute_key === 'intelligence')!.rank
+                  }
+                : fallback?.attributes.intelligence,
+              charisma: attributeEntries.find((entry) => entry.attribute_key === 'charisma')
+                ? {
+                    value: attributeEntries.find((entry) => entry.attribute_key === 'charisma')!.value,
+                    rank: attributeEntries.find((entry) => entry.attribute_key === 'charisma')!.rank
+                  }
+                : fallback?.attributes.charisma
+            }) as Character['attributes']
+          : fallback?.attributes,
+        weapons: weaponRows
+          .filter((entry) => entry.character_id === row.id)
+          .map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            grade: entry.grade,
+            damage: entry.damage,
+            tags: entry.tags || [],
+            description: entry.description
+          })),
+        techniques: techniqueRows
+          .filter((entry) => entry.character_id === row.id)
+          .map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            cost: entry.cost,
+            damage: entry.damage,
+            type: entry.technique_type,
+            tags: entry.tags || [],
+            description: entry.description
+          })),
+        passives: passiveRows
+          .filter((entry) => entry.character_id === row.id)
+          .map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            tags: entry.tags || [],
+            description: entry.description
+          })),
+        vows: vowRows
+          .filter((entry) => entry.character_id === row.id)
+          .map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            benefit: entry.benefit,
+            restriction: entry.restriction,
+            penalty: entry.penalty
+          })),
+        inventory: {
+          money: row.money || fallback?.inventory.money || 0,
+          items: inventoryRows
+            .filter((entry) => entry.character_id === row.id)
+            .map((entry) => ({
+              id: entry.id,
+              name: entry.name,
+              quantity: entry.quantity,
+              effect: entry.effect
+            }))
+        },
+        conditions: conditionRows
+          .filter((entry) => entry.character_id === row.id)
+          .map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            color: entry.color,
+            note: entry.note
+          }))
+      });
+    })
+  );
+}
+
+async function fetchTableLogs(tableId: string, fallbackLogs: LogEntry[]): Promise<LogEntry[]> {
+  const client = assertClient();
+  const { data, error } = await client
+    .from('table_logs')
+    .select('id, category, title, body, meta, created_at')
+    .eq('table_id', tableId)
+    .order('created_at', { ascending: false });
+
+  if (isPermissionError(error)) return fallbackLogs;
+  if (error) throw error;
+
+  const mapped = (data || []).map((entry) =>
+    normalizeLogEntry({
+      id: entry.id,
+      category: entry.category,
+      title: entry.title,
+      text: entry.body,
+      meta: entry.meta,
+      timestamp: entry.created_at
+    })
+  );
+
+  if (!mapped.length) return fallbackLogs;
+  const remoteIds = new Set(mapped.map((entry) => entry.id));
+  return [...mapped, ...fallbackLogs.filter((entry) => !remoteIds.has(entry.id))];
+}
+
 async function fetchTableState(tableId: string): Promise<TableState> {
   const row = await fetchTableRowById(tableId);
-  const state = await hydrateStateAvatars(parseWorkspaceState(row.state));
-  const [snapshots, memberships, joinCodes, invites] = await Promise.all([
+  const fallbackState = parseWorkspaceState(row.state);
+  const [characters, logs, snapshots, joinCodes, invites] = await Promise.all([
+    fetchRelationalCharacters(row.id, fallbackState),
+    fetchTableLogs(row.id, fallbackState.log),
     fetchSnapshots(row.id),
-    fetchMemberships(row.id, state),
     fetchJoinCodes(row.id, row.slug),
     fetchInvites(row.id, row.slug)
   ]);
+  const state = normalizeState({
+    ...fallbackState,
+    characters,
+    log: logs
+  });
+  const memberships = await fetchMemberships(row.id, state);
 
   return {
     id: row.id,
@@ -320,6 +900,81 @@ async function fetchTableState(tableId: string): Promise<TableState> {
     joinCodes,
     snapshots
   };
+}
+
+function buildTableSession(input: {
+  tableId: string;
+  tableSlug: string;
+  tableName: string;
+  membershipId: string;
+  role: TableSession['role'];
+  nickname: string;
+  characterId?: string | null;
+}): TableSession {
+  return {
+    tableId: input.tableId,
+    membershipId: input.membershipId,
+    tableSlug: input.tableSlug,
+    tableName: input.tableName,
+    role: input.role,
+    nickname: input.nickname,
+    characterId: input.characterId || '',
+    lastJoinedAt: new Date().toISOString()
+  };
+}
+
+async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> {
+  const client = assertClient();
+  const { data, error } = await client
+    .from('table_memberships')
+    .select(
+      `
+      id,
+      role,
+      nickname,
+      character_id,
+      joined_at,
+      tables!inner (
+        id,
+        slug,
+        name,
+        owner_id,
+        created_at,
+        updated_at,
+        status,
+        series_name,
+        campaign_name
+      )
+    `
+    )
+    .eq('user_id', user.id)
+    .eq('active', true);
+
+  if (error) throw error;
+
+  return (data || [])
+    .map((record): TableListItem | null => {
+      const table = Array.isArray(record.tables) ? record.tables[0] : record.tables;
+      if (!table) return null;
+
+      return {
+        id: table.id,
+        slug: table.slug,
+        name: table.name,
+        role: record.role as TableListItem['role'],
+        nickname: record.nickname,
+        characterId: record.character_id || '',
+        createdAt: table.created_at,
+        updatedAt: table.updated_at,
+        joinedAt: record.joined_at,
+        isOwner: table.owner_id === user.id,
+        seriesName: table.series_name,
+        campaignName: table.campaign_name,
+        status: table.status
+      } satisfies TableListItem;
+    })
+    .filter((entry): entry is TableListItem => Boolean(entry))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) as TableListItem[];
 }
 
 async function ensureDraftTable(user: AuthUser): Promise<string> {
@@ -402,7 +1057,7 @@ async function claimJoinCode(input: { code: string; nickname: string; characterI
   const { data, error } = await client.rpc('claim_join_code_v2', {
     join_code: input.code,
     session_nickname: input.nickname,
-    selected_character_id: input.characterId || null
+    selected_character_id: input.characterId || undefined
   });
 
   if (isMissingFunctionError(error)) {
@@ -445,8 +1100,51 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       if (error) throw error;
     },
+    async listUserTables(user) {
+      return listUserTableSummaries(user);
+    },
     async getTable(session) {
       return fetchTableState(session.tableId);
+    },
+    async switchTable({ user, tableSlug }) {
+      const client = assertClient();
+      const { data, error } = await client
+        .from('table_memberships')
+        .select(
+          `
+          id,
+          role,
+          nickname,
+          character_id,
+          tables!inner (
+            id,
+            slug,
+            name
+          )
+        `
+        )
+        .eq('user_id', user.id)
+        .eq('active', true)
+        .eq('tables.slug', tableSlug)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('Voce nao participa desta mesa.');
+      const table = Array.isArray(data.tables) ? data.tables[0] : data.tables;
+      if (!table) throw new Error('Mesa nao encontrada.');
+
+      return {
+        table: await fetchTableState(table.id),
+        session: buildTableSession({
+          tableId: table.id,
+          tableSlug: table.slug,
+          tableName: table.name,
+          membershipId: data.id,
+          role: data.role as TableSession['role'],
+          nickname: data.nickname,
+          characterId: data.character_id
+        })
+      };
     },
     async subscribeToTable(session, callback) {
       const client = assertClient();
@@ -464,6 +1162,16 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'table_snapshots', filter: `table_id=eq.${session.tableId}` }, reload)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'table_join_codes', filter: `table_id=eq.${session.tableId}` }, reload)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'table_memberships', filter: `table_id=eq.${session.tableId}` }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'table_logs', filter: `table_id=eq.${session.tableId}` }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'characters', filter: `table_id=eq.${session.tableId}` }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_resources' }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_attributes' }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_weapons' }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_techniques' }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_passives' }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_vows' }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_inventory_items' }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_conditions' }, reload)
         .subscribe();
 
       return () => {
@@ -511,6 +1219,22 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       await syncCharacterRows(insertedTable.id, user.id, state);
 
+      if (state.log.length) {
+        const { error: logError } = await client.from('table_logs').insert(
+          state.log.map((entry) => ({
+            id: entry.id,
+            table_id: insertedTable.id,
+            actor_id: user.id,
+            category: entry.category,
+            title: entry.title,
+            body: entry.text,
+            meta: entry.meta,
+            created_at: entry.timestamp
+          }))
+        );
+        if (logError) throw logError;
+      }
+
       const { error: snapshotError } = await client.from('table_snapshots').insert({
         table_id: insertedTable.id,
         created_by: user.id,
@@ -523,16 +1247,14 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const table = await fetchTableState(insertedTable.id);
       return {
         table,
-        session: {
+        session: buildTableSession({
           tableId: insertedTable.id,
           membershipId: membership.id,
           tableSlug: insertedTable.slug,
           tableName: insertedTable.name,
           role: 'gm',
-          nickname,
-          characterId: '',
-          lastJoinedAt: new Date().toISOString()
-        }
+          nickname
+        })
       };
     },
     async updateTableMeta({ session, meta }) {
@@ -574,16 +1296,15 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const table = await fetchTableState(claimed.table_id);
       return {
         table,
-        session: {
+        session: buildTableSession({
           tableId: claimed.table_id,
           membershipId: claimed.membership_id,
           tableSlug: claimed.table_slug,
           tableName: claimed.table_name,
           role: claimed.role as TableSession['role'],
           nickname,
-          characterId: claimed.character_id || '',
-          lastJoinedAt: new Date().toISOString()
-        }
+          characterId: claimed.character_id
+        })
       };
     },
     async joinByCode({ code, nickname, characterId }) {
@@ -618,16 +1339,15 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       const table = await fetchTableState(claimed.table_id);
       return {
-        session: {
+        session: buildTableSession({
           tableId: claimed.table_id,
           membershipId: claimed.membership_id,
           tableSlug: claimed.table_slug,
           tableName: claimed.table_name,
           role: claimed.role as TableSession['role'],
           nickname,
-          characterId: claimed.character_id || '',
-          lastJoinedAt: new Date().toISOString()
-        },
+          characterId: claimed.character_id
+        }),
         table
       } satisfies JoinCodeBackendResult;
     },
@@ -694,6 +1414,10 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       return fetchTableState(session.tableId);
     },
     async createSnapshot({ session, label, actor, state }) {
+      if (session.role !== 'gm') {
+        throw new Error('Apenas GMs podem salvar snapshots da mesa.');
+      }
+
       const client = assertClient();
       const { data: authUser } = await client.auth.getUser();
       const { error } = await client.from('table_snapshots').insert({
@@ -727,6 +1451,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       if (error) throw error;
 
       const nextState = parseWorkspaceState(data.state);
+      const { data: authState, error: authError } = await client.auth.getUser();
+      if (authError) throw authError;
+
       const { error: updateError } = await client
         .from('tables')
         .update({
@@ -738,6 +1465,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         .eq('id', session.tableId);
 
       if (updateError) throw updateError;
+      if (authState.user?.id) {
+        await syncCharacterRows(session.tableId, authState.user.id, nextState);
+      }
       return fetchTableState(session.tableId);
     },
     async syncTableState({ session, state, actor }) {
@@ -762,6 +1492,71 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       if (error) throw error;
       return fetchTableState(session.tableId);
+    },
+    async saveCharacter({ session, userId, character }) {
+      await saveCharacterGraph(session.tableId, userId, character);
+    },
+    async appendTableLog({ session, userId, entry }) {
+      const client = assertClient();
+      const { error } = await client.from('table_logs').insert({
+        id: entry.id,
+        table_id: session.tableId,
+        actor_id: userId,
+        category: entry.category,
+        title: entry.title,
+        body: entry.text,
+        meta: entry.meta,
+        created_at: entry.timestamp
+      });
+      if (error) throw error;
+    },
+    async clearTableLogs({ session }) {
+      const client = assertClient();
+      const { error } = await client.from('table_logs').delete().eq('table_id', session.tableId);
+      if (error) throw error;
+    },
+    async leaveTable({ session, userId }) {
+      const client = assertClient();
+      const { data: currentMembership, error: membershipError } = await client
+        .from('table_memberships')
+        .select('id, role')
+        .eq('table_id', session.tableId)
+        .eq('user_id', userId)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (membershipError) throw membershipError;
+      if (!currentMembership) return;
+
+      const { data: tableOwner, error: tableError } = await client
+        .from('tables')
+        .select('owner_id')
+        .eq('id', session.tableId)
+        .single();
+      if (tableError) throw tableError;
+
+      if (tableOwner.owner_id === userId) {
+        throw new Error('O criador da mesa nao pode sair sem transferir a administracao.');
+      }
+
+      if (currentMembership.role === 'gm') {
+        const { count, error: countError } = await client
+          .from('table_memberships')
+          .select('id', { count: 'exact', head: true })
+          .eq('table_id', session.tableId)
+          .eq('active', true)
+          .eq('role', 'gm');
+
+        if (countError) throw countError;
+        if ((count || 0) <= 1) {
+          throw new Error('Promova outro GM antes de sair desta mesa.');
+        }
+      }
+
+      const { error } = await client.rpc('leave_table', {
+        p_table_id: session.tableId
+      });
+      if (error) throw error;
     },
     async disconnectSession() {
       return;

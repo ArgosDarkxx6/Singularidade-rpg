@@ -16,7 +16,7 @@ export type TechniqueType = 'Ofensiva' | 'Suporte' | 'Controle' | 'Toque';
 
 export type TableRole = 'gm' | 'player' | 'viewer';
 
-export type AppView = 'sheet' | 'rolls' | 'order' | 'compendium' | 'mesa';
+export type MesaSection = 'overview' | 'fichas' | 'rolagens' | 'ordem' | 'livro' | 'membros' | 'configuracoes';
 
 export type RollContext = 'standard' | 'physical-attack' | 'ranged-attack' | 'domain-clash';
 
@@ -213,13 +213,28 @@ export interface TableSession {
   lastJoinedAt?: string;
 }
 
+export interface TableListItem {
+  id: string;
+  slug: string;
+  name: string;
+  role: TableRole;
+  nickname: string;
+  characterId: string;
+  createdAt: string;
+  updatedAt: string;
+  joinedAt: string;
+  isOwner: boolean;
+  seriesName: string;
+  campaignName: string;
+  status: string;
+}
+
 export interface WorkspaceState {
   version: number;
   characters: Character[];
   order: OrderState;
   disaster: DisasterState;
   log: LogEntry[];
-  currentView: AppView;
   activeCharacterId: string;
 }
 

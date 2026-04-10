@@ -135,6 +135,5 @@ export const workspaceStateSchema = z.object({
       meta: z.string()
     })
   ),
-  currentView: z.enum(['sheet', 'rolls', 'order', 'compendium', 'mesa']),
   activeCharacterId: z.string()
 });

@@ -1,4 +1,16 @@
-import type { AuthUser, Character, TableInvite, TableJoinCode, TableMeta, TableRole, TableSession, TableState, WorkspaceState } from '@/types/domain';
+import type {
+  AuthUser,
+  Character,
+  LogEntry,
+  TableInvite,
+  TableJoinCode,
+  TableListItem,
+  TableMeta,
+  TableRole,
+  TableSession,
+  TableState,
+  WorkspaceState
+} from '@/types/domain';
 
 export interface JoinCodePendingResult {
   requiresCharacter: true;
@@ -23,7 +35,9 @@ export interface UploadAvatarResult {
 export interface WorkspaceBackend {
   loadWorkspace: (user: AuthUser) => Promise<WorkspaceState>;
   saveWorkspace: (user: AuthUser, state: WorkspaceState) => Promise<void>;
+  listUserTables: (user: AuthUser) => Promise<TableListItem[]>;
   getTable: (session: TableSession) => Promise<TableState>;
+  switchTable: (input: { user: AuthUser; tableSlug: string }) => Promise<{ table: TableState; session: TableSession }>;
   subscribeToTable: (session: TableSession, callback: (table: TableState) => void) => Promise<() => void> | (() => void);
   createTable: (input: { user: AuthUser; nickname: string; meta: TableMeta; state: WorkspaceState }) => Promise<{ table: TableState; session: TableSession }>;
   updateTableMeta: (input: { session: TableSession; meta: TableMeta }) => Promise<TableState>;
@@ -41,6 +55,10 @@ export interface WorkspaceBackend {
   createSnapshot: (input: { session: TableSession; label: string; actor: string; state: WorkspaceState }) => Promise<TableState>;
   restoreSnapshot: (input: { session: TableSession; snapshotId: string }) => Promise<TableState>;
   syncTableState: (input: { session: TableSession; state: WorkspaceState; actor: string }) => Promise<TableState>;
+  saveCharacter: (input: { session: TableSession; userId: string; character: Character }) => Promise<void>;
+  appendTableLog: (input: { session: TableSession; userId: string; entry: LogEntry }) => Promise<void>;
+  clearTableLogs: (input: { session: TableSession; userId: string }) => Promise<void>;
+  leaveTable: (input: { session: TableSession; userId: string }) => Promise<void>;
   disconnectSession: (input: { session: TableSession; userId: string }) => Promise<void>;
   uploadCharacterAvatar: (input: { user: AuthUser; characterId: string; file: File }) => Promise<UploadAvatarResult>;
 }

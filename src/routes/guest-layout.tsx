@@ -10,7 +10,7 @@ export function GuestLayout() {
   }
 
   if (user) {
-    return <Navigate to="/fichas" replace />;
+    return <Navigate to="/mesas" replace />;
   }
 
   return <AuthLayout />;
