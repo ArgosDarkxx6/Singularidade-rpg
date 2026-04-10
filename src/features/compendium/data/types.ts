@@ -121,7 +121,6 @@ export type CanonPresetCollectionKey =
 export interface GlossaryGroup {
   key: string;
   label: string;
-  art: string;
 }
 
 export interface GlossaryEntry {

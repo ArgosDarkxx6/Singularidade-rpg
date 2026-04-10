@@ -67,6 +67,10 @@ export const router = createBrowserRouter([
             lazy: async () => ({ Component: (await import('@routes/mesa-overview-page')).MesaOverviewPage })
           },
           {
+            path: 'sessao',
+            lazy: async () => ({ Component: (await import('@routes/mesa-session-page')).MesaSessionPage })
+          },
+          {
             path: 'fichas',
             lazy: async () => ({ Component: (await import('@routes/mesa-sheets-page')).MesaSheetsPage })
           },

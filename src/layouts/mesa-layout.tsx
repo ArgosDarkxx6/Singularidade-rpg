@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeftRight,
   BookOpenText,
+  CalendarClock,
   ChevronDown,
   DoorOpen,
   LayoutDashboard,
@@ -35,6 +36,7 @@ import type { AuthUser, MesaSection, PresenceMember, TableSession, TableState } 
 
 const sectionIcons: Record<MesaSection, typeof LayoutDashboard> = {
   overview: LayoutDashboard,
+  sessao: CalendarClock,
   fichas: Sparkles,
   rolagens: Sparkles,
   ordem: Swords,
@@ -45,6 +47,7 @@ const sectionIcons: Record<MesaSection, typeof LayoutDashboard> = {
 
 const sectionDescriptions: Record<MesaSection, string> = {
   overview: 'Resumo vivo da campanha, status atual e leitura rápida da sessão.',
+  sessao: 'Episódio, presença, andamento da sessão e histórico recente da mesa.',
   fichas: 'Roster, ficha ativa e operação de personagens dentro da mesa.',
   rolagens: 'Composer de testes, TN e histórico compartilhado da sessão.',
   ordem: 'Fluxo tático de iniciativa, turnos e controle de confronto.',
@@ -187,10 +190,10 @@ function MesaUtilityContent({
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Nickname de presença</p>
             <p className="mt-2 text-base font-semibold text-white">{session.nickname}</p>
           </UtilityPanel>
-          <UtilityPanel className="rounded-[20px] px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status</p>
-            <p className="mt-2 text-base font-semibold text-white">{currentTableSummary?.status || table.meta.status || 'Planejamento'}</p>
-          </UtilityPanel>
+            <UtilityPanel className="rounded-[20px] px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status</p>
+              <p className="mt-2 text-base font-semibold text-white">{currentTableSummary?.status || table.currentSession?.status || 'Sem sessão'}</p>
+            </UtilityPanel>
           <UtilityPanel className="rounded-[20px] px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Último sync</p>
             <p className="mt-2 text-base font-semibold text-white">{formatRelativeDate(table.updatedAt)}</p>
@@ -450,7 +453,7 @@ export function MesaLayout() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <UtilityPanel className="rounded-[20px] px-4 py-3">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status</p>
-                    <p className="mt-2 text-sm font-semibold text-white">{currentTableSummary?.status || table.meta.status || 'Planejamento'}</p>
+                    <p className="mt-2 text-sm font-semibold text-white">{currentTableSummary?.status || table.currentSession?.status || 'Sem sessão'}</p>
                   </UtilityPanel>
                   <UtilityPanel className="rounded-[20px] px-4 py-3">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Membros</p>

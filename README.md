@@ -65,10 +65,11 @@ Esse comando executa a build e depois faz o deploy do worker configurado em `wra
 
 O workflow em `.github/workflows/deploy-cloudflare.yml`:
 
-- instala dependências com `npm ci`
-- executa lint e typecheck
-- gera a build
-- valida o bundle do Worker com dry-run
+- valida as variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` como variáveis do repositório ou secrets
+- executa `npm run check`
+- instala o Chromium do Playwright e executa `npm run test:e2e`
+- executa `npm run build`
+- valida o bundle do Worker com `npx wrangler deploy --dry-run`
 - publica no Cloudflare somente em push para `main`
 
 ## Variáveis de ambiente
@@ -77,6 +78,13 @@ Frontend:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+
+GitHub Actions / Cloudflare:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+Esses valores podem ser cadastrados como `vars` ou `secrets` no repositório. O workflow usa o que estiver disponível e falha com mensagem explícita se faltar algum requisito.
 
 Cloudflare opcional:
 

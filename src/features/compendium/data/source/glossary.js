@@ -1,8 +1,8 @@
 export const GLOSSARY_GROUPS = [
-  { key: 'ferramentas', label: 'Armas e ferramentas amaldiçoadas', art: 'assets/reference_art/katana-sorcerer.png' },
-  { key: 'tecnicas', label: 'Tecnicas da obra', art: 'assets/reference_art/gojo-cursed-energy.png' },
-  { key: 'objetos', label: 'Objetos amaldiçoados', art: 'assets/reference_art/standing-sorcerer.png' },
-  { key: 'dominios', label: 'Dominios e expansoes', art: 'assets/reference_art/agile-sorcerer.png' }
+  { key: 'ferramentas', label: 'Armas e ferramentas amaldiçoadas' },
+  { key: 'tecnicas', label: 'Tecnicas da obra' },
+  { key: 'objetos', label: 'Objetos amaldiçoados' },
+  { key: 'dominios', label: 'Dominios e expansoes' }
 ];
 
 export const GLOSSARY_ENTRIES = [

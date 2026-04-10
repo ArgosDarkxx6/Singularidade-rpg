@@ -1,12 +1,24 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { cn } from '@lib/utils';
 
-export function Field({ label, hint, children, className = '' }: { label: string; hint?: string; children: ReactNode; className?: string }) {
+export function Field({
+  label,
+  hint,
+  error,
+  children,
+  className = ''
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <label className={cn('grid gap-2 text-sm text-soft', className)}>
+    <label className={cn('grid min-w-0 gap-2 text-sm text-soft', className)}>
       <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{label}</span>
       {children}
-      {hint ? <span className="text-xs text-muted">{hint}</span> : null}
+      {error ? <span className="text-xs text-rose-200">{error}</span> : hint ? <span className="text-xs text-muted">{hint}</span> : null}
     </label>
   );
 }
@@ -15,7 +27,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        'min-h-12 rounded-[18px] border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/75',
+        'min-h-12 w-full min-w-0 rounded-[18px] border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/75',
         className
       )}
       {...props}
@@ -27,7 +39,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cn(
-        'min-h-28 rounded-[18px] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/75',
+        'min-h-28 w-full min-w-0 rounded-[18px] border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/75',
         className
       )}
       {...props}
@@ -39,7 +51,7 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
   return (
     <select
       className={cn(
-        'min-h-12 rounded-[18px] border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/75',
+        'min-h-12 w-full min-w-0 rounded-[18px] border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/75',
         className
       )}
       {...props}

@@ -6,11 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
-import { Field, Input, Select, Textarea } from '@components/ui/field';
+import { Field, Input, Textarea } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { MesaHero, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { useWorkspace } from '@features/workspace/use-workspace';
-import { TABLE_STATUS_OPTIONS } from '@lib/domain/constants';
 import { snapshotSchema, tableMetaSchema } from '@schemas/mesa';
 
 type TableMetaValues = import('zod').infer<typeof tableMetaSchema>;
@@ -62,14 +61,14 @@ export function MesaSettingsPage() {
       <MesaHero
         eyebrow="Configurações da mesa"
         title="Administração, metadados e segurança"
-        description="Separe aqui o que é estrutural da campanha: cabeçalho, objetivo da sessão, snapshots e saída da mesa."
+        description="Separe aqui o que é estrutural da campanha: cabeçalho, contexto geral, snapshots e saída da mesa."
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_360px]">
         <div className="grid gap-6">
           <Panel className="rounded-[28px] p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Metadados</p>
-            <h2 className="mt-2 font-display text-4xl leading-none text-white">Identidade e briefing da mesa</h2>
+            <h2 className="mt-2 font-display text-4xl leading-none text-white">Identidade e contexto da mesa</h2>
             <p className="mt-3 text-sm leading-6 text-soft">
               O cabeçalho da mesa alimenta overview, right rail e contexto para quem entra no servidor.
             </p>
@@ -85,41 +84,17 @@ export function MesaSettingsPage() {
                 <Field label="Nome da mesa">
                   <Input disabled={!canManage} {...metaForm.register('tableName')} />
                 </Field>
+                <Field label="Descrição" className="md:col-span-2">
+                  <Textarea disabled={!canManage} {...metaForm.register('description')} />
+                </Field>
                 <Field label="Série">
                   <Input disabled={!canManage} {...metaForm.register('seriesName')} />
                 </Field>
                 <Field label="Campanha">
                   <Input disabled={!canManage} {...metaForm.register('campaignName')} />
                 </Field>
-                <Field label="Status">
-                  <Select disabled={!canManage} {...metaForm.register('status')}>
-                    {TABLE_STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Episódio">
-                  <Input disabled={!canManage} {...metaForm.register('episodeNumber')} />
-                </Field>
-                <Field label="Título do episódio">
-                  <Input disabled={!canManage} {...metaForm.register('episodeTitle')} />
-                </Field>
-                <Field label="Data da sessão">
-                  <Input disabled={!canManage} type="date" {...metaForm.register('sessionDate')} />
-                </Field>
-                <Field label="Local">
-                  <Input disabled={!canManage} {...metaForm.register('location')} />
-                </Field>
-                <Field label="Elenco esperado" className="md:col-span-2">
-                  <Textarea disabled={!canManage} {...metaForm.register('expectedRoster')} />
-                </Field>
-                <Field label="Recap" className="md:col-span-2">
-                  <Textarea disabled={!canManage} {...metaForm.register('recap')} />
-                </Field>
-                <Field label="Objetivo" className="md:col-span-2">
-                  <Textarea disabled={!canManage} {...metaForm.register('objective')} />
+                <Field label="Vagas">
+                  <Input disabled={!canManage} type="number" min={0} {...metaForm.register('slotCount', { valueAsNumber: true })} />
                 </Field>
               </div>
 
@@ -205,7 +180,7 @@ export function MesaSettingsPage() {
             </UtilityPanel>
             <UtilityPanel className="rounded-[20px] p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status da campanha</p>
-              <p className="mt-2 text-sm font-semibold text-white">{table.meta.status || 'Planejamento'}</p>
+              <p className="mt-2 text-sm font-semibold text-white">{table.currentSession?.status || 'Sem sessão ativa'}</p>
             </UtilityPanel>
           </MesaRailCard>
 

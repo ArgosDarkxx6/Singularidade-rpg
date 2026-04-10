@@ -16,7 +16,7 @@ export type TechniqueType = 'Ofensiva' | 'Suporte' | 'Controle' | 'Toque';
 
 export type TableRole = 'gm' | 'player' | 'viewer';
 
-export type MesaSection = 'overview' | 'fichas' | 'rolagens' | 'ordem' | 'livro' | 'membros' | 'configuracoes';
+export type MesaSection = 'overview' | 'sessao' | 'fichas' | 'rolagens' | 'ordem' | 'livro' | 'membros' | 'configuracoes';
 
 export type RollContext = 'standard' | 'physical-attack' | 'ranged-attack' | 'domain-clash';
 
@@ -110,6 +110,25 @@ export interface Character {
   conditions: Condition[];
 }
 
+export interface MesaMeta {
+  tableName: string;
+  description: string;
+  slotCount: number;
+  seriesName: string;
+  campaignName: string;
+}
+
+export interface LegacySessionMeta {
+  episodeNumber: string;
+  episodeTitle: string;
+  sessionDate: string;
+  location: string;
+  status: string;
+  expectedRoster: string;
+  recap: string;
+  objective: string;
+}
+
 export interface DisasterEvent {
   id: string;
   timestamp: string;
@@ -149,18 +168,44 @@ export interface OrderState {
   entries: OrderEntry[];
 }
 
-export interface TableMeta {
-  tableName: string;
-  seriesName: string;
-  campaignName: string;
+export type TableMeta = MesaMeta;
+
+export type SessionAttendanceStatus = 'pending' | 'present' | 'absent';
+
+export interface GameSession {
+  id: string;
+  tableId: string;
   episodeNumber: string;
   episodeTitle: string;
+  status: string;
   sessionDate: string;
   location: string;
-  status: string;
-  expectedRoster: string;
-  recap: string;
   objective: string;
+  recap: string;
+  notes: string;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SessionAttendance {
+  id: string;
+  sessionId: string;
+  membershipId: string;
+  status: SessionAttendanceStatus;
+  markedAt: string;
+}
+
+export interface TableAccessSession {
+  tableId: string;
+  membershipId: string;
+  tableSlug: string;
+  tableName: string;
+  role: TableRole;
+  nickname: string;
+  characterId: string;
+  lastJoinedAt?: string;
 }
 
 export interface ExternalReferenceCard {
@@ -202,16 +247,7 @@ export interface TableJoinCode {
   updatedAt: string;
 }
 
-export interface TableSession {
-  tableId: string;
-  membershipId: string;
-  tableSlug: string;
-  tableName: string;
-  role: TableRole;
-  nickname: string;
-  characterId: string;
-  lastJoinedAt?: string;
-}
+export type TableSession = TableAccessSession;
 
 export interface TableListItem {
   id: string;
@@ -255,6 +291,9 @@ export interface TableState {
   createdAt: string;
   lastEditor: string;
   state: WorkspaceState;
+  currentSession: GameSession | null;
+  sessionAttendances: SessionAttendance[];
+  sessionHistoryPreview?: GameSession[];
   memberships: PresenceMember[];
   invites: TableInvite[];
   joinCodes: TableJoinCode[];
@@ -266,6 +305,9 @@ export interface OnlineState {
   status: 'offline' | 'connecting' | 'connected' | 'syncing' | 'reconnecting' | 'error';
   session: TableSession | null;
   table: TableState | null;
+  currentSession: GameSession | null;
+  sessionAttendances: SessionAttendance[];
+  sessionHistoryPreview?: GameSession[];
   members: PresenceMember[];
   snapshots: TableSnapshot[];
   joinCodes: TableJoinCode[];

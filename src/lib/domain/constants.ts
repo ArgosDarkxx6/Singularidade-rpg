@@ -1,4 +1,13 @@
-import type { AttributeKey, Rank, ResourceKey, RollContext, TableMeta } from '@/types/domain';
+﻿import type {
+  AttributeKey,
+  GameSession,
+  MesaMeta,
+  Rank,
+  ResourceKey,
+  RollContext,
+  SessionAttendanceStatus,
+  TableMeta
+} from '@/types/domain';
 
 export const CURRENT_VERSION = 8;
 export const STORAGE_KEY = 'singularidade-remake-state-v8';
@@ -37,9 +46,17 @@ export const TECHNIQUE_TYPES = ['Ofensiva', 'Suporte', 'Controle', 'Toque'] as c
 export const GRADE_OPTIONS = ['Grau 4', 'Grau 3', 'Grau 2', 'Grau 1', 'Grau Especial'];
 export const ROLL_TN_PRESETS = [10, 13, 15, 17, 20];
 export const TABLE_STATUS_OPTIONS = ['Planejamento', 'Em sessão', 'Intervalo', 'Finalizada'];
+export const SESSION_STATUS_OPTIONS = ['Planejamento', 'Em sessão', 'Intervalo', 'Finalizada'] as const;
+
+export const SESSION_ATTENDANCE_STATUS_LABELS: Record<SessionAttendanceStatus, string> = {
+  pending: 'Pendente',
+  present: 'Presente',
+  absent: 'Ausente'
+};
 
 export const MESA_SECTION_LABELS = {
   overview: 'Mesa',
+  sessao: 'Sessão',
   fichas: 'Fichas',
   rolagens: 'Rolagens',
   ordem: 'Ordem',
@@ -63,16 +80,31 @@ export const CONDITION_COLORS = {
   gray: { label: 'Cinza', bg: 'rgba(180, 194, 214, 0.16)', border: 'rgba(180, 194, 214, 0.4)' }
 } as const;
 
-export const DEFAULT_TABLE_META: TableMeta = {
+export const DEFAULT_MESA_META: MesaMeta = {
   tableName: 'Mesa Singularidade',
+  description: '',
+  slotCount: 0,
   seriesName: 'Jujutsu Kaisen',
-  campaignName: '',
+  campaignName: ''
+};
+
+export const DEFAULT_TABLE_META: TableMeta = {
+  ...DEFAULT_MESA_META
+};
+
+export const DEFAULT_GAME_SESSION: GameSession = {
+  id: '',
+  tableId: '',
   episodeNumber: '',
   episodeTitle: '',
+  status: 'Planejamento',
   sessionDate: '',
   location: '',
-  status: 'Planejamento',
-  expectedRoster: '',
+  objective: '',
   recap: '',
-  objective: ''
+  notes: '',
+  isActive: false,
+  createdBy: '',
+  createdAt: '',
+  updatedAt: ''
 };

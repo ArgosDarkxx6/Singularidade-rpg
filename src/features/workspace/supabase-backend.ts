@@ -2,8 +2,11 @@ import type { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
 import type {
   AuthUser,
   Character,
+  GameSession,
   LogEntry,
   PresenceMember,
+  SessionAttendance,
+  SessionAttendanceStatus,
   TableInvite,
   TableJoinCode,
   TableListItem,
@@ -29,6 +32,10 @@ function assertClient() {
   }
 
   return supabase;
+}
+
+function now() {
+  return new Date().toISOString();
 }
 
 function isPermissionError(error: PostgrestError | null) {
@@ -86,31 +93,13 @@ function parseWorkspaceState(input: Json | null | undefined): WorkspaceState {
   return normalizeState((input as Partial<WorkspaceState> | null | undefined) ?? createDefaultState());
 }
 
-function toTableMeta(row: {
-  name: string;
-  series_name: string;
-  campaign_name: string;
-  episode_number: string;
-  episode_title: string;
-  session_date: string | null;
-  location: string;
-  status: string;
-  expected_roster: string;
-  recap: string;
-  objective: string;
-}): TableMeta {
+function toTableMeta(row: TableRow): TableMeta {
   return {
     tableName: row.name,
+    description: row.description || '',
+    slotCount: row.slot_count || 0,
     seriesName: row.series_name,
-    campaignName: row.campaign_name,
-    episodeNumber: row.episode_number,
-    episodeTitle: row.episode_title,
-    sessionDate: row.session_date || '',
-    location: row.location,
-    status: row.status,
-    expectedRoster: row.expected_roster,
-    recap: row.recap,
-    objective: row.objective
+    campaignName: row.campaign_name
   };
 }
 
@@ -118,16 +107,18 @@ function toTableInsert(meta: TableMeta, state: WorkspaceState, ownerId: string, 
   return {
     slug,
     name: meta.tableName || DEFAULT_TABLE_META.tableName,
+    description: meta.description || '',
+    slot_count: meta.slotCount || 0,
     series_name: meta.seriesName || DEFAULT_TABLE_META.seriesName,
     campaign_name: meta.campaignName || '',
-    episode_number: meta.episodeNumber || '',
-    episode_title: meta.episodeTitle || '',
-    session_date: meta.sessionDate || null,
-    location: meta.location || '',
-    status: meta.status || DEFAULT_TABLE_META.status,
-    expected_roster: meta.expectedRoster || '',
-    recap: meta.recap || '',
-    objective: meta.objective || '',
+    episode_number: '',
+    episode_title: '',
+    session_date: null,
+    location: '',
+    status: 'Sem sessão',
+    expected_roster: '',
+    recap: '',
+    objective: '',
     meta: {
       ...meta,
       ...(kind ? { kind } : {})
@@ -233,6 +224,72 @@ type CharacterConditionRow = {
   color: Character['conditions'][number]['color'];
   note: string;
   sort_order: number;
+};
+
+type TableRow = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  slot_count: number;
+  series_name: string;
+  campaign_name: string;
+  episode_number: string;
+  episode_title: string;
+  session_date: string | null;
+  location: string;
+  status: string;
+  expected_roster: string;
+  recap: string;
+  objective: string;
+  meta: Json;
+  state: Json;
+  owner_id: string | null;
+  current_round: number;
+  current_turn_index: number;
+  current_session_id: string | null;
+  created_at: string;
+  updated_at: string;
+  last_editor: string | null;
+};
+
+type TableSessionRow = {
+  id: string;
+  table_id: string;
+  episode_number: string;
+  episode_title: string;
+  status: string;
+  session_date: string | null;
+  location: string;
+  objective: string;
+  recap: string;
+  notes: string;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type TableSessionAttendanceRow = {
+  id: string;
+  session_id: string;
+  membership_id: string;
+  status: SessionAttendanceStatus;
+  marked_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type TableMembershipRow = {
+  id: string;
+  table_id: string;
+  user_id: string;
+  role: string;
+  character_id: string | null;
+  nickname: string;
+  active: boolean;
+  joined_at: string;
+  updated_at: string;
 };
 
 function buildCharacterRow(
@@ -589,7 +646,7 @@ async function fetchInvites(tableId: string, tableSlug: string): Promise<TableIn
   }));
 }
 
-function mapMemberships(records: Array<{ id: string; user_id: string; role: string; character_id: string | null; nickname: string; active: boolean }>, state: WorkspaceState): PresenceMember[] {
+function mapMemberships(records: TableMembershipRow[], state: WorkspaceState): PresenceMember[] {
   return records
     .filter((membership) => membership.active)
     .map((membership) => {
@@ -604,17 +661,139 @@ function mapMemberships(records: Array<{ id: string; user_id: string; role: stri
     });
 }
 
-async function fetchMemberships(tableId: string, state: WorkspaceState): Promise<PresenceMember[]> {
+async function fetchMembershipRows(tableId: string): Promise<TableMembershipRow[]> {
   const client = assertClient();
   const { data, error } = await client
     .from('table_memberships')
-    .select('id, user_id, role, character_id, nickname, active')
+    .select('id, table_id, user_id, role, character_id, nickname, active, joined_at, updated_at')
     .eq('table_id', tableId)
-    .eq('active', true)
     .order('joined_at', { ascending: true });
 
   if (error) throw error;
-  return mapMemberships(data || [], state);
+  return (data || []) as TableMembershipRow[];
+}
+
+function toGameSession(row: TableSessionRow): GameSession {
+  return {
+    id: row.id,
+    tableId: row.table_id,
+    episodeNumber: row.episode_number || '',
+    episodeTitle: row.episode_title || '',
+    status: row.status || 'Planejamento',
+    sessionDate: row.session_date || '',
+    location: row.location || '',
+    objective: row.objective || '',
+    recap: row.recap || '',
+    notes: row.notes || '',
+    isActive: row.is_active,
+    createdBy: row.created_by || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function fetchCurrentSession(tableId: string, fallbackRow: TableRow): Promise<GameSession | null> {
+  const client = assertClient();
+  if (fallbackRow.current_session_id) {
+    const { data, error } = await client
+      .from('table_sessions')
+      .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
+      .eq('id', fallbackRow.current_session_id)
+      .eq('table_id', tableId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data) return toGameSession(data as TableSessionRow);
+  }
+
+  const { data, error } = await client
+    .from('table_sessions')
+    .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
+    .eq('table_id', tableId)
+    .order('is_active', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data) return toGameSession(data as TableSessionRow);
+
+  if (
+    fallbackRow.episode_number ||
+    fallbackRow.episode_title ||
+    fallbackRow.session_date ||
+    fallbackRow.location ||
+    fallbackRow.status ||
+    fallbackRow.recap ||
+    fallbackRow.objective
+  ) {
+    return {
+      id: fallbackRow.current_session_id || uid('session'),
+      tableId,
+      episodeNumber: fallbackRow.episode_number || '',
+      episodeTitle: fallbackRow.episode_title || '',
+      status: fallbackRow.status || 'Planejamento',
+      sessionDate: fallbackRow.session_date || '',
+      location: fallbackRow.location || '',
+      objective: fallbackRow.objective || '',
+      recap: fallbackRow.recap || '',
+      notes: '',
+      isActive: fallbackRow.status === 'Em sessão',
+      createdBy: fallbackRow.owner_id || '',
+      createdAt: fallbackRow.created_at,
+      updatedAt: fallbackRow.updated_at
+    };
+  }
+
+  return null;
+}
+
+async function fetchSessionHistoryPreview(tableId: string): Promise<GameSession[]> {
+  const client = assertClient();
+  const { data, error } = await client
+    .from('table_sessions')
+    .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
+    .eq('table_id', tableId)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (error) throw error;
+  return (data || []).map((row) => toGameSession(row as TableSessionRow));
+}
+
+async function fetchSessionAttendances(sessionId: string, memberships: TableMembershipRow[]): Promise<SessionAttendance[]> {
+  const client = assertClient();
+  const { data, error } = await client
+    .from('table_session_attendances')
+    .select('id, session_id, membership_id, status, marked_at, created_at, updated_at')
+    .eq('session_id', sessionId)
+    .order('marked_at', { ascending: false });
+
+  if (error) throw error;
+  const rows = (data || []) as TableSessionAttendanceRow[];
+  const map = new Map(rows.map((row) => [row.membership_id, row]));
+  return memberships
+    .filter((membership) => membership.active)
+    .map((membership) => {
+      const existing = map.get(membership.id);
+      if (existing) {
+        return {
+          id: existing.id,
+          sessionId: existing.session_id,
+          membershipId: existing.membership_id,
+          status: existing.status,
+          markedAt: existing.marked_at
+        };
+      }
+
+      return {
+        id: uid('attendance'),
+        sessionId,
+        membershipId: membership.id,
+        status: 'pending',
+        markedAt: now()
+      };
+    });
 }
 
 async function fetchRelationalCharacters(tableId: string, fallbackState: WorkspaceState): Promise<Character[]> {
@@ -872,19 +1051,24 @@ async function fetchTableLogs(tableId: string, fallbackLogs: LogEntry[]): Promis
 async function fetchTableState(tableId: string): Promise<TableState> {
   const row = await fetchTableRowById(tableId);
   const fallbackState = parseWorkspaceState(row.state);
-  const [characters, logs, snapshots, joinCodes, invites] = await Promise.all([
+  const [characters, logs, snapshots, joinCodes, invites, membershipRows, currentSession, sessionHistoryPreview] = await Promise.all([
     fetchRelationalCharacters(row.id, fallbackState),
     fetchTableLogs(row.id, fallbackState.log),
     fetchSnapshots(row.id),
     fetchJoinCodes(row.id, row.slug),
-    fetchInvites(row.id, row.slug)
+    fetchInvites(row.id, row.slug),
+    fetchMembershipRows(row.id),
+    fetchCurrentSession(row.id, row),
+    fetchSessionHistoryPreview(row.id)
   ]);
   const state = normalizeState({
     ...fallbackState,
     characters,
     log: logs
   });
-  const memberships = await fetchMemberships(row.id, state);
+  const memberships = mapMemberships(membershipRows, state);
+  const sessionAttendances = currentSession ? await fetchSessionAttendances(currentSession.id, membershipRows) : [];
+  const preview = sessionHistoryPreview.length ? sessionHistoryPreview : currentSession ? [currentSession] : [];
 
   return {
     id: row.id,
@@ -895,6 +1079,9 @@ async function fetchTableState(tableId: string): Promise<TableState> {
     createdAt: row.created_at,
     lastEditor: row.last_editor || '',
     state,
+    currentSession,
+    sessionAttendances,
+    sessionHistoryPreview: preview,
     memberships,
     invites,
     joinCodes,
@@ -1000,8 +1187,7 @@ async function ensureDraftTable(user: AuthUser): Promise<string> {
       toTableInsert(
         {
           ...DEFAULT_TABLE_META,
-          tableName: `Workspace de ${user.username || user.displayName || 'feiticeiro'}`,
-          status: 'Planejamento'
+          tableName: `Workspace de ${user.username || user.displayName || 'feiticeiro'}`
         },
         initialState,
         user.id,
@@ -1159,6 +1345,8 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       channel
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `id=eq.${session.tableId}` }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions', filter: `table_id=eq.${session.tableId}` }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'table_session_attendances' }, reload)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'table_snapshots', filter: `table_id=eq.${session.tableId}` }, reload)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'table_join_codes', filter: `table_id=eq.${session.tableId}` }, reload)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'table_memberships', filter: `table_id=eq.${session.tableId}` }, reload)
@@ -1259,26 +1447,22 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     },
     async updateTableMeta({ session, meta }) {
       const client = assertClient();
+
       const { error } = await client
         .from('tables')
         .update({
           name: meta.tableName || DEFAULT_TABLE_META.tableName,
+          description: meta.description || '',
+          slot_count: meta.slotCount || 0,
           series_name: meta.seriesName || DEFAULT_TABLE_META.seriesName,
           campaign_name: meta.campaignName || '',
-          episode_number: meta.episodeNumber || '',
-          episode_title: meta.episodeTitle || '',
-          session_date: meta.sessionDate || null,
-          location: meta.location || '',
-          status: meta.status || DEFAULT_TABLE_META.status,
-          expected_roster: meta.expectedRoster || '',
-          recap: meta.recap || '',
-          objective: meta.objective || '',
           meta: meta as unknown as Json,
           last_editor: session.nickname
         })
         .eq('id', session.tableId);
 
       if (error) throw error;
+
       return fetchTableState(session.tableId);
     },
     async joinByInvite({ inviteUrl, nickname }) {
@@ -1352,6 +1536,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       } satisfies JoinCodeBackendResult;
     },
     async createInvite({ session, role, characterId, label, origin }) {
+      if (session.role !== 'gm') {
+        throw new Error('Apenas GMs podem criar convites.');
+      }
       const client = assertClient();
       const token = crypto.randomUUID().replace(/-/g, '');
       const { error } = await client.from('table_invites').insert({
@@ -1372,6 +1559,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       };
     },
     async createJoinCode({ session, role, label, characterId }) {
+      if (session.role !== 'gm') {
+        throw new Error('Apenas GMs podem criar codigos.');
+      }
       const client = assertClient();
 
       for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -1408,6 +1598,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       throw new Error('Nao foi possivel gerar um codigo unico.');
     },
     async revokeJoinCode(session, joinCodeId) {
+      if (session.role !== 'gm') {
+        throw new Error('Apenas GMs podem revogar codigos.');
+      }
       const client = assertClient();
       const { error } = await client.from('table_join_codes').delete().eq('id', joinCodeId).eq('table_id', session.tableId);
       if (error) throw error;
@@ -1471,13 +1664,14 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       return fetchTableState(session.tableId);
     },
     async syncTableState({ session, state, actor }) {
+      if (session.role !== 'gm') {
+        throw new Error('Apenas GMs podem sincronizar o estado global da mesa.');
+      }
       const client = assertClient();
-      if (session.role === 'gm') {
-        const { data: authState, error: authError } = await client.auth.getUser();
-        if (authError) throw authError;
-        if (authState.user?.id) {
-          await syncCharacterRows(session.tableId, authState.user.id, state);
-        }
+      const { data: authState, error: authError } = await client.auth.getUser();
+      if (authError) throw authError;
+      if (authState.user?.id) {
+        await syncCharacterRows(session.tableId, authState.user.id, state);
       }
 
       const { error } = await client
@@ -1493,7 +1687,190 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       if (error) throw error;
       return fetchTableState(session.tableId);
     },
+    async createGameSession({ session, gameSession }) {
+      if (session.role !== 'gm') throw new Error('Apenas GMs podem criar sessoes.');
+      const client = assertClient();
+      const payload = {
+        table_id: session.tableId,
+        episode_number: gameSession.episodeNumber || '',
+        episode_title: gameSession.episodeTitle || '',
+        status: gameSession.status || 'Planejamento',
+        session_date: gameSession.sessionDate || null,
+        location: gameSession.location || '',
+        objective: gameSession.objective || '',
+        recap: gameSession.recap || '',
+        notes: gameSession.notes || '',
+        is_active: gameSession.isActive ?? false,
+        created_by: gameSession.createdBy || null
+      };
+      const { data, error } = await client
+        .from('table_sessions')
+        .insert(payload)
+        .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
+        .single();
+      if (error) throw error;
+      const sessionRow = data as TableSessionRow;
+      const tableRow = await fetchTableRowById(session.tableId);
+      const { error: tableError } = await client
+        .from('tables')
+        .update({
+          current_session_id: sessionRow.id,
+          description: tableRow.description,
+          slot_count: tableRow.slot_count,
+          episode_number: sessionRow.episode_number,
+          episode_title: sessionRow.episode_title,
+          session_date: sessionRow.session_date,
+          location: sessionRow.location,
+          status: sessionRow.status,
+          recap: sessionRow.recap,
+          objective: sessionRow.objective,
+          last_editor: session.nickname
+        })
+        .eq('id', session.tableId);
+      if (tableError) throw tableError;
+      const { error: attendanceError } = await client.from('table_session_attendances').insert({
+        session_id: sessionRow.id,
+        membership_id: session.membershipId,
+        status: 'pending'
+      });
+      if (attendanceError) throw attendanceError;
+      return fetchTableState(session.tableId);
+    },
+    async updateGameSession({ session, sessionId, patch }) {
+      if (session.role !== 'gm') throw new Error('Apenas GMs podem editar sessoes.');
+      const client = assertClient();
+      const { error } = await client
+        .from('table_sessions')
+        .update({
+          episode_number: patch.episodeNumber ?? '',
+          episode_title: patch.episodeTitle ?? '',
+          status: patch.status ?? 'Planejamento',
+          session_date: patch.sessionDate ?? null,
+          location: patch.location ?? '',
+          objective: patch.objective ?? '',
+          recap: patch.recap ?? '',
+          notes: patch.notes ?? '',
+          is_active: patch.isActive ?? false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId)
+        .eq('table_id', session.tableId);
+      if (!error && sessionId) {
+        const sessionRow = await fetchTableRowById(session.tableId);
+        const { error: mirrorError } = await client
+          .from('tables')
+          .update({
+            current_session_id: sessionId,
+            episode_number: patch.episodeNumber ?? sessionRow.episode_number,
+            episode_title: patch.episodeTitle ?? sessionRow.episode_title,
+            session_date: patch.sessionDate ?? sessionRow.session_date,
+            location: patch.location ?? sessionRow.location,
+            status: patch.status ?? sessionRow.status,
+            recap: patch.recap ?? sessionRow.recap,
+            objective: patch.objective ?? sessionRow.objective,
+            last_editor: session.nickname
+          })
+          .eq('id', session.tableId);
+        if (mirrorError) throw mirrorError;
+      }
+      if (error) throw error;
+      return fetchTableState(session.tableId);
+    },
+    async startGameSession({ session, sessionId }) {
+      if (session.role !== 'gm') throw new Error('Apenas GMs podem iniciar sessoes.');
+      const client = assertClient();
+      const { data, error } = await client
+        .from('table_sessions')
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq('id', sessionId)
+        .eq('table_id', session.tableId)
+        .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
+        .single();
+      if (error) throw error;
+      const sessionRow = data as TableSessionRow;
+      const { error: tableError } = await client.from('tables').update({
+        current_session_id: sessionId,
+        episode_number: sessionRow.episode_number,
+        episode_title: sessionRow.episode_title,
+        session_date: sessionRow.session_date,
+        location: sessionRow.location,
+        status: 'Em sessão',
+        recap: sessionRow.recap,
+        objective: sessionRow.objective,
+        last_editor: session.nickname
+      }).eq('id', session.tableId);
+      if (tableError) throw tableError;
+      return fetchTableState(session.tableId);
+    },
+    async endGameSession({ session, sessionId }) {
+      if (session.role !== 'gm') throw new Error('Apenas GMs podem encerrar sessoes.');
+      const client = assertClient();
+      const targetSessionId = sessionId || (await fetchTableState(session.tableId)).currentSession?.id;
+      if (!targetSessionId) throw new Error('Sessao nao encontrada.');
+      const { data, error } = await client
+        .from('table_sessions')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', targetSessionId)
+        .eq('table_id', session.tableId)
+        .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
+        .single();
+      if (error) throw error;
+      const sessionRow = data as TableSessionRow;
+      const { error: tableError } = await client
+        .from('tables')
+        .update({
+          current_session_id: targetSessionId,
+          episode_number: sessionRow.episode_number,
+          episode_title: sessionRow.episode_title,
+          session_date: sessionRow.session_date,
+          location: sessionRow.location,
+          status: sessionRow.status,
+          recap: sessionRow.recap,
+          objective: sessionRow.objective,
+          last_editor: session.nickname
+        })
+        .eq('id', session.tableId);
+      if (tableError) throw tableError;
+      return fetchTableState(session.tableId);
+    },
+    async markSessionAttendance({ session, sessionId, membershipId, status }) {
+      if (session.role !== 'gm' && session.membershipId !== membershipId) {
+        throw new Error('Voce so pode marcar a propria presenca.');
+      }
+      const client = assertClient();
+      const { error } = await client
+        .from('table_session_attendances')
+        .upsert(
+          {
+            session_id: sessionId,
+            membership_id: membershipId,
+            status,
+            marked_at: new Date().toISOString()
+          },
+          { onConflict: 'session_id,membership_id' }
+        );
+      if (error) throw error;
+      return fetchTableState(session.tableId);
+    },
+    async clearSessionAttendance({ session, sessionId }) {
+      const client = assertClient();
+      const targetSessionId = sessionId || (await fetchTableState(session.tableId)).currentSession?.id;
+      if (!targetSessionId) return fetchTableState(session.tableId);
+      const query = client.from('table_session_attendances').delete().eq('session_id', targetSessionId);
+      if (session.role !== 'gm') {
+        query.eq('membership_id', session.membershipId);
+      }
+      const { error } = await query;
+      if (error) throw error;
+      return fetchTableState(session.tableId);
+    },
     async saveCharacter({ session, userId, character }) {
+      if (session.role === 'viewer') {
+        throw new Error('Seu papel atual permite apenas leitura.');
+      }
+      if (session.role === 'player' && session.characterId !== character.id) {
+        throw new Error('Players so podem editar a propria ficha vinculada.');
+      }
       await saveCharacterGraph(session.tableId, userId, character);
     },
     async appendTableLog({ session, userId, entry }) {
@@ -1511,6 +1888,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       if (error) throw error;
     },
     async clearTableLogs({ session }) {
+      if (session.role !== 'gm') {
+        throw new Error('Apenas GMs podem limpar o log compartilhado.');
+      }
       const client = assertClient();
       const { error } = await client.from('table_logs').delete().eq('table_id', session.tableId);
       if (error) throw error;
