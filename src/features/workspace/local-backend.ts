@@ -144,8 +144,7 @@ function normalizeStore(store: Store): Store {
 
     for (const character of record.table.state.characters) {
       if (Object.prototype.hasOwnProperty.call(record.characterOwners, character.id)) continue;
-      record.characterOwners[character.id] =
-        record.memberships.find((membership) => membership.characterId === character.id && membership.userId)?.userId || record.table.ownerId;
+      record.characterOwners[character.id] = record.memberships.find((membership) => membership.characterId === character.id && membership.userId)?.userId || null;
     }
 
     refreshDerived(record);
@@ -419,7 +418,7 @@ function createTableRecord(input: {
   return {
     table,
     memberships: [gmMembership],
-    characterOwners: Object.fromEntries(state.characters.map((character) => [character.id, input.user.id])),
+    characterOwners: Object.fromEntries(state.characters.map((character) => [character.id, null])),
     invites: [],
     joinCodes: [],
     snapshots: [],
