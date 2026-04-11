@@ -73,12 +73,47 @@ async function createRoleJoinCode(page: Page, role: 'player' | 'viewer', label: 
   return joinCode;
 }
 
+async function createRoleInviteLink(page: Page, role: 'player' | 'viewer', label: string, slug: string, linkCharacter = false) {
+  const roleSelects = page.getByLabel('Papel concedido');
+  await roleSelects.nth(0).selectOption(role);
+
+  if (linkCharacter) {
+    const characterSelects = page.getByLabel('Personagem vinculado');
+    await characterSelects.nth(0).selectOption({ index: 1 });
+  }
+
+  const labelInputs = page.getByLabel(/R.*tulo do convite/);
+  await labelInputs.fill(label);
+  await page.getByRole('button', { name: 'Gerar convite' }).click();
+  await expect
+    .poll(async () => {
+      const bodyText = await page.locator('body').textContent();
+      return bodyText?.match(new RegExp(`https?://[^\\s]+/mesa/${slug}\\?token=[a-f0-9]+`))?.[0] || '';
+    })
+    .not.toBe('');
+
+  const bodyText = await page.locator('body').textContent();
+  const match = bodyText?.match(new RegExp(`https?://[^\\s]+/mesa/${slug}\\?token=[a-f0-9]+`));
+  expect(match?.[0]).toBeTruthy();
+  return match![0];
+}
+
 async function joinByCode(page: Page, code: string, nickname: string, slug: string) {
   await page.getByRole('button', { name: 'Entrar em uma mesa' }).click();
   await page.getByRole('tab', { name: /C.*digo/ }).click();
   await page.getByLabel(/C.*digo da mesa/).fill(code);
   await page.getByLabel(/Apelido da sess/).fill(nickname);
   await page.getByRole('button', { name: /Entrar por c.*digo/ }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/mesa/${slug}$`));
+}
+
+async function joinByInviteLink(page: Page, inviteUrl: string, nickname: string, slug: string) {
+  await page.getByRole('button', { name: 'Entrar em uma mesa' }).click();
+  await page.getByRole('tab', { name: 'Convite' }).click();
+  await page.getByLabel('URL de convite').fill(inviteUrl);
+  await page.getByLabel(/Apelido da sess/).fill(nickname);
+  await page.getByRole('button', { name: 'Entrar por convite' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}$`));
 }
@@ -302,6 +337,21 @@ test('viewer joins read-only, legacy livro redirect stays inside the mesa, and m
   await expectNoHorizontalOverflow(page);
   await page.getByRole('button', { name: /Abrir navega/ }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Quem está aqui' })).toBeVisible();
+});
+
+test('player joins by linked invite URL', async ({ page }) => {
+  await registerUser(page, 'GM Link');
+  const tableName = uniqueLabel('Mesa Link');
+  await createTable(page, tableName);
+  const slug = slugify(tableName);
+
+  await page.goto(`/mesa/${slug}/membros`);
+  const inviteUrl = await createRoleInviteLink(page, 'player', 'Convite player link', slug, true);
+
+  await signOutCurrentUser(page);
+  await registerUser(page, 'Player Link');
+  await joinByInviteLink(page, inviteUrl, 'Player Link', slug);
+  await expect(page.getByText('Você está na mesa como Player.')).toBeVisible();
 });
 
 test('profile account, ownership transfer, and table deletion preserve owned characters', async ({ page }) => {

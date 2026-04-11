@@ -300,10 +300,11 @@ function buildCharacterRow(
   fallbackOwnerId: string,
   existingOwnerId?: string | null
 ) {
+  void fallbackOwnerId;
   return {
     id: character.id,
     table_id: tableId,
-    owner_id: existingOwnerId ?? fallbackOwnerId,
+    owner_id: existingOwnerId ?? null,
     name: character.name || 'Personagem',
     age: character.age,
     clan: character.clan || '',
@@ -524,13 +525,13 @@ async function saveCharacterGraph(tableId: string, userId: string, character: Ch
   const client = assertClient();
   const { data: existingRows, error: existingError } = await client
     .from('characters')
-    .select('sort_order')
+    .select('sort_order, owner_id')
     .eq('table_id', tableId)
     .eq('id', character.id)
     .maybeSingle();
   if (existingError) throw existingError;
 
-  const row = buildCharacterRow(tableId, character, existingRows?.sort_order ?? 0, userId, userId);
+  const row = buildCharacterRow(tableId, character, existingRows?.sort_order ?? 0, userId, existingRows?.owner_id ?? null);
   const { error } = await client.from('characters').upsert(row, {
     onConflict: 'id'
   });
