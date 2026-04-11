@@ -69,7 +69,7 @@ export function MesaMembersPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_360px]">
+      <div className="grid gap-6">
         <div className="grid gap-6">
           <Panel className="rounded-[28px] p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

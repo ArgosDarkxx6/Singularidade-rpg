@@ -73,7 +73,7 @@ export function MesaSettingsPage() {
         description="Separe aqui o que é estrutural da campanha: cabeçalho, contexto geral, snapshots e saída da mesa."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_360px]">
+      <div className="grid gap-6">
         <div className="grid gap-6">
           <Panel className="rounded-[28px] p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Metadados</p>

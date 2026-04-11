@@ -31,7 +31,7 @@ export function RegisterPage() {
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent">Cadastro</p>
-      <h2 className="mt-3 font-display text-5xl leading-none text-white">Crie sua conta e abra sua presença.</h2>
+          <h2 className="mt-3 text-balance font-display text-4xl leading-none text-white sm:text-5xl">Crie sua conta e abra sua presença.</h2>
       <p className="mt-4 max-w-lg text-sm leading-6 text-soft">
         Cadastre email, username público e senha. Depois disso, a entrada do produto passa a ser o portal de mesas, não mais uma interface global solta.
       </p>

@@ -204,7 +204,7 @@ export function MesasPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_340px]">
+      <div className="grid gap-6">
         <div className="grid gap-6">
           {tableActionError ? (
             <UtilityPanel className="rounded-[22px] border border-rose-300/18 bg-rose-500/10 px-4 py-4">

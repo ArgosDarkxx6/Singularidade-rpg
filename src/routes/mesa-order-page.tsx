@@ -52,14 +52,14 @@ export function MesaOrderPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MesaMetricTile label="Round" value={state.order.round} hint="Contador do confronto atual." />
         <MesaMetricTile label="Combatentes" value={state.order.entries.length} hint="PCs e NPCs presentes na fila." />
         <MesaMetricTile label="Turno ativo" value={activeEntry?.name || '--'} hint="Entrada destacada no board." />
         <MesaMetricTile label="Gestao" value={canManage ? 'GM' : 'Leitura'} hint="Controle da ordem vinculado ao papel na mesa." />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.02fr)_360px]">
+      <div className="grid gap-6">
         <div className="grid gap-6">
           {canManage ? (
             <Panel className="rounded-[28px] p-6">

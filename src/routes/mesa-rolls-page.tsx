@@ -69,14 +69,14 @@ export function MesaRollsPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MesaMetricTile label="Entradas no log" value={state.log.length} hint="Historico compartilhado desta mesa." />
         <MesaMetricTile label="Personagens prontos" value={state.characters.length} hint="Qualquer ficha da mesa pode rolar daqui." />
         <MesaMetricTile label="Ultimo total" value={lastRoll?.total ?? '--'} hint="Resumo da ultima acao executada." />
         <MesaMetricTile label="TN presets" value={ROLL_TN_PRESETS.length} hint="Atalhos rapidos para dificuldades padrao." />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.04fr)_360px]">
+      <div className="grid gap-6">
         <div className="grid gap-6">
           <div className="grid gap-6 xl:grid-cols-2">
             <Panel className="rounded-[28px] p-6">

@@ -1,4 +1,5 @@
-import { Download, FileJson, FileText } from 'lucide-react';
+import { Dices, Download, FileJson, FileText, PencilLine } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Avatar } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
@@ -46,7 +47,13 @@ function ReadonlyRosterPanel({
   );
 }
 
-function ReadonlyCharacterSummary({ character }: { character: Character }) {
+function ReadonlyCharacterSummary({
+  character,
+  onRollAttribute
+}: {
+  character: Character;
+  onRollAttribute: (attributeKey: keyof Character['attributes']) => void;
+}) {
   return (
     <Panel className="rounded-[28px] p-6">
       <div className="flex flex-col gap-5 lg:flex-row">
@@ -68,6 +75,14 @@ function ReadonlyCharacterSummary({ character }: { character: Character }) {
             <p className="mt-2 text-lg font-semibold text-white">
               {character.resources[resourceKey].current}/{character.resources[resourceKey].max}
             </p>
+            <div className="mt-3 h-3 overflow-hidden rounded-full border border-white/10 bg-slate-950/70" role="progressbar" aria-label={`${RESOURCE_LABELS[resourceKey]} ${character.resources[resourceKey].current} de ${character.resources[resourceKey].max}`} aria-valuemin={0} aria-valuemax={Math.max(character.resources[resourceKey].max, 0)} aria-valuenow={Math.max(0, Math.min(character.resources[resourceKey].current, character.resources[resourceKey].max))}>
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-sky-300 via-blue-400 to-cyan-300"
+                style={{
+                  width: `${character.resources[resourceKey].max > 0 ? Math.min(100, Math.max(0, (character.resources[resourceKey].current / character.resources[resourceKey].max) * 100)) : 0}%`
+                }}
+              />
+            </div>
           </UtilityPanel>
         ))}
       </div>
@@ -75,7 +90,12 @@ function ReadonlyCharacterSummary({ character }: { character: Character }) {
       <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {ATTRIBUTE_CONFIG.map((attribute) => (
           <UtilityPanel key={attribute.key} className="rounded-[20px] p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
+              <Button type="button" size="sm" variant="secondary" className="size-9 rounded-full px-0" onClick={() => onRollAttribute(attribute.key)} aria-label={`Rolar ${attribute.label}`}>
+                <Dices className="size-4" />
+              </Button>
+            </div>
             <p className="mt-2 text-sm font-semibold text-white">
               {character.attributes[attribute.key].value >= 0 ? '+' : ''}
               {character.attributes[attribute.key].value} / {character.attributes[attribute.key].rank}
@@ -95,17 +115,34 @@ export function MesaSheetsPage() {
     setActiveCharacter,
     copyActiveCharacterText,
     downloadActiveCharacterText,
-    exportState
+    exportState,
+    executeAttributeRoll
   } = useWorkspace();
   const session = online.session;
+  const [editMode, setEditMode] = useState(false);
   const canManageRoster = !session || session.role === 'gm';
   const canEditActiveCharacter =
     !session || session.role === 'gm' || (session.role === 'player' && session.characterId === activeCharacter.id);
+  const effectiveEditable = canEditActiveCharacter && editMode;
   const isReadonlyViewer = Boolean(session && !canEditActiveCharacter);
   const visibleCharacters =
     session?.role === 'player' && session.characterId
       ? state.characters.filter((character) => character.id === session.characterId)
       : state.characters;
+
+  useEffect(() => {
+    setEditMode(false);
+  }, [activeCharacter.id, session?.characterId, session?.role]);
+
+  const rollReadonlyAttribute = (attributeKey: keyof Character['attributes']) => {
+    executeAttributeRoll({
+      characterId: activeCharacter.id,
+      attributeKey,
+      context: 'standard',
+      extraBonus: 0,
+      tn: null
+    });
+  };
 
   if (!state.characters.length) {
     return <EmptyState title="Nenhuma ficha carregada." body="Crie uma mesa com personagens ou importe um estado para usar o workspace de fichas." />;
@@ -119,6 +156,12 @@ export function MesaSheetsPage() {
         description="A ficha agora corre em um fluxo contínuo: identidade, recursos, atributos, arsenal, técnicas, passivas, votos, inventário e condições sem guias internas quebradas."
         actions={
           <>
+            {canEditActiveCharacter ? (
+              <Button variant={editMode ? 'primary' : 'secondary'} onClick={() => setEditMode((value) => !value)}>
+                <PencilLine className="size-4" />
+                {editMode ? 'Concluir edição' : 'Editar ficha'}
+              </Button>
+            ) : null}
             <Button variant="secondary" onClick={() => void copyActiveCharacterText()}>
               <FileText className="size-4" />
               Copiar TXT
@@ -137,14 +180,14 @@ export function MesaSheetsPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MesaMetricTile label="Personagens" value={state.characters.length} hint="Todos vinculados à mesa atual." />
         <MesaMetricTile label="Armas" value={activeCharacter.weapons.length} hint="Arsenal da ficha em foco." />
         <MesaMetricTile label="Técnicas" value={activeCharacter.techniques.length} hint="Repertório ativo da ficha atual." />
         <MesaMetricTile label="Itens" value={activeCharacter.inventory.items.length} hint="Inventário e dinheiro do personagem." />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
+      <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
         <div className="grid gap-6">
           {canManageRoster ? (
             <RosterSidebar />
@@ -154,12 +197,12 @@ export function MesaSheetsPage() {
         </div>
 
         <div className="grid gap-6">
-          {canEditActiveCharacter ? <CharacterProfileEditor /> : <ReadonlyCharacterSummary character={activeCharacter} />}
-          <CollectionsPanel section="all" editable={canEditActiveCharacter} />
-          <ConditionsEditor editable={canEditActiveCharacter} />
+          {canEditActiveCharacter ? <CharacterProfileEditor editable={effectiveEditable} /> : <ReadonlyCharacterSummary character={activeCharacter} onRollAttribute={rollReadonlyAttribute} />}
+          <CollectionsPanel section="all" editable={effectiveEditable} />
+          <ConditionsEditor editable={effectiveEditable} />
         </div>
 
-        <div className="page-right-rail">
+        <div className="page-right-rail xl:col-span-2">
           <MesaRailCard
             eyebrow="Permissão atual"
             title={session?.role === 'gm' ? 'Controle total' : session?.role === 'player' ? 'Edição vinculada' : 'Leitura'}

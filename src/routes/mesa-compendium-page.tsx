@@ -238,7 +238,7 @@ export function MesaCompendiumPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(260px,0.38fr)_minmax(0,1fr)]">
         <Panel className="rounded-[28px] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Navegação</p>
           <h2 className="mt-2 font-display text-4xl leading-none text-white">Livro da mesa</h2>
@@ -380,7 +380,7 @@ export function MesaCompendiumPage() {
           )}
         </div>
 
-        <div className="page-right-rail">
+        <div className="page-right-rail xl:col-span-2">
           <MesaRailCard
             eyebrow="Glossário"
             title="Verbetes em destaque"

@@ -9,7 +9,7 @@ export function LoginPage() {
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent">Autenticação</p>
-      <h2 className="mt-3 font-display text-5xl leading-none text-white">Entre no portal de mesas.</h2>
+          <h2 className="mt-3 text-balance font-display text-4xl leading-none text-white sm:text-5xl">Entre no portal de mesas.</h2>
       <p className="mt-4 max-w-lg text-sm leading-6 text-soft">
         Use email e senha para voltar ao seu portal autenticado e retomar a mesa certa sem cair em um workspace global bagunçado.
       </p>
