@@ -98,7 +98,7 @@ async function signOutCurrentUser(page: Page) {
     await desktopButton.click();
   } else if (await page.getByRole('button', { name: /Abrir navega/ }).first().isVisible().catch(() => false)) {
     await page.getByRole('button', { name: /Abrir navega/ }).first().click();
-    await page.getByRole('button', { name: /Encerrar sess/ }).click();
+    await page.getByRole('button', { name: /Encerrar sess/ }).first().click();
   } else {
     await page.evaluate(() => {
       localStorage.removeItem('singularidade-remake-auth-v1');
@@ -124,6 +124,16 @@ async function openSheetDialogAndAssert(page: Page, buttonName: string, dialogTi
   await expect(dialog).toHaveCount(0);
 }
 
+async function enterSheetEditMode(page: Page) {
+  await page.getByRole('button', { name: 'Editar ficha' }).click();
+  await expect(page.getByRole('button', { name: 'Concluir edição' })).toBeVisible();
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(2);
+}
+
 test('registers, creates a mesa, and keeps legacy routes inside the mesa shell', async ({ page }) => {
   await registerUser(page, 'GM Alpha');
   const tableName = uniqueLabel('Mesa Alpha');
@@ -139,10 +149,14 @@ test('registers, creates a mesa, and keeps legacy routes inside the mesa shell',
   await page.goto('/fichas');
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}/fichas$`));
   await expect(page.getByRole('heading', { name: `Fichas / ${tableName}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Editar ficha' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Abrir utilidades da mesa/ })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
 
   await page.goto('/rolagens');
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}/rolagens$`));
   await expect(page.getByRole('heading', { name: `Rolagens / ${tableName}` })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 
   await page.goto('/ordem');
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}/ordem$`));
@@ -192,6 +206,15 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
 
   await page.goto(`/mesa/${slug}/fichas`);
   await expect(page.getByRole('heading', { name: 'Personagens' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Salvar ficha principal' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Adicionar arma' })).toHaveCount(0);
+  await expect(page.getByRole('progressbar', { name: /PV/ }).first()).toBeVisible();
+  await page.getByRole('button', { name: /Rolar Força/ }).first().click();
+  await page.goto(`/mesa/${slug}/rolagens`);
+  await expect(page.getByText(/Força -/).first()).toBeVisible();
+
+  await page.goto(`/mesa/${slug}/fichas`);
+  await enterSheetEditMode(page);
   await expect(page.getByRole('button', { name: 'Salvar ficha principal' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Adicionar arma' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Adicionar técnica' })).toBeVisible();
@@ -221,6 +244,8 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
   await expect(page.getByRole('button', { name: 'Salvar snapshot' })).toHaveCount(0);
 
   await page.goto(`/mesa/${slug}/fichas`);
+  await expect(page.getByRole('button', { name: 'Salvar ficha principal' })).toHaveCount(0);
+  await enterSheetEditMode(page);
   await expect(page.getByRole('button', { name: 'Salvar ficha principal' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Adicionar arma' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Adicionar condição' })).toBeVisible();
@@ -274,7 +299,8 @@ test('viewer joins read-only, legacy livro redirect stays inside the mesa, and m
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/mesa/${slug}`);
-  await page.getByRole('button', { name: 'Abrir utilidades da mesa' }).click();
+  await expectNoHorizontalOverflow(page);
+  await page.getByRole('button', { name: /Abrir navega/ }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Quem está aqui' })).toBeVisible();
 });
 

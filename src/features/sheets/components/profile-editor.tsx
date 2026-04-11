@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ImagePlus, Upload } from 'lucide-react';
+import { Dices, ImagePlus, Upload } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -12,7 +12,7 @@ import { UtilityPanel } from '@components/ui/panel';
 import { ATTRIBUTE_CONFIG, GRADE_OPTIONS, RANKS, RESOURCE_LABELS } from '@lib/domain/constants';
 import { avatarUrlSchema, characterProfileSchema } from '@schemas/sheets';
 import { useWorkspace } from '@features/workspace/use-workspace';
-import type { Character } from '@/types/domain';
+import type { AttributeKey, Character, ResourceKey } from '@/types/domain';
 
 type CharacterProfileValues = import('zod').infer<typeof characterProfileSchema>;
 type AvatarUrlValues = import('zod').infer<typeof avatarUrlSchema>;
@@ -61,6 +61,74 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
+const resourceToneClass: Record<ResourceKey, string> = {
+  hp: 'from-rose-400 via-red-400 to-rose-500',
+  energy: 'from-sky-300 via-blue-400 to-cyan-300',
+  sanity: 'from-violet-300 via-indigo-400 to-sky-300'
+};
+
+function getResourcePercent(resource: Character['resources'][ResourceKey]) {
+  if (resource.max <= 0) return 0;
+  return Math.min(100, Math.max(0, (resource.current / resource.max) * 100));
+}
+
+function ResourceBar({
+  resourceKey,
+  resource,
+  editable,
+  onAdjust
+}: {
+  resourceKey: ResourceKey;
+  resource: Character['resources'][ResourceKey];
+  editable: boolean;
+  onAdjust: (delta: number) => void;
+}) {
+  const percent = getResourcePercent(resource);
+
+  return (
+    <UtilityPanel className="rounded-[20px] p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{RESOURCE_LABELS[resourceKey]}</p>
+            <p className="text-sm font-semibold text-white">
+              {resource.current}/{resource.max}
+            </p>
+          </div>
+          <div
+            className="mt-3 h-3 overflow-hidden rounded-full border border-white/10 bg-slate-950/70"
+            role="progressbar"
+            aria-label={`${RESOURCE_LABELS[resourceKey]} ${resource.current} de ${resource.max}`}
+            aria-valuemin={0}
+            aria-valuemax={Math.max(resource.max, 0)}
+            aria-valuenow={Math.max(0, Math.min(resource.current, resource.max))}
+          >
+            <div className={`h-full rounded-full bg-gradient-to-r ${resourceToneClass[resourceKey]}`} style={{ width: `${percent}%` }} />
+          </div>
+        </div>
+        {editable ? (
+          <div className="flex shrink-0 gap-2">
+            <Button type="button" size="sm" variant="secondary" onClick={() => onAdjust(-1)}>
+              -1
+            </Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => onAdjust(1)}>
+              +1
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </UtilityPanel>
+  );
+}
+
+function AttributeRollButton({ label, onRoll }: { label: string; onRoll: () => void }) {
+  return (
+    <Button type="button" size="sm" variant="secondary" className="size-9 rounded-full px-0" onClick={onRoll} aria-label={`Rolar ${label}`}>
+      <Dices className="size-4" />
+    </Button>
+  );
+}
+
 export function CharacterProfileEditor({ editable = true }: { editable?: boolean }) {
   const {
     activeCharacter,
@@ -73,8 +141,23 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
     setCharacterAvatar,
     uploadCharacterAvatar,
     clearCharacterAvatar,
+    executeAttributeRoll,
     flushPersistence
   } = useWorkspace();
+
+  const rollAttribute = (attributeKey: AttributeKey) => {
+    const result = executeAttributeRoll({
+      characterId: activeCharacter.id,
+      attributeKey,
+      context: 'standard',
+      extraBonus: 0,
+      tn: null
+    });
+
+    if (result) {
+      toast.success(`${result.attributeLabel}: ${result.total}`);
+    }
+  };
 
   const profileForm = useForm<CharacterProfileValues>({
     resolver: zodResolver(characterProfileSchema) as never,
@@ -99,7 +182,7 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
 
   return (
     <Card className="p-6">
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(260px,0.42fr)_minmax(0,1fr)]">
         <div className="grid gap-4">
           <UtilityPanel className="rounded-[26px] p-5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Avatar & recursos</p>
@@ -166,26 +249,13 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
           </UtilityPanel>
 
           {(['hp', 'energy', 'sanity'] as const).map((resourceKey) => (
-            <UtilityPanel key={resourceKey} className="rounded-[20px] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{RESOURCE_LABELS[resourceKey]}</p>
-                  <p className="mt-2 text-xl font-semibold text-white">
-                    {activeCharacter.resources[resourceKey].current}/{activeCharacter.resources[resourceKey].max}
-                  </p>
-                </div>
-                {editable ? (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => adjustResource(activeCharacter.id, resourceKey, -1)}>
-                      -1
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => adjustResource(activeCharacter.id, resourceKey, 1)}>
-                      +1
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            </UtilityPanel>
+            <ResourceBar
+              key={resourceKey}
+              resourceKey={resourceKey}
+              resource={activeCharacter.resources[resourceKey]}
+              editable={editable}
+              onAdjust={(delta) => adjustResource(activeCharacter.id, resourceKey, delta)}
+            />
           ))}
         </div>
 
@@ -353,7 +423,10 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
               <div className="grid gap-4 md:grid-cols-2">
                 {ATTRIBUTE_CONFIG.map((attribute) => (
                   <UtilityPanel key={attribute.key} className="rounded-[22px] p-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
+                      <AttributeRollButton label={attribute.label} onRoll={() => rollAttribute(attribute.key)} />
+                    </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_110px]">
                       <Input type="number" {...profileForm.register(attribute.key)} />
                       <Select {...profileForm.register(`${attribute.key}Rank`)}>
@@ -391,10 +464,13 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
                 {ATTRIBUTE_CONFIG.map((attribute) => (
                   <UtilityPanel key={attribute.key} className="rounded-[22px] px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
-                      <p className="text-sm font-semibold text-white">
-                        {activeCharacter.attributes[attribute.key].value} · {activeCharacter.attributes[attribute.key].rank}
-                      </p>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
+                        <p className="mt-1 text-sm font-semibold text-white">
+                          {activeCharacter.attributes[attribute.key].value} · {activeCharacter.attributes[attribute.key].rank}
+                        </p>
+                      </div>
+                      <AttributeRollButton label={attribute.label} onRoll={() => rollAttribute(attribute.key)} />
                     </div>
                   </UtilityPanel>
                 ))}

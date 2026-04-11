@@ -214,14 +214,14 @@ export function MesaSessionPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MesaMetricTile label="Sessão em foco" value={selectedSession?.episodeTitle || 'Nenhuma'} hint={selectedSession?.episodeNumber || 'Crie ou selecione uma sessão.'} />
         <MesaMetricTile label="Presentes" value={presentCount} hint="Membros confirmados para a sessão em foco." />
         <MesaMetricTile label="Pendentes" value={pendingCount} hint="Presenças ainda não marcadas." />
         <MesaMetricTile label="Histórico" value={availableSessions.length} hint="Episódios recentes já registrados." />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_360px]">
+      <div className="grid gap-6">
         <div className="grid gap-6">
           <Panel className="rounded-[28px] p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

@@ -89,7 +89,7 @@ export function ProfilePage() {
         <MesaMetricTile label="Última atualização" value={formatDate(profile?.updatedAt || '')} hint="Reflete dados do perfil autenticado." />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_380px]">
+      <div className="grid gap-6">
         <div className="grid gap-6">
           <Panel className="rounded-[28px] p-6">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">

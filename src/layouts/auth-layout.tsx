@@ -38,7 +38,7 @@ export function AuthLayout() {
 
             <div className="max-w-xl">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-accent">Singularidade RPG</p>
-              <h2 className="mt-4 font-display text-6xl leading-none text-white xl:text-7xl">
+            <h2 className="mt-4 text-balance font-display text-5xl leading-none text-white sm:text-6xl xl:text-7xl">
                 {isRegister ? 'Abra sua presença e entre em campanhas privadas.' : 'Volte para a sua rede de mesas.'}
               </h2>
               <p className="mt-5 max-w-lg text-base leading-7 text-soft">

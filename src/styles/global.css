@@ -148,12 +148,14 @@
     display: grid;
     gap: 1.5rem;
     min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .page-shell {
     display: grid;
     gap: 1.5rem;
     min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .page-right-rail {
@@ -161,6 +163,7 @@
     gap: 1rem;
     align-content: start;
     min-width: 0;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
   }
 
   .page-shell > *,

@@ -25,7 +25,7 @@ export function MesaHero({
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">{eyebrow}</p>
-          <h1 className="mt-3 font-display text-5xl leading-none text-white sm:text-6xl">{title}</h1>
+          <h1 className="mt-3 text-balance font-display text-4xl leading-none text-white sm:text-5xl xl:text-6xl">{title}</h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-soft sm:text-base">{description}</p>
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}

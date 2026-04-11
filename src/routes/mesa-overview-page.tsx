@@ -61,14 +61,14 @@ export function MesaOverviewPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MesaMetricTile label="Membros visíveis" value={members.length} hint="Presença em tempo real quando disponível." />
         <MesaMetricTile label="Personagens" value={state.characters.length} hint="Fichas registradas na mesa atual." />
         <MesaMetricTile label="Join codes" value={table.joinCodes.length} hint="Acessos rápidos ainda ativos." />
         <MesaMetricTile label="Snapshots" value={table.snapshots.length} hint="Pontos de restauração da campanha." />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_360px]">
+      <div className="grid gap-6">
         <div className="grid gap-6">
           <Panel className="rounded-[28px] p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

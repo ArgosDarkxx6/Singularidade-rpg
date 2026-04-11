@@ -10,7 +10,6 @@ import {
   Menu,
   Settings,
   Shield,
-  SlidersHorizontal,
   Sparkles,
   Swords,
   TriangleAlert,
@@ -241,7 +240,7 @@ export function MesaLayout() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('token');
   const { user, signOut } = useAuth();
-  const { mobileNavOpen, utilityOpen, setMobileNavOpen, setUtilityOpen } = useMesaShellStore();
+  const { mobileNavOpen, setMobileNavOpen } = useMesaShellStore();
   const { isReady, online, tables, switchTable, connectToInvite, leaveCurrentTable } = useWorkspace();
   const attemptRef = useRef('');
   const [openError, setOpenError] = useState('');
@@ -259,8 +258,7 @@ export function MesaLayout() {
 
   useEffect(() => {
     setMobileNavOpen(false);
-    setUtilityOpen(false);
-  }, [location.pathname, setMobileNavOpen, setUtilityOpen]);
+  }, [location.pathname, setMobileNavOpen]);
 
   useEffect(() => {
     attemptRef.current = '';
@@ -386,8 +384,8 @@ export function MesaLayout() {
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(87,187,255,0.16),transparent_24%),radial-gradient(circle_at_left,rgba(78,140,255,0.12),transparent_22%)]">
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,12,0.65),rgba(4,8,15,0.92))]" />
 
-      <div className="relative mx-auto grid min-h-screen max-w-[1760px] grid-cols-1 gap-5 px-4 py-4 xl:grid-cols-[280px_minmax(0,1fr)_320px] xl:px-6 xl:py-5">
-        <aside className="surface-shell hidden rounded-[30px] xl:flex xl:h-[calc(100vh-2.5rem)] xl:flex-col xl:p-5">
+      <div className="relative mx-auto grid min-h-screen max-w-[1860px] grid-cols-1 gap-5 px-4 py-4 xl:grid-cols-[300px_minmax(0,1fr)] xl:px-6 xl:py-5">
+        <aside className="surface-shell hidden rounded-[30px] xl:sticky xl:top-5 xl:flex xl:h-[calc(100svh-2.5rem)] xl:min-h-0 xl:flex-col xl:p-5">
           <div className="flex items-center justify-between gap-3">
             <LogoLockup />
             <span className="rounded-full border border-sky-300/18 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-100">
@@ -431,32 +429,26 @@ export function MesaLayout() {
             </DropdownMenu>
           </div>
 
-          <div className="mt-6 flex-1 overflow-hidden">
+          <div className="mt-6 min-h-0 flex-1 overflow-hidden">
             <ScrollArea className="h-full pr-2">
-              <MesaNavigation slug={slug} />
+              <div className="grid gap-4">
+                <MesaNavigation slug={slug} />
+                <MesaUtilityContent
+                  table={table}
+                  session={session}
+                  members={members}
+                  slug={slug}
+                  user={user}
+                  currentTableSummary={currentTableSummary}
+                  onLeave={() => void handleLeaveTable()}
+                  onOpenProfile={() => navigate('/perfil')}
+                  onSignOut={handleSignOut}
+                  showActions
+                />
+              </div>
             </ScrollArea>
           </div>
 
-          <UtilityPanel className="rounded-[24px] p-4">
-            <div className="flex items-start gap-3">
-              <Avatar src={user?.avatarUrl || undefined} name={user?.displayName || user?.username || 'Usuário'} size="sm" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{user?.displayName || 'Usuário'}</p>
-                <p className="truncate text-xs uppercase tracking-[0.18em] text-muted">@{user?.username}</p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-2">
-              <Button variant="secondary" onClick={() => navigate('/perfil')}>
-                Minha conta
-              </Button>
-              <Button variant="secondary" onClick={() => void handleLeaveTable()}>
-                Sair da mesa
-              </Button>
-              <Button variant="ghost" onClick={handleSignOut}>
-                Encerrar sessão
-              </Button>
-            </div>
-          </UtilityPanel>
         </aside>
 
         <div className="flex min-h-screen flex-col gap-5">
@@ -474,28 +466,26 @@ export function MesaLayout() {
                     <div className="pr-8">
                       <LogoLockup />
                     </div>
-                    <div className="mt-6">
+                    <div className="mt-6 grid gap-4">
                       <MesaNavigation slug={slug} onNavigate={() => setMobileNavOpen(false)} />
-                    </div>
-                    <div className="mt-6 grid gap-2">
-                      <Button
-                        variant="secondary"
-                        onClick={async () => {
-                          await handleLeaveTable();
+                      <MesaUtilityContent
+                        table={table}
+                        session={session}
+                        members={members}
+                        slug={slug}
+                        user={user}
+                        currentTableSummary={currentTableSummary}
+                        onLeave={() => void handleLeaveTable()}
+                        onOpenProfile={() => {
                           setMobileNavOpen(false);
+                          navigate('/perfil');
                         }}
-                      >
-                        Sair da mesa
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
+                        onSignOut={() => {
                           setMobileNavOpen(false);
                           handleSignOut();
                         }}
-                      >
-                        Encerrar sessão
-                      </Button>
+                        showActions
+                      />
                     </div>
                   </SheetContent>
                 </Sheet>
@@ -525,30 +515,6 @@ export function MesaLayout() {
                   </UtilityPanel>
                 </div>
 
-                <Sheet open={utilityOpen} onOpenChange={setUtilityOpen}>
-                  <SheetTrigger asChild>
-                    <button className="inline-flex rounded-[18px] border border-white/10 bg-white/[0.04] p-3 text-soft transition hover:text-white xl:hidden">
-                      <SlidersHorizontal className="size-5" />
-                      <span className="sr-only">Abrir utilidades da mesa</span>
-                    </button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="overflow-y-auto">
-                    <div className="grid gap-4 pr-8">
-                      <MesaUtilityContent
-                        table={table}
-                        session={session}
-                        members={members}
-                        slug={slug}
-                        user={user}
-                        currentTableSummary={currentTableSummary}
-                        onLeave={() => void handleLeaveTable()}
-                        onOpenProfile={() => navigate('/perfil')}
-                        onSignOut={handleSignOut}
-                        showActions
-                      />
-                    </div>
-                  </SheetContent>
-                </Sheet>
               </div>
             </div>
           </header>
@@ -567,19 +533,6 @@ export function MesaLayout() {
           </AnimatePresence>
         </div>
 
-        <aside className="page-right-rail hidden xl:grid">
-          <MesaUtilityContent
-            table={table}
-            session={session}
-            members={members}
-            slug={slug}
-            user={user}
-            currentTableSummary={currentTableSummary}
-            onLeave={() => void handleLeaveTable()}
-            onOpenProfile={() => navigate('/perfil')}
-            onSignOut={handleSignOut}
-          />
-        </aside>
       </div>
     </div>
   );
