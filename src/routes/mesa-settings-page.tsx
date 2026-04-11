@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { DoorOpen, RefreshCcw, Save } from 'lucide-react';
-import { useEffect } from 'react';
+import { Crown, DoorOpen, RefreshCcw, Save, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Textarea } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
+import { useAuth } from '@features/auth/hooks/use-auth';
 import { MesaHero, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { useWorkspace } from '@features/workspace/use-workspace';
 import { snapshotSchema, tableMetaSchema } from '@schemas/mesa';
@@ -27,10 +28,16 @@ function formatDateTime(value: string) {
 
 export function MesaSettingsPage() {
   const navigate = useNavigate();
-  const { online, updateTableMeta, createCloudSnapshot, restoreCloudSnapshot, leaveCurrentTable } = useWorkspace();
+  const { user } = useAuth();
+  const { online, updateTableMeta, createCloudSnapshot, restoreCloudSnapshot, transferTableOwnership, deleteCurrentTable, leaveCurrentTable } =
+    useWorkspace();
   const table = online.table;
   const session = online.session;
   const canManage = session?.role === 'gm';
+  const isPrimaryOwner = Boolean(user?.id && table?.ownerId === user.id);
+  const [transferTargetId, setTransferTargetId] = useState('');
+  const [dangerBusy, setDangerBusy] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   const metaForm = useForm<TableMetaValues>({
     resolver: zodResolver(tableMetaSchema) as never,
@@ -56,6 +63,8 @@ export function MesaSettingsPage() {
     return <EmptyState title="Mesa offline." body="Abra uma mesa válida para editar configurações e snapshots." />;
   }
 
+  const eligibleTransferTargets = table.memberships.filter((member) => member.userId && member.userId !== table.ownerId);
+
   return (
     <div className="page-shell pb-8">
       <MesaHero
@@ -76,8 +85,12 @@ export function MesaSettingsPage() {
             <form
               className="mt-6 grid gap-4"
               onSubmit={metaForm.handleSubmit(async (values) => {
-                await updateTableMeta(values);
-                toast.success('Metadados atualizados.');
+                try {
+                  await updateTableMeta(values);
+                  toast.success('Metadados atualizados.');
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Nao foi possivel atualizar os metadados.');
+                }
               })}
             >
               <div className="grid gap-4 md:grid-cols-2">
@@ -126,9 +139,13 @@ export function MesaSettingsPage() {
               <form
                 className="mt-6 flex flex-col gap-3 sm:flex-row"
                 onSubmit={snapshotForm.handleSubmit(async (values) => {
-                  const result = await createCloudSnapshot(values.label);
-                  if (!result) return;
-                  toast.success('Snapshot salvo.');
+                  try {
+                    const result = await createCloudSnapshot(values.label);
+                    if (!result) return;
+                    toast.success('Snapshot salvo.');
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : 'Nao foi possivel salvar o snapshot.');
+                  }
                 })}
               >
                 <Input {...snapshotForm.register('label')} />
@@ -154,8 +171,12 @@ export function MesaSettingsPage() {
                           size="sm"
                           variant="secondary"
                           onClick={async () => {
-                            await restoreCloudSnapshot(snapshot.id);
-                            toast.success('Snapshot restaurado.');
+                            try {
+                              await restoreCloudSnapshot(snapshot.id);
+                              toast.success('Snapshot restaurado.');
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : 'Nao foi possivel restaurar o snapshot.');
+                            }
                           }}
                         >
                           <RefreshCcw className="size-4" />
@@ -170,6 +191,88 @@ export function MesaSettingsPage() {
               )}
             </div>
           </Panel>
+
+          {isPrimaryOwner ? (
+            <Panel className="rounded-[28px] border border-rose-300/18 bg-rose-500/10 p-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-100">Danger zone</p>
+              <h2 className="mt-2 font-display text-4xl leading-none text-white">Transferencia e exclusao da mesa</h2>
+              <p className="mt-3 text-sm leading-6 text-soft">
+                Apenas o administrador principal pode transferir a posse da mesa ou exclui-la. A exclusao remove sessoes, presencas,
+                convites e o contexto da campanha, mas preserva personagens pessoais dos seus donos.
+              </p>
+
+              <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                <UtilityPanel className="rounded-[22px] p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Transferir administracao</p>
+                  <p className="mt-3 text-sm text-soft">Escolha um membro ativo para assumir a posse principal da mesa.</p>
+                  <Field label="Novo administrador" className="mt-4">
+                    <select
+                      value={transferTargetId}
+                      onChange={(event) => setTransferTargetId(event.target.value)}
+                      className="min-h-12 w-full rounded-[18px] border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/75"
+                    >
+                      <option value="">Selecione um membro</option>
+                      {eligibleTransferTargets.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.nickname} ({member.role})
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Button
+                    className="mt-4"
+                    variant="secondary"
+                    disabled={!transferTargetId || dangerBusy}
+                    onClick={async () => {
+                      setDangerBusy(true);
+                      try {
+                        await transferTableOwnership(transferTargetId);
+                        setTransferTargetId('');
+                        toast.success('Administracao transferida.');
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Nao foi possivel transferir a administracao.');
+                      } finally {
+                        setDangerBusy(false);
+                      }
+                    }}
+                  >
+                    <Crown className="size-4" />
+                    Transferir administracao
+                  </Button>
+                </UtilityPanel>
+
+                <UtilityPanel className="rounded-[22px] p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Excluir mesa</p>
+                  <p className="mt-3 text-sm text-soft">
+                    Digite <span className="font-semibold text-white">{table.name}</span> para confirmar a exclusao definitiva.
+                  </p>
+                  <Field label="Confirmacao" className="mt-4">
+                    <Input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} />
+                  </Field>
+                  <Button
+                    className="mt-4"
+                    variant="danger"
+                    disabled={dangerBusy || deleteConfirmation !== table.name}
+                    onClick={async () => {
+                      setDangerBusy(true);
+                      try {
+                        await deleteCurrentTable();
+                        toast.success('Mesa excluida.');
+                        navigate('/mesas');
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Nao foi possivel excluir a mesa.');
+                      } finally {
+                        setDangerBusy(false);
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                    Excluir mesa inteira
+                  </Button>
+                </UtilityPanel>
+              </div>
+            </Panel>
+          ) : null}
         </div>
 
         <div className="page-right-rail">

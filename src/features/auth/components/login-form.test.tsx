@@ -15,12 +15,17 @@ function createAuthServiceMock(overrides: Partial<AuthService> = {}): AuthServic
         id: 'user-1',
         email: 'tester@example.com',
         username: 'tester',
-        displayName: 'Tester'
+        displayName: 'Tester',
+        avatarUrl: '',
+        avatarPath: ''
       },
       token: 'token'
     }),
     signOut: vi.fn().mockResolvedValue(undefined),
+    getProfile: vi.fn().mockResolvedValue(null),
     updateProfile: vi.fn().mockResolvedValue(null),
+    uploadProfileAvatar: vi.fn().mockResolvedValue(null),
+    clearProfileAvatar: vi.fn().mockResolvedValue(null),
     ...overrides
   };
 }

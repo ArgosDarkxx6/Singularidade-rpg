@@ -21,6 +21,9 @@ jobs:
       CI: "true"
       VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
       WRANGLER_SEND_METRICS: "false"
     steps:
       - name: Checkout
@@ -49,6 +52,57 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate Supabase migration gate
+        shell: pwsh
+        run: |
+          $missing = @()
+          foreach ($name in 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD', 'SUPABASE_PROJECT_REF') {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              Write-Host "::error title=Missing Supabase migration gate variable::$name must be configured as a repository variable or secret."
+              $missing += $name
+            }
+          }
+
+          if ($missing.Count -gt 0) {
+            Write-Host "::warning title=Supabase migration gate skipped::Configure SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD and SUPABASE_PROJECT_REF to enforce remote migration drift checks in GitHub Actions."
+            exit 0
+          }
+
+          npx supabase link --project-ref $env:SUPABASE_PROJECT_REF --password $env:SUPABASE_DB_PASSWORD --yes
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $migrationOutput = npx supabase migration list --linked 2>&1
+          $migrationOutput | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $drift = @()
+          foreach ($line in $migrationOutput) {
+            $parts = $line -split '\|'
+            if ($parts.Count -lt 2) {
+              continue
+            }
+
+            $local = $parts[0].Trim()
+            $remote = $parts[1].Trim()
+            if ($local -notmatch '^\d{14}$' -and $remote -notmatch '^\d{14}$') {
+              continue
+            }
+
+            if ($local -ne $remote) {
+              $drift += $line
+            }
+          }
+
+          if ($drift.Count -gt 0) {
+            Write-Host "::error title=Supabase migrations out of sync::Apply pending migrations manually before deploying Cloudflare."
+            $drift | ForEach-Object { Write-Host $_ }
+            exit 1
+          }
 
       - name: Run check
         run: npm run check

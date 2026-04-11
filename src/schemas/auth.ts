@@ -20,3 +20,7 @@ export const registerSchema = z
     message: 'As senhas precisam ser iguais.',
     path: ['confirmPassword']
   });
+
+export const profileUpdateSchema = z.object({
+  displayName: z.string().min(2, 'Informe um nome de exibicao.')
+});

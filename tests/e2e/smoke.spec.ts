@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { expect, type Page, test } from '@playwright/test';
 
 function uniqueLabel(prefix: string) {
@@ -25,7 +26,17 @@ async function registerUser(page: Page, prefix: string) {
   await expect(page).toHaveURL(/\/mesas$/);
   await expect(page.getByRole('heading', { name: 'Escolha uma mesa ou abra a sua.' })).toBeVisible();
 
-  return { displayName, safeId };
+  return { displayName, safeId, email };
+}
+
+async function signInUser(page: Page, email: string) {
+  await page.goto('/entrar');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Senha').fill('senha123');
+  await page.getByRole('button', { name: 'Entrar no portal' }).click();
+
+  await expect(page).toHaveURL(/\/mesas$/);
+  await expect(page.getByRole('heading', { name: 'Escolha uma mesa ou abra a sua.' })).toBeVisible();
 }
 
 async function openCreateTableDialog(page: Page) {
@@ -40,6 +51,38 @@ async function createTable(page: Page, tableName: string) {
   await expect(page).toHaveURL(new RegExp(`/mesa/${slugify(tableName)}$`));
 }
 
+async function createRoleJoinCode(page: Page, role: 'player' | 'viewer', label: string, linkCharacter = false) {
+  const roleSelects = page.getByLabel('Papel concedido');
+  await roleSelects.nth(1).selectOption(role);
+
+  if (linkCharacter) {
+    const characterSelects = page.getByLabel('Personagem vinculado');
+    await characterSelects.nth(1).selectOption({ index: 1 });
+  }
+
+  const labelInputs = page.getByLabel(/R.*tulo do c.*digo/);
+  await labelInputs.fill(label);
+  await page.getByRole('button', { name: /Gerar c.*digo/ }).click();
+
+  const generatedCodeCard = page.locator(`text=${label}`).first().locator('..');
+  await expect(generatedCodeCard).toBeVisible();
+  const generatedCodeText = await generatedCodeCard.textContent();
+  const codeMatch = generatedCodeText?.match(/\d{3}\s\d{3}/);
+  const joinCode = codeMatch?.[0]?.replace(/\s/g, '') || '';
+  expect(joinCode).toHaveLength(6);
+  return joinCode;
+}
+
+async function joinByCode(page: Page, code: string, nickname: string, slug: string) {
+  await page.getByRole('button', { name: 'Entrar em uma mesa' }).click();
+  await page.getByRole('tab', { name: /C.*digo/ }).click();
+  await page.getByLabel(/C.*digo da mesa/).fill(code);
+  await page.getByLabel(/Apelido da sess/).fill(nickname);
+  await page.getByRole('button', { name: /Entrar por c.*digo/ }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/mesa/${slug}$`));
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -50,12 +93,22 @@ function slugify(value: string) {
 }
 
 async function signOutCurrentUser(page: Page) {
-  const desktopButton = page.getByRole('button', { name: 'Encerrar sessão' });
-  if (await desktopButton.isVisible()) {
+  const desktopButton = page.getByRole('button', { name: /Encerrar sess/ }).first();
+  if (await desktopButton.isVisible().catch(() => false)) {
     await desktopButton.click();
+  } else if (await page.getByRole('button', { name: /Abrir navega/ }).first().isVisible().catch(() => false)) {
+    await page.getByRole('button', { name: /Abrir navega/ }).first().click();
+    await page.getByRole('button', { name: /Encerrar sess/ }).click();
   } else {
-    await page.getByRole('button', { name: 'Abrir navegação' }).click();
-    await page.getByRole('button', { name: 'Encerrar sessão' }).click();
+    await page.evaluate(() => {
+      localStorage.removeItem('singularidade-remake-auth-v1');
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('singularidade-remake-online-session-v1:')) {
+          localStorage.removeItem(key);
+        }
+      }
+    });
+    await page.goto('/entrar');
   }
 
   await expect(page).toHaveURL(/\/entrar(\?.*)?$/);
@@ -223,4 +276,66 @@ test('viewer joins read-only, legacy livro redirect stays inside the mesa, and m
   await page.goto(`/mesa/${slug}`);
   await page.getByRole('button', { name: 'Abrir utilidades da mesa' }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Quem está aqui' })).toBeVisible();
+});
+
+test('profile account, ownership transfer, and table deletion preserve owned characters', async ({ page }) => {
+  const gm = await registerUser(page, 'GM Admin');
+  const tableName = uniqueLabel('Mesa Admin');
+  await createTable(page, tableName);
+  const slug = slugify(tableName);
+
+  await page.goto(`/mesa/${slug}/membros`);
+  const playerJoinCode = await createRoleJoinCode(page, 'player', 'Codigo transferencia player', true);
+
+  await signOutCurrentUser(page);
+  const player = await registerUser(page, 'Player Admin');
+  await joinByCode(page, playerJoinCode, 'Player Admin', slug);
+  await expect(page.getByText('Você está na mesa como Player.')).toBeVisible();
+
+  await page.goto('/perfil');
+  await expect(page.getByText(/Conta do usu/)).toBeVisible();
+  await expect(page.getByText(tableName, { exact: true })).toBeVisible();
+  await expect(page.getByText(/Personagens pr/).first()).toBeVisible();
+  await expect(page.getByText(new RegExp(`Vinculado a ${tableName}`))).toBeVisible();
+
+  const displayNameInput = page.getByLabel(/Nome de exibi/);
+  await displayNameInput.fill('Player Renomeado');
+  await page.getByRole('button', { name: 'Salvar nome' }).click();
+  await expect(displayNameInput).toHaveValue('Player Renomeado');
+
+  const fileChooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Trocar foto' }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: 'avatar.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  });
+  await expect(page.getByRole('button', { name: 'Remover foto' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Remover foto' }).click();
+  await expect(page.getByRole('button', { name: 'Remover foto' })).toBeDisabled();
+
+  await page.goto(`/mesa/${slug}`);
+  await signOutCurrentUser(page);
+  await signInUser(page, gm.email);
+
+  await page.goto(`/mesa/${slug}/configuracoes`);
+  await expect(page.getByText('Danger zone')).toBeVisible();
+  await page.getByLabel('Novo administrador').selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Transferir administracao' }).click();
+  await expect(page.getByText('Danger zone')).toHaveCount(0);
+
+  await page.goto(`/mesa/${slug}`);
+  await signOutCurrentUser(page);
+  await signInUser(page, player.email);
+
+  await page.goto(`/mesa/${slug}/configuracoes`);
+  await expect(page.getByText('Danger zone')).toBeVisible();
+  await page.getByLabel('Confirmacao').fill(tableName);
+  await page.getByRole('button', { name: 'Excluir mesa inteira' }).click();
+  await expect(page).toHaveURL(/\/mesas$/);
+  await expect(page.getByText(tableName)).toHaveCount(0);
+
+  await page.goto('/perfil');
+  await expect(page.getByText(/Preservado fora de uma mesa/)).toBeVisible();
 });

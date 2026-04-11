@@ -140,6 +140,7 @@ export function MesaSessionPage() {
 
   const handleSubmit = sessionForm.handleSubmit(async (values) => {
     if (!canManage) return;
+    try {
 
     if (selectedSession) {
       await updateGameSession({
@@ -157,6 +158,9 @@ export function MesaSessionPage() {
       }
     });
     toast.success('Sessão criada.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Nao foi possivel salvar a sessao.');
+    }
   });
 
   const markAttendance = async (member: PresenceMember, status: SessionAttendanceStatus) => {
@@ -167,11 +171,15 @@ export function MesaSessionPage() {
       return;
     }
 
-    await markSessionAttendance({
-      sessionId: selectedSession.id,
-      membershipId: member.id,
-      status
-    });
+    try {
+      await markSessionAttendance({
+        sessionId: selectedSession.id,
+        membershipId: member.id,
+        status
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Nao foi possivel atualizar a presenca.');
+    }
   };
 
   return (
@@ -276,8 +284,12 @@ export function MesaSessionPage() {
                         type="button"
                         variant="secondary"
                         onClick={async () => {
-                          await endGameSession({ sessionId: selectedSession.id });
-                          toast.success('Sessão encerrada.');
+                          try {
+                            await endGameSession({ sessionId: selectedSession.id });
+                            toast.success('Sessão encerrada.');
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Nao foi possivel encerrar a sessao.');
+                          }
                         }}
                       >
                         <Clock3 className="size-4" />
@@ -288,8 +300,12 @@ export function MesaSessionPage() {
                         type="button"
                         variant="secondary"
                         onClick={async () => {
-                          await startGameSession({ sessionId: selectedSession.id });
-                          toast.success('Sessão iniciada.');
+                          try {
+                            await startGameSession({ sessionId: selectedSession.id });
+                            toast.success('Sessão iniciada.');
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Nao foi possivel iniciar a sessao.');
+                          }
                         }}
                       >
                         <CalendarDays className="size-4" />
@@ -351,8 +367,12 @@ export function MesaSessionPage() {
                     variant="ghost"
                     disabled={!selectedSession || (!canManage && !attendanceMap.get(session.membershipId))}
                     onClick={async () => {
-                      await clearSessionAttendance({ sessionId: selectedSession.id });
-                      toast.success(canManage ? 'Presenças resetadas.' : 'Sua presença foi limpa.');
+                      try {
+                        await clearSessionAttendance({ sessionId: selectedSession.id });
+                        toast.success(canManage ? 'Presenças resetadas.' : 'Sua presença foi limpa.');
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Nao foi possivel limpar a presenca.');
+                      }
                     }}
                   >
                     <RotateCcw className="size-4" />

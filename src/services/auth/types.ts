@@ -1,4 +1,4 @@
-import type { AuthSession, AuthUser } from '@/types/domain';
+import type { AuthSession, AuthUser, Profile } from '@/types/domain';
 
 export interface SignUpPayload {
   email: string;
@@ -20,9 +20,12 @@ export interface SignUpResult {
 export interface AuthService {
   initialize: () => Promise<AuthSession | null>;
   subscribe: (callback: (session: AuthSession | null) => void) => () => void;
+  getProfile: () => Promise<Profile | null>;
   signUp: (payload: SignUpPayload) => Promise<SignUpResult>;
   signIn: (payload: SignInPayload) => Promise<AuthSession | null>;
   signOut: () => Promise<void>;
   updateProfile: (payload: Pick<AuthUser, 'displayName'>) => Promise<AuthSession | null>;
+  uploadProfileAvatar: (file: File) => Promise<AuthSession | null>;
+  clearProfileAvatar: () => Promise<AuthSession | null>;
 }
 

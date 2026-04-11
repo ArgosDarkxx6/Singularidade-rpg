@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import type { AuthSession, AuthUser } from '@/types/domain';
+import type { AuthSession, AuthUser, Profile } from '@/types/domain';
 import { shouldUseSupabaseRuntime } from '@integrations/supabase/env';
 import { createLocalAuthService } from '@services/auth/local-auth-service';
 import { createSupabaseAuthService } from '@services/auth/supabase-auth-service';
@@ -17,10 +17,14 @@ interface AuthContextValue {
   isReady: boolean;
   session: AuthSession | null;
   user: AuthUser | null;
+  profile: Profile | null;
+  refreshProfile: () => Promise<Profile | null>;
   signUp: (payload: SignUpPayload) => Promise<SignUpResult>;
   signIn: (payload: SignInPayload) => Promise<void>;
   signOut: () => void;
-  updateProfile: (payload: Pick<AuthUser, 'displayName'>) => void;
+  updateProfile: (payload: Pick<AuthUser, 'displayName'>) => Promise<AuthSession | null>;
+  uploadProfileAvatar: (file: File) => Promise<AuthSession | null>;
+  clearProfileAvatar: () => Promise<AuthSession | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -29,6 +33,7 @@ const defaultAuthService = shouldUseSupabaseRuntime ? createSupabaseAuthService(
 export function AuthProvider({ children, service }: { children: ReactNode; service?: AuthService }) {
   const authService = useMemo(() => service ?? defaultAuthService, [service]);
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -38,6 +43,11 @@ export function AuthProvider({ children, service }: { children: ReactNode; servi
       .initialize()
       .then((nextSession) => {
         if (isMounted) setSession(nextSession);
+        if (nextSession) {
+          void authService.getProfile().then((nextProfile) => {
+            if (isMounted) setProfile(nextProfile);
+          });
+        }
       })
       .finally(() => {
         if (isMounted) setIsReady(true);
@@ -45,6 +55,14 @@ export function AuthProvider({ children, service }: { children: ReactNode; servi
 
     const unsubscribe = authService.subscribe((nextSession) => {
       setSession(nextSession);
+      if (!nextSession) {
+        setProfile(null);
+        return;
+      }
+
+      void authService.getProfile().then((nextProfile) => {
+        if (isMounted) setProfile(nextProfile);
+      });
     });
 
     return () => {
@@ -71,29 +89,60 @@ export function AuthProvider({ children, service }: { children: ReactNode; servi
   );
 
   const signOut = useCallback(() => {
-    void authService.signOut().finally(() => setSession(null));
+    void authService.signOut().finally(() => {
+      setSession(null);
+      setProfile(null);
+    });
+  }, [authService]);
+
+  const refreshProfile = useCallback(async () => {
+    const nextProfile = await authService.getProfile();
+    setProfile(nextProfile);
+    return nextProfile;
   }, [authService]);
 
   const updateProfile = useCallback(
-    ({ displayName }: Pick<AuthUser, 'displayName'>) => {
-      void authService.updateProfile({ displayName }).then((nextSession) => {
-        if (nextSession) setSession(nextSession);
-      });
+    async ({ displayName }: Pick<AuthUser, 'displayName'>) => {
+      const nextSession = await authService.updateProfile({ displayName });
+      if (nextSession) setSession(nextSession);
+      await refreshProfile();
+      return nextSession;
     },
-    [authService]
+    [authService, refreshProfile]
   );
+
+  const uploadProfileAvatar = useCallback(
+    async (file: File) => {
+      const nextSession = await authService.uploadProfileAvatar(file);
+      if (nextSession) setSession(nextSession);
+      await refreshProfile();
+      return nextSession;
+    },
+    [authService, refreshProfile]
+  );
+
+  const clearProfileAvatar = useCallback(async () => {
+    const nextSession = await authService.clearProfileAvatar();
+    if (nextSession) setSession(nextSession);
+    await refreshProfile();
+    return nextSession;
+  }, [authService, refreshProfile]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       isReady,
       session,
       user: session?.user ?? null,
+      profile,
+      refreshProfile,
       signUp,
       signIn,
       signOut,
-      updateProfile
+      updateProfile,
+      uploadProfileAvatar,
+      clearProfileAvatar
     }),
-    [isReady, session, signIn, signOut, signUp, updateProfile]
+    [clearProfileAvatar, isReady, profile, refreshProfile, session, signIn, signOut, signUp, updateProfile, uploadProfileAvatar]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

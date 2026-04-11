@@ -47,6 +47,7 @@ import type {
   TableSession,
   TableState,
   Technique,
+  UserCharacterSummary,
   Vow,
   Weapon,
   InventoryItem,
@@ -65,6 +66,7 @@ interface WorkspaceContextValue {
   compendiumCategory: string;
   online: OnlineState;
   tables: TableListItem[];
+  listUserCharacters: () => Promise<UserCharacterSummary[]>;
   setActiveCharacter: (characterId: string) => void;
   setCompendiumQuery: (query: string) => void;
   setCompendiumCategory: (category: string) => void;
@@ -141,6 +143,8 @@ interface WorkspaceContextValue {
     status: SessionAttendanceStatus;
   }) => Promise<TableState | null>;
   clearSessionAttendance: (payload?: { sessionId?: string }) => Promise<TableState | null>;
+  transferTableOwnership: (targetMembershipId: string) => Promise<TableState | null>;
+  deleteCurrentTable: () => Promise<void>;
   leaveCurrentTable: () => Promise<void>;
   disconnectOnline: () => Promise<void>;
   copyActiveCharacterText: () => Promise<void>;
@@ -221,11 +225,26 @@ function mapPresenceMembers(payload: Record<string, PresenceMember[]>): Presence
     .filter(Boolean)
     .map((member) => ({
       id: member.id,
+      userId: member.userId || '',
       nickname: member.nickname,
       role: member.role,
       characterId: member.characterId,
-      characterName: member.characterName
+      characterName: member.characterName,
+      isOwner: member.isOwner
     }));
+}
+
+function getWorkspaceErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function toConnectionFailureState(current: OnlineState, error: unknown, fallback: string): OnlineState {
+  return {
+    ...current,
+    status: current.session ? 'connected' : 'error',
+    pendingCodeJoin: null,
+    error: getWorkspaceErrorMessage(error, fallback)
+  };
 }
 
 function syncTableIntoOnlineState(current: OnlineState, table: TableState, status: OnlineState['status'] = 'connected') {
@@ -445,10 +464,12 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
 
         await channel.track({
           id: session.membershipId,
+          userId: user.id,
           nickname: session.nickname,
           role: session.role,
           characterId: session.characterId,
-          characterName: character?.name || ''
+          characterName: character?.name || '',
+          isOwner: onlineRef.current.table?.ownerId === user.id
         } satisfies PresenceMember);
       });
 
@@ -896,6 +917,10 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       compendiumCategory,
       online,
       tables,
+      listUserCharacters: async () => {
+        if (!user) return [];
+        return workspaceBackend.listUserCharacters(user);
+      },
       setActiveCharacter: (characterId) => {
         const currentSession = onlineRef.current.session;
 
@@ -1374,28 +1399,38 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       createTableSession: async (meta, nickname, initialState) => {
         if (!user) return null;
         setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
-        const created = await workspaceBackend.createTable({
-          user,
-          nickname,
-          meta,
-          state: initialState ? normalizeState(initialState) : stateRef.current
-        });
-        writeStoredSession(user.id, created.session);
-        await applyRemoteTable(created.table, created.session);
-        await refreshTables();
-        return created.session;
+        try {
+          const created = await workspaceBackend.createTable({
+            user,
+            nickname,
+            meta,
+            state: initialState ? normalizeState(initialState) : stateRef.current
+          });
+          writeStoredSession(user.id, created.session);
+          await applyRemoteTable(created.table, created.session);
+          await refreshTables();
+          return created.session;
+        } catch (error) {
+          setOnline((current) => toConnectionFailureState(current, error, 'Nao foi possivel criar a mesa.'));
+          throw error;
+        }
       },
       switchTable: async (tableSlug) => {
         if (!user) return null;
         setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
-        const next = await workspaceBackend.switchTable({
-          user,
-          tableSlug
-        });
-        writeStoredSession(user.id, next.session);
-        await applyRemoteTable(next.table, next.session);
-        await refreshTables();
-        return next.session;
+        try {
+          const next = await workspaceBackend.switchTable({
+            user,
+            tableSlug
+          });
+          writeStoredSession(user.id, next.session);
+          await applyRemoteTable(next.table, next.session);
+          await refreshTables();
+          return next.session;
+        } catch (error) {
+          setOnline((current) => toConnectionFailureState(current, error, 'Nao foi possivel abrir esta mesa.'));
+          throw error;
+        }
       },
       refreshTables,
       updateTableMeta: async (meta) => {
@@ -1410,64 +1445,91 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       connectToInvite: async (inviteUrl, nickname) => {
         if (!user) return null;
         setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
-        const joined = await workspaceBackend.joinByInvite({
-          user,
-          inviteUrl,
-          nickname
-        });
-        writeStoredSession(user.id, joined.session);
-        await applyRemoteTable(joined.table, joined.session);
-        await refreshTables();
-        return joined.session;
+        try {
+          const joined = await workspaceBackend.joinByInvite({
+            user,
+            inviteUrl,
+            nickname
+          });
+          writeStoredSession(user.id, joined.session);
+          await applyRemoteTable(joined.table, joined.session);
+          await refreshTables();
+          return joined.session;
+        } catch (error) {
+          setOnline((current) => toConnectionFailureState(current, error, 'Nao foi possivel aceitar este convite.'));
+          throw error;
+        }
       },
       connectToJoinCode: async (code, nickname, characterId) => {
         if (!user) return { connected: false, pending: false, session: null };
         setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
-        const result = await workspaceBackend.joinByCode({
-          user,
-          code,
-          nickname,
-          characterId
-        });
+        try {
+          const result = await workspaceBackend.joinByCode({
+            user,
+            code,
+            nickname,
+            characterId
+          });
 
-        if ('requiresCharacter' in result && result.requiresCharacter) {
-          setOnline((current) => ({
-            ...current,
-            status: 'connected',
-            pendingCodeJoin: {
-              code,
-              nickname,
-              role: result.role,
-              table: result.table,
-              characters: result.characters
-            }
-          }));
-          return { connected: false, pending: true, session: null };
+          if ('requiresCharacter' in result && result.requiresCharacter) {
+            setOnline((current) => ({
+              ...current,
+              status: 'connected',
+              pendingCodeJoin: {
+                code,
+                nickname,
+                role: result.role,
+                table: result.table,
+                characters: result.characters
+              }
+            }));
+            return { connected: false, pending: true, session: null };
+          }
+
+          writeStoredSession(user.id, result.session);
+          await applyRemoteTable(result.table, result.session);
+          await refreshTables();
+          return { connected: true, pending: false, session: result.session };
+        } catch (error) {
+          setOnline((current) => toConnectionFailureState(current, error, 'Nao foi possivel entrar com este codigo.'));
+          throw error;
         }
-
-        writeStoredSession(user.id, result.session);
-        await applyRemoteTable(result.table, result.session);
-        await refreshTables();
-        return { connected: true, pending: false, session: result.session };
       },
       completeJoinCode: async (characterId) => {
         const pending = onlineRef.current.pendingCodeJoin;
         if (!pending || !user) return null;
-        const result = await workspaceBackend.joinByCode({
-          user,
-          code: pending.code,
-          nickname: pending.nickname,
-          characterId
-        });
+        setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
+        try {
+          const result = await workspaceBackend.joinByCode({
+            user,
+            code: pending.code,
+            nickname: pending.nickname,
+            characterId
+          });
 
-        if ('requiresCharacter' in result && result.requiresCharacter) {
-          return null;
+          if ('requiresCharacter' in result && result.requiresCharacter) {
+            setOnline((current) => ({
+              ...current,
+              status: 'connected',
+              pendingCodeJoin: {
+                code: pending.code,
+                nickname: pending.nickname,
+                role: result.role,
+                table: result.table,
+                characters: result.characters
+              }
+            }));
+            return null;
+          }
+
+          writeStoredSession(user.id, result.session);
+          await applyRemoteTable(result.table, result.session);
+          await refreshTables();
+          return result.session;
+        } catch (error) {
+          setOnline((current) => toConnectionFailureState(current, error, 'Nao foi possivel concluir a entrada nesta mesa.'));
+          throw error;
         }
-
-        writeStoredSession(user.id, result.session);
-        await applyRemoteTable(result.table, result.session);
-        await refreshTables();
-        return result.session;
       },
       clearPendingJoinCode: () => setOnline((current) => ({ ...current, pendingCodeJoin: null })),
       flushPersistence,
@@ -1602,6 +1664,30 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         });
         setOnline((current) => syncTableIntoOnlineState(current, table));
         return table;
+      },
+      transferTableOwnership: async (targetMembershipId) => {
+        const currentSession = onlineRef.current.session;
+        if (!currentSession) return null;
+        const table = await workspaceBackend.transferTableOwnership({
+          session: currentSession,
+          targetMembershipId
+        });
+        setOnline((current) => syncTableIntoOnlineState(current, table));
+        await refreshTables();
+        return table;
+      },
+      deleteCurrentTable: async () => {
+        const currentSession = onlineRef.current.session;
+        if (!currentSession || !user) return;
+        await workspaceBackend.deleteTable({
+          session: currentSession
+        });
+        writeStoredSession(user.id, null);
+        const fallbackState = legacyState ?? createDefaultState();
+        stateRef.current = fallbackState;
+        setState(fallbackState);
+        setOnline(DEFAULT_ONLINE_STATE);
+        await refreshTables();
       },
       restoreCloudSnapshot: async (snapshotId) => {
         const currentSession = onlineRef.current.session;

@@ -12,6 +12,7 @@
   TableSession,
   TableSnapshot,
   TableState,
+  UserCharacterSummary,
   WorkspaceState
 } from '@/types/domain';
 import { DEFAULT_GAME_SESSION, DEFAULT_TABLE_META } from '@lib/domain/constants';
@@ -24,6 +25,7 @@ const STORE_KEY = 'singularidade-local-workspace-backend-v2';
 type Store = {
   workspaces: Record<string, WorkspaceState>;
   tables: Record<string, LocalTable>;
+  ownedCharacters: Record<string, LocalOwnedCharacter>;
 };
 
 type LocalMembership = {
@@ -65,6 +67,7 @@ type LocalJoinCode = {
 type LocalTable = {
   table: TableState;
   memberships: LocalMembership[];
+  characterOwners: Record<string, string | null>;
   invites: LocalInvite[];
   joinCodes: LocalJoinCode[];
   snapshots: TableSnapshot[];
@@ -72,7 +75,16 @@ type LocalTable = {
   attendanceBySession: Record<string, SessionAttendance[]>;
 };
 
-const memory: Store = { workspaces: {}, tables: {} };
+type LocalOwnedCharacter = {
+  id: string;
+  ownerId: string;
+  tableId: string | null;
+  tableName: string;
+  updatedAt: string;
+  character: Character;
+};
+
+const memory: Store = { workspaces: {}, tables: {}, ownedCharacters: {} };
 const subscribers = new Map<string, Set<(table: TableState) => void>>();
 
 function now() {
@@ -88,20 +100,59 @@ function canUseStorage() {
 }
 
 function loadStore(): Store {
-  if (!canUseStorage()) return memory;
+  if (!canUseStorage()) return normalizeStore(memory);
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return memory;
-    const parsed = JSON.parse(raw) as Store;
-    return { workspaces: parsed.workspaces || {}, tables: parsed.tables || {} };
+    if (!raw) return normalizeStore(memory);
+    const parsed = JSON.parse(raw) as Partial<Store>;
+    return normalizeStore({
+      workspaces: parsed.workspaces || {},
+      tables: parsed.tables || {},
+      ownedCharacters: parsed.ownedCharacters || {}
+    });
   } catch {
-    return memory;
+    return normalizeStore(memory);
   }
 }
 
 function saveStore(store: Store) {
   if (!canUseStorage()) return;
   localStorage.setItem(STORE_KEY, JSON.stringify(store));
+}
+
+function normalizeStore(store: Store): Store {
+  for (const record of Object.values(store.tables)) {
+    if (!record?.table) continue;
+
+    record.memberships = record.memberships || [];
+    record.characterOwners = record.characterOwners || {};
+    record.invites = record.invites || [];
+    record.joinCodes = record.joinCodes || [];
+    record.snapshots = record.snapshots || [];
+    record.sessionHistory = record.sessionHistory || [];
+    record.attendanceBySession = record.attendanceBySession || {};
+    record.table.state = normalizeState(record.table.state || createDefaultState());
+    record.table.ownerId =
+      record.table.ownerId ||
+      record.memberships.find((membership) => membership.active && membership.role === 'gm' && membership.userId)?.userId ||
+      record.memberships.find((membership) => membership.active && membership.userId)?.userId ||
+      null;
+
+    if (!record.table.currentSession && record.sessionHistory[0]) {
+      record.table.currentSession = record.sessionHistory[0];
+    }
+
+    for (const character of record.table.state.characters) {
+      if (Object.prototype.hasOwnProperty.call(record.characterOwners, character.id)) continue;
+      record.characterOwners[character.id] =
+        record.memberships.find((membership) => membership.characterId === character.id && membership.userId)?.userId || record.table.ownerId;
+    }
+
+    refreshDerived(record);
+    syncOwnedCharactersForTable(store, record);
+  }
+
+  return store;
 }
 
 function clone<T>(value: T): T {
@@ -125,15 +176,17 @@ function toGameSession(input: Partial<GameSession> & Pick<GameSession, 'id' | 't
   };
 }
 
-function toPresenceMembers(memberships: LocalMembership[], state: WorkspaceState): PresenceMember[] {
+function toPresenceMembers(memberships: LocalMembership[], state: WorkspaceState, ownerId: string | null): PresenceMember[] {
   return memberships
     .filter((membership) => membership.active)
     .map((membership) => ({
       id: membership.id,
+      userId: membership.userId,
       nickname: membership.nickname,
       role: membership.role,
       characterId: membership.characterId,
-      characterName: state.characters.find((character) => character.id === membership.characterId)?.name || ''
+      characterName: state.characters.find((character) => character.id === membership.characterId)?.name || '',
+      isOwner: membership.userId === ownerId
     }));
 }
 
@@ -193,7 +246,7 @@ function buildPublicTable(record: LocalTable): TableState {
     currentSession,
     sessionAttendances,
     sessionHistoryPreview: record.sessionHistory.slice(0, 5),
-    memberships: toPresenceMembers(record.memberships, record.table.state),
+    memberships: toPresenceMembers(record.memberships, record.table.state, record.table.ownerId),
     invites: toInvites(record.invites, record.table.slug),
     joinCodes: toJoinCodes(record.joinCodes, record.table.slug),
     snapshots: clone(record.snapshots)
@@ -232,7 +285,7 @@ function upsertTableSession(record: LocalTable, session: GameSession) {
 
 function refreshDerived(record: LocalTable) {
   record.table.updatedAt = now();
-  record.table.memberships = toPresenceMembers(record.memberships, record.table.state);
+  record.table.memberships = toPresenceMembers(record.memberships, record.table.state, record.table.ownerId);
   record.table.invites = toInvites(record.invites, record.table.slug);
   record.table.joinCodes = toJoinCodes(record.joinCodes, record.table.slug);
   record.table.snapshots = clone(record.snapshots);
@@ -246,12 +299,40 @@ function refreshDerived(record: LocalTable) {
   }
 }
 
+function syncOwnedCharactersForTable(store: Store, record: LocalTable) {
+  const activeCharacterIds = new Set(record.table.state.characters.map((character) => character.id));
+
+  for (const entry of Object.values(store.ownedCharacters)) {
+    if (entry.tableId === record.table.id && !activeCharacterIds.has(entry.id)) {
+      delete store.ownedCharacters[entry.id];
+    }
+  }
+
+  for (const character of record.table.state.characters) {
+    const ownerId = record.characterOwners[character.id] || null;
+    if (!ownerId) {
+      delete store.ownedCharacters[character.id];
+      continue;
+    }
+
+    store.ownedCharacters[character.id] = {
+      id: character.id,
+      ownerId,
+      tableId: record.table.id,
+      tableName: record.table.name,
+      updatedAt: record.table.updatedAt,
+      character: clone(character)
+    };
+  }
+}
+
 function mutateTable(tableId: string, mutator: (record: LocalTable) => void) {
   const store = loadStore();
   const record = store.tables[tableId];
   if (!record) throw new Error('Mesa nao encontrada.');
   mutator(record);
   refreshDerived(record);
+  syncOwnedCharactersForTable(store, record);
   saveStore(store);
   emitTable(tableId);
 }
@@ -288,6 +369,14 @@ function createTableRecord(input: {
 }): LocalTable {
   const createdAt = now();
   const state = normalizeState(input.state);
+  const initialSession = toGameSession({
+    ...DEFAULT_GAME_SESSION,
+    id: uid('session'),
+    tableId: input.tableId,
+    createdBy: input.nickname,
+    createdAt,
+    updatedAt: createdAt
+  });
   const gmMembership: LocalMembership = {
     id: uid('membership'),
     userId: input.user.id,
@@ -302,21 +391,24 @@ function createTableRecord(input: {
     id: input.tableId,
     slug: input.slug,
     name: input.name,
+    ownerId: input.user.id,
     meta: clone(input.meta),
     updatedAt: createdAt,
     createdAt,
     lastEditor: input.nickname,
     state,
-    currentSession: null,
-    sessionAttendances: [],
-    sessionHistoryPreview: [],
+    currentSession: initialSession,
+    sessionAttendances: [createPendingAttendance(initialSession.id, gmMembership.id)],
+    sessionHistoryPreview: [initialSession],
     memberships: [
       {
         id: gmMembership.id,
+        userId: gmMembership.userId,
         nickname: gmMembership.nickname,
         role: gmMembership.role,
         characterId: gmMembership.characterId,
-        characterName: ''
+        characterName: '',
+        isOwner: true
       }
     ],
     invites: [],
@@ -327,11 +419,14 @@ function createTableRecord(input: {
   return {
     table,
     memberships: [gmMembership],
+    characterOwners: Object.fromEntries(state.characters.map((character) => [character.id, input.user.id])),
     invites: [],
     joinCodes: [],
     snapshots: [],
-    sessionHistory: [],
-    attendanceBySession: {}
+    sessionHistory: [initialSession],
+    attendanceBySession: {
+      [initialSession.id]: [createPendingAttendance(initialSession.id, gmMembership.id)]
+    }
   };
 }
 
@@ -434,13 +529,32 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
             createdAt: record.table.createdAt,
             updatedAt: record.table.updatedAt,
             joinedAt: membership.joinedAt,
-            isOwner: membership.role === 'gm',
+            isOwner: record.table.ownerId === user.id,
             seriesName: record.table.meta.seriesName,
             campaignName: record.table.meta.campaignName,
             status: record.table.currentSession?.status || 'Sem sessão'
           } satisfies TableListItem;
         })
         .filter((entry): entry is TableListItem => Boolean(entry))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    },
+    async listUserCharacters(user) {
+      const store = loadStore();
+      return Object.values(store.ownedCharacters)
+        .filter((entry) => entry.ownerId === user.id)
+        .map(
+          (entry) =>
+            ({
+              id: entry.id,
+              name: entry.character.name,
+              clan: entry.character.clan,
+              grade: entry.character.grade,
+              avatarUrl: entry.character.avatar,
+              tableId: entry.tableId,
+              tableName: entry.tableName,
+              updatedAt: entry.updatedAt
+            }) satisfies UserCharacterSummary
+        )
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     },
     async getTable(session) {
@@ -481,6 +595,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
       const slug = uniqueSlug(meta.tableName || DEFAULT_TABLE_META.tableName, store);
       const record = createTableRecord({ tableId, slug, name: meta.tableName || DEFAULT_TABLE_META.tableName, meta, state, user, nickname });
       store.tables[tableId] = record;
+      syncOwnedCharactersForTable(store, record);
       saveStore(store);
       emitTable(tableId);
       return {
@@ -523,8 +638,12 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
         updatedAt: now()
       };
       record.memberships.push(membership);
+      if (invite.role === 'player' && invite.characterId) {
+        record.characterOwners[invite.characterId] = user.id;
+      }
       invite.acceptedAt = now();
       refreshMembershipSessionAttendances(record, membershipId);
+      syncOwnedCharactersForTable(store, record);
       saveStore(store);
       emitTable(record.table.id);
       return {
@@ -568,9 +687,13 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
         updatedAt: now()
       };
       record.memberships.push(membership);
+      if (joinCode.role === 'player' && (characterId || joinCode.characterId)) {
+        record.characterOwners[characterId || joinCode.characterId] = user.id;
+      }
       joinCode.lastUsedAt = now();
       joinCode.updatedAt = now();
       refreshMembershipSessionAttendances(record, membershipId);
+      syncOwnedCharactersForTable(store, record);
       saveStore(store);
       emitTable(record.table.id);
       return {
@@ -650,6 +773,9 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
     async createGameSession({ session, gameSession }) {
       assertCanManageTable(session);
       mutateTable(session.tableId, (record) => {
+        if (gameSession.isActive) {
+          record.sessionHistory = record.sessionHistory.map((entry) => toGameSession({ ...entry, isActive: false, updatedAt: now() }));
+        }
         const next = toGameSession({
           id: uid('session'),
           tableId: session.tableId,
@@ -686,6 +812,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
       mutateTable(session.tableId, (record) => {
         const current = record.sessionHistory.find((entry) => entry.id === sessionId);
         if (!current) throw new Error('Sessao nao encontrada.');
+        record.sessionHistory = record.sessionHistory.map((entry) => toGameSession({ ...entry, isActive: false, updatedAt: now() }));
         const next = toGameSession({ ...current, isActive: true, updatedAt: now() });
         record.sessionHistory = record.sessionHistory.map((entry) => (entry.id === sessionId ? next : entry));
         upsertTableSession(record, next);
@@ -736,10 +863,11 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
       });
       return clone(buildPublicTable(ensureRecord(session.tableId)));
     },
-    async saveCharacter({ session, character }) {
+    async saveCharacter({ session, userId, character }) {
       assertCanEditCharacter(session, character.id);
       mutateTable(session.tableId, (record) => {
         const nextCharacter = patchCharacter(character);
+        record.characterOwners[nextCharacter.id] = record.characterOwners[nextCharacter.id] || userId;
         record.table.state = normalizeState({
           ...record.table.state,
           characters: [nextCharacter, ...record.table.state.characters.filter((entry) => entry.id !== nextCharacter.id)]
@@ -761,10 +889,66 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
         record.table.state = { ...record.table.state, log: [] };
       });
     },
+    async transferTableOwnership({ session, targetMembershipId }) {
+      mutateTable(session.tableId, (record) => {
+        const actingMembership = record.memberships.find((entry) => entry.id === session.membershipId && entry.active);
+        if (!actingMembership || record.table.ownerId !== actingMembership.userId) {
+          throw new Error('Apenas o administrador principal pode transferir a mesa.');
+        }
+
+        const targetMembership = record.memberships.find((entry) => entry.id === targetMembershipId && entry.active);
+        if (!targetMembership) {
+          throw new Error('Membro alvo nao encontrado.');
+        }
+
+        if (targetMembership.userId === actingMembership.userId) {
+          throw new Error('Escolha outro membro para receber a administracao.');
+        }
+
+        record.table.ownerId = targetMembership.userId;
+        targetMembership.role = 'gm';
+        actingMembership.role = 'gm';
+      });
+      return clone(buildPublicTable(ensureRecord(session.tableId)));
+    },
+    async deleteTable({ session }) {
+      const store = loadStore();
+      const record = store.tables[session.tableId];
+      if (!record) return;
+
+      const actingMembership = record.memberships.find((entry) => entry.id === session.membershipId && entry.active);
+      if (!actingMembership || record.table.ownerId !== actingMembership.userId) {
+        throw new Error('Apenas o administrador principal pode excluir esta mesa.');
+      }
+
+      for (const character of record.table.state.characters) {
+        const ownerId = record.characterOwners[character.id] || null;
+        if (!ownerId) {
+          delete store.ownedCharacters[character.id];
+          continue;
+        }
+
+        store.ownedCharacters[character.id] = {
+          id: character.id,
+          ownerId,
+          tableId: null,
+          tableName: '',
+          updatedAt: now(),
+          character: clone(character)
+        };
+      }
+
+      delete store.tables[session.tableId];
+      saveStore(store);
+      subscribers.delete(session.tableId);
+    },
     async leaveTable({ session, userId }) {
       mutateTable(session.tableId, (record) => {
         const membership = record.memberships.find((entry) => entry.userId === userId && entry.active);
         if (!membership) return;
+        if (record.table.ownerId === userId) {
+          throw new Error('O criador da mesa nao pode sair sem transferir a administracao.');
+        }
         if (membership.role === 'gm') {
           const otherGm = record.memberships.some((entry) => entry.userId !== userId && entry.active && entry.role === 'gm');
           if (!otherGm) throw new Error('Promova outro GM antes de sair desta mesa.');

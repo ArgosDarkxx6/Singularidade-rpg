@@ -11,6 +11,7 @@ import type {
   TableRole,
   TableSession,
   TableState,
+  UserCharacterSummary,
   WorkspaceState
 } from '@/types/domain';
 
@@ -38,6 +39,7 @@ export interface WorkspaceBackend {
   loadWorkspace: (user: AuthUser) => Promise<WorkspaceState>;
   saveWorkspace: (user: AuthUser, state: WorkspaceState) => Promise<void>;
   listUserTables: (user: AuthUser) => Promise<TableListItem[]>;
+  listUserCharacters: (user: AuthUser) => Promise<UserCharacterSummary[]>;
   getTable: (session: TableSession) => Promise<TableState>;
   switchTable: (input: { user: AuthUser; tableSlug: string }) => Promise<{ table: TableState; session: TableSession }>;
   subscribeToTable: (session: TableSession, callback: (table: TableState) => void) => Promise<() => void> | (() => void);
@@ -78,6 +80,8 @@ export interface WorkspaceBackend {
   saveCharacter: (input: { session: TableSession; userId: string; character: Character }) => Promise<void>;
   appendTableLog: (input: { session: TableSession; userId: string; entry: LogEntry }) => Promise<void>;
   clearTableLogs: (input: { session: TableSession; userId: string }) => Promise<void>;
+  transferTableOwnership: (input: { session: TableSession; targetMembershipId: string }) => Promise<TableState>;
+  deleteTable: (input: { session: TableSession }) => Promise<void>;
   leaveTable: (input: { session: TableSession; userId: string }) => Promise<void>;
   disconnectSession: (input: { session: TableSession; userId: string }) => Promise<void>;
   uploadCharacterAvatar: (input: { user: AuthUser; characterId: string; file: File }) => Promise<UploadAvatarResult>;

@@ -26,7 +26,8 @@ function attributeRankLabel(character: Character, attributeKey: keyof Character[
 }
 
 export function MesaRollsPage() {
-  const { state, lastRoll, executeAttributeRoll, executeCustomRoll, clearLog } = useWorkspace();
+  const { state, lastRoll, executeAttributeRoll, executeCustomRoll, clearLog, online } = useWorkspace();
+  const canClearLog = online.session?.role === 'gm';
 
   const guidedForm = useForm<GuidedValues>({
     resolver: zodResolver(guidedRollSchema) as never,
@@ -59,7 +60,13 @@ export function MesaRollsPage() {
         eyebrow="Rolagens dentro da mesa"
         title="Composer central e feed tatico"
         description="Os testes agora ficam alinhados ao contexto da mesa atual. O composer guia a rolagem e o feed lateral concentra o historico mais recente."
-        actions={<Button variant="ghost" onClick={clearLog}>Limpar log</Button>}
+        actions={
+          canClearLog ? (
+            <Button variant="ghost" onClick={() => void clearLog()}>
+              Limpar log
+            </Button>
+          ) : undefined
+        }
       />
 
       <div className="grid gap-4 md:grid-cols-4">
