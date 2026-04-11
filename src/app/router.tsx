@@ -39,6 +39,10 @@ export const router = createBrowserRouter([
         element: <MesasPage />
       },
       {
+        path: '/perfil',
+        lazy: async () => ({ Component: (await import('@routes/profile-page')).ProfilePage })
+      },
+      {
         path: '/fichas',
         element: <LegacyRouteRedirect section="fichas" />
       },

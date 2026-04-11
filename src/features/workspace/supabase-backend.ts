@@ -14,6 +14,7 @@ import type {
   TableSession,
   TableSnapshot,
   TableState,
+  UserCharacterSummary,
   WorkspaceState
 } from '@/types/domain';
 import { DEFAULT_TABLE_META } from '@lib/domain/constants';
@@ -133,7 +134,7 @@ function toTableInsert(meta: TableMeta, state: WorkspaceState, ownerId: string, 
 
 type CharacterRow = {
   id: string;
-  table_id: string;
+  table_id: string | null;
   owner_id: string | null;
   name: string;
   age: number;
@@ -646,17 +647,19 @@ async function fetchInvites(tableId: string, tableSlug: string): Promise<TableIn
   }));
 }
 
-function mapMemberships(records: TableMembershipRow[], state: WorkspaceState): PresenceMember[] {
+function mapMemberships(records: TableMembershipRow[], state: WorkspaceState, ownerId: string | null): PresenceMember[] {
   return records
     .filter((membership) => membership.active)
     .map((membership) => {
       const character = state.characters.find((entry) => entry.id === membership.character_id);
       return {
         id: membership.id,
+        userId: membership.user_id,
         nickname: membership.nickname,
         role: membership.role as PresenceMember['role'],
         characterId: membership.character_id || '',
-        characterName: character?.name || ''
+        characterName: character?.name || '',
+        isOwner: membership.user_id === ownerId
       };
     });
 }
@@ -717,33 +720,6 @@ async function fetchCurrentSession(tableId: string, fallbackRow: TableRow): Prom
 
   if (error) throw error;
   if (data) return toGameSession(data as TableSessionRow);
-
-  if (
-    fallbackRow.episode_number ||
-    fallbackRow.episode_title ||
-    fallbackRow.session_date ||
-    fallbackRow.location ||
-    fallbackRow.status ||
-    fallbackRow.recap ||
-    fallbackRow.objective
-  ) {
-    return {
-      id: fallbackRow.current_session_id || uid('session'),
-      tableId,
-      episodeNumber: fallbackRow.episode_number || '',
-      episodeTitle: fallbackRow.episode_title || '',
-      status: fallbackRow.status || 'Planejamento',
-      sessionDate: fallbackRow.session_date || '',
-      location: fallbackRow.location || '',
-      objective: fallbackRow.objective || '',
-      recap: fallbackRow.recap || '',
-      notes: '',
-      isActive: fallbackRow.status === 'Em sessão',
-      createdBy: fallbackRow.owner_id || '',
-      createdAt: fallbackRow.created_at,
-      updatedAt: fallbackRow.updated_at
-    };
-  }
 
   return null;
 }
@@ -1066,7 +1042,7 @@ async function fetchTableState(tableId: string): Promise<TableState> {
     characters,
     log: logs
   });
-  const memberships = mapMemberships(membershipRows, state);
+  const memberships = mapMemberships(membershipRows, state, row.owner_id);
   const sessionAttendances = currentSession ? await fetchSessionAttendances(currentSession.id, membershipRows) : [];
   const preview = sessionHistoryPreview.length ? sessionHistoryPreview : currentSession ? [currentSession] : [];
 
@@ -1074,6 +1050,7 @@ async function fetchTableState(tableId: string): Promise<TableState> {
     id: row.id,
     slug: row.slug,
     name: row.name,
+    ownerId: row.owner_id,
     meta: toTableMeta(row),
     updatedAt: row.updated_at,
     createdAt: row.created_at,
@@ -1162,6 +1139,50 @@ async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> 
     })
     .filter((entry): entry is TableListItem => Boolean(entry))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) as TableListItem[];
+}
+
+async function listUserOwnedCharacters(user: AuthUser): Promise<UserCharacterSummary[]> {
+  const client = assertClient();
+  const { data, error } = await client
+    .from('characters')
+    .select(
+      `
+      id,
+      name,
+      clan,
+      grade,
+      updated_at,
+      table_id,
+      avatar_url,
+      avatar_path,
+      tables (
+        name
+      )
+    `
+    )
+    .eq('owner_id', user.id)
+    .eq('archived', false)
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+
+  return Promise.all(
+    (data || []).map(async (row) => {
+      const table = Array.isArray(row.tables) ? row.tables[0] : row.tables;
+      const avatarUrl = row.avatar_path ? await createSignedAvatarUrl(row.avatar_path) : row.avatar_url || '';
+
+      return {
+        id: row.id,
+        name: row.name,
+        clan: row.clan || '',
+        grade: row.grade || '',
+        avatarUrl,
+        tableId: row.table_id,
+        tableName: table?.name || '',
+        updatedAt: row.updated_at
+      } satisfies UserCharacterSummary;
+    })
+  );
 }
 
 async function ensureDraftTable(user: AuthUser): Promise<string> {
@@ -1289,6 +1310,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     async listUserTables(user) {
       return listUserTableSummaries(user);
     },
+    async listUserCharacters(user) {
+      return listUserOwnedCharacters(user);
+    },
     async getTable(session) {
       return fetchTableState(session.tableId);
     },
@@ -1339,8 +1363,16 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       const reload = async () => {
         if (disposed) return;
-        const table = await fetchTableState(session.tableId);
-        callback(table);
+
+        try {
+          const table = await fetchTableState(session.tableId);
+          if (disposed) return;
+          callback(table);
+        } catch (error) {
+          if (!disposed) {
+            console.error('workspace realtime reload failed', error);
+          }
+        }
       };
 
       channel
@@ -1371,79 +1403,137 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const client = assertClient();
       let insertedTable: { id: string; slug: string; name: string } | null = null;
 
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        const baseSlug = slugify(meta.tableName || DEFAULT_TABLE_META.tableName);
-        const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`.slice(0, 48);
-        const response = await client
-          .from('tables')
-          .insert(toTableInsert(meta, state, user.id, nickname, slug))
-          .select('id, slug, name')
+      try {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const baseSlug = slugify(meta.tableName || DEFAULT_TABLE_META.tableName);
+          const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`.slice(0, 48);
+          const response = await client
+            .from('tables')
+            .insert(toTableInsert(meta, state, user.id, nickname, slug))
+            .select('id, slug, name')
+            .single();
+
+          if (response.error?.code === '23505') continue;
+          if (response.error) throw response.error;
+          insertedTable = response.data;
+          break;
+        }
+
+        if (!insertedTable) {
+          throw new Error('Nao foi possivel reservar um slug unico para a mesa.');
+        }
+        const createdTable = insertedTable;
+
+        const { data: membership, error: membershipError } = await client
+          .from('table_memberships')
+          .insert({
+            table_id: createdTable.id,
+            user_id: user.id,
+            role: 'gm',
+            character_id: null,
+            nickname,
+            active: true
+          })
+          .select('id')
           .single();
 
-        if (response.error?.code === '23505') continue;
-        if (response.error) throw response.error;
-        insertedTable = response.data;
-        break;
+        if (membershipError) throw membershipError;
+
+        const { data: initialSession, error: initialSessionError } = await client
+          .from('table_sessions')
+          .insert({
+            table_id: createdTable.id,
+            episode_number: '',
+            episode_title: '',
+            status: 'Planejamento',
+            session_date: null,
+            location: '',
+            objective: '',
+            recap: '',
+            notes: '',
+            is_active: false,
+            created_by: user.id
+          })
+          .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
+          .single();
+
+        if (initialSessionError) throw initialSessionError;
+
+        const initialSessionRow = initialSession as TableSessionRow;
+        const { error: tableSessionError } = await client
+          .from('tables')
+          .update({
+            current_session_id: initialSessionRow.id,
+            episode_number: initialSessionRow.episode_number,
+            episode_title: initialSessionRow.episode_title,
+            session_date: initialSessionRow.session_date,
+            location: initialSessionRow.location,
+            status: initialSessionRow.status,
+            recap: initialSessionRow.recap,
+            objective: initialSessionRow.objective,
+            last_editor: nickname
+          })
+          .eq('id', createdTable.id);
+
+        if (tableSessionError) throw tableSessionError;
+
+        const { error: attendanceError } = await client.from('table_session_attendances').insert({
+          session_id: initialSessionRow.id,
+          membership_id: membership.id,
+          status: 'pending'
+        });
+
+        if (attendanceError) throw attendanceError;
+
+        await syncCharacterRows(createdTable.id, user.id, state);
+
+        if (state.log.length) {
+          const { error: logError } = await client.from('table_logs').insert(
+            state.log.map((entry) => ({
+              id: entry.id,
+              table_id: createdTable.id,
+              actor_id: user.id,
+              category: entry.category,
+              title: entry.title,
+              body: entry.text,
+              meta: entry.meta,
+              created_at: entry.timestamp
+            }))
+          );
+          if (logError) throw logError;
+        }
+
+        const { error: snapshotError } = await client.from('table_snapshots').insert({
+          table_id: createdTable.id,
+          created_by: user.id,
+          label: 'Snapshot inicial',
+          state: serializeStateForStorage(state) as unknown as Json
+        });
+
+        if (snapshotError) throw snapshotError;
+
+        const table = await fetchTableState(createdTable.id);
+        return {
+          table,
+          session: buildTableSession({
+            tableId: createdTable.id,
+            membershipId: membership.id,
+            tableSlug: createdTable.slug,
+            tableName: createdTable.name,
+            role: 'gm',
+            nickname
+          })
+        };
+      } catch (error) {
+        if (insertedTable?.id) {
+          const { error: cleanupError } = await client.from('tables').delete().eq('id', insertedTable.id);
+          if (cleanupError) {
+            console.error('createTable cleanup failed', cleanupError);
+          }
+        }
+
+        throw error;
       }
-
-      if (!insertedTable) {
-        throw new Error('Nao foi possivel reservar um slug unico para a mesa.');
-      }
-
-      const { data: membership, error: membershipError } = await client
-        .from('table_memberships')
-        .insert({
-          table_id: insertedTable.id,
-          user_id: user.id,
-          role: 'gm',
-          character_id: null,
-          nickname,
-          active: true
-        })
-        .select('id')
-        .single();
-
-      if (membershipError) throw membershipError;
-
-      await syncCharacterRows(insertedTable.id, user.id, state);
-
-      if (state.log.length) {
-        const { error: logError } = await client.from('table_logs').insert(
-          state.log.map((entry) => ({
-            id: entry.id,
-            table_id: insertedTable.id,
-            actor_id: user.id,
-            category: entry.category,
-            title: entry.title,
-            body: entry.text,
-            meta: entry.meta,
-            created_at: entry.timestamp
-          }))
-        );
-        if (logError) throw logError;
-      }
-
-      const { error: snapshotError } = await client.from('table_snapshots').insert({
-        table_id: insertedTable.id,
-        created_by: user.id,
-        label: 'Snapshot inicial',
-        state: serializeStateForStorage(state) as unknown as Json
-      });
-
-      if (snapshotError) throw snapshotError;
-
-      const table = await fetchTableState(insertedTable.id);
-      return {
-        table,
-        session: buildTableSession({
-          tableId: insertedTable.id,
-          membershipId: membership.id,
-          tableSlug: insertedTable.slug,
-          tableName: insertedTable.name,
-          role: 'gm',
-          nickname
-        })
-      };
     },
     async updateTableMeta({ session, meta }) {
       const client = assertClient();
@@ -1690,6 +1780,8 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     async createGameSession({ session, gameSession }) {
       if (session.role !== 'gm') throw new Error('Apenas GMs podem criar sessoes.');
       const client = assertClient();
+      const { data: authState, error: authError } = await client.auth.getUser();
+      if (authError) throw authError;
       const payload = {
         table_id: session.tableId,
         episode_number: gameSession.episodeNumber || '',
@@ -1701,8 +1793,16 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         recap: gameSession.recap || '',
         notes: gameSession.notes || '',
         is_active: gameSession.isActive ?? false,
-        created_by: gameSession.createdBy || null
+        created_by: authState.user?.id || null
       };
+      if (payload.is_active) {
+        const { error: deactivateError } = await client
+          .from('table_sessions')
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq('table_id', session.tableId)
+          .eq('is_active', true);
+        if (deactivateError) throw deactivateError;
+      }
       const { data, error } = await client
         .from('table_sessions')
         .insert(payload)
@@ -1779,6 +1879,13 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     async startGameSession({ session, sessionId }) {
       if (session.role !== 'gm') throw new Error('Apenas GMs podem iniciar sessoes.');
       const client = assertClient();
+      const { error: deactivateError } = await client
+        .from('table_sessions')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('table_id', session.tableId)
+        .eq('is_active', true)
+        .neq('id', sessionId);
+      if (deactivateError) throw deactivateError;
       const { data, error } = await client
         .from('table_sessions')
         .update({ is_active: true, updated_at: new Date().toISOString() })
@@ -1893,6 +2000,22 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       }
       const client = assertClient();
       const { error } = await client.from('table_logs').delete().eq('table_id', session.tableId);
+      if (error) throw error;
+    },
+    async transferTableOwnership({ session, targetMembershipId }) {
+      const client = assertClient();
+      const { error } = await client.rpc('transfer_table_ownership', {
+        p_table_id: session.tableId,
+        p_target_membership_id: targetMembershipId
+      });
+      if (error) throw error;
+      return fetchTableState(session.tableId);
+    },
+    async deleteTable({ session }) {
+      const client = assertClient();
+      const { error } = await client.rpc('delete_table_preserving_characters', {
+        p_table_id: session.tableId
+      });
       if (error) throw error;
     },
     async leaveTable({ session, userId }) {

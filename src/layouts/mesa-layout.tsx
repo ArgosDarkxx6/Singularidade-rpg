@@ -13,9 +13,10 @@ import {
   SlidersHorizontal,
   Sparkles,
   Swords,
+  TriangleAlert,
   Users
 } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { LogoLockup } from '@components/shared/logo-lockup';
@@ -113,6 +114,7 @@ function MesaUtilityContent({
   user,
   currentTableSummary,
   onLeave,
+  onOpenProfile,
   onSignOut,
   showActions = false
 }: {
@@ -123,6 +125,7 @@ function MesaUtilityContent({
   user: AuthUser | null;
   currentTableSummary: { status?: string } | null;
   onLeave: () => void;
+  onOpenProfile: () => void;
   onSignOut: () => void;
   showActions?: boolean;
 }) {
@@ -208,13 +211,16 @@ function MesaUtilityContent({
       {showActions ? (
         <Panel className="rounded-[28px] p-5">
           <div className="flex items-start gap-3">
-            <Avatar name={user?.displayName || user?.username || 'Usuário'} size="sm" />
+            <Avatar src={user?.avatarUrl || undefined} name={user?.displayName || user?.username || 'Usuário'} size="sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{user?.displayName || 'Usuário'}</p>
               <p className="truncate text-xs uppercase tracking-[0.18em] text-muted">@{user?.username}</p>
             </div>
           </div>
           <div className="mt-4 grid gap-2">
+            <Button variant="secondary" onClick={onOpenProfile}>
+              Minha conta
+            </Button>
             <Button variant="secondary" onClick={onLeave}>
               Sair da mesa
             </Button>
@@ -238,6 +244,8 @@ export function MesaLayout() {
   const { mobileNavOpen, utilityOpen, setMobileNavOpen, setUtilityOpen } = useMesaShellStore();
   const { isReady, online, tables, switchTable, connectToInvite, leaveCurrentTable } = useWorkspace();
   const attemptRef = useRef('');
+  const [openError, setOpenError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   const currentSection = getMesaSectionFromPath(location.pathname);
   const accessError = useMemo(() => {
     if (!isReady || !slug) return '';
@@ -255,30 +263,45 @@ export function MesaLayout() {
   }, [location.pathname, setMobileNavOpen, setUtilityOpen]);
 
   useEffect(() => {
+    attemptRef.current = '';
+    setOpenError('');
+  }, [inviteToken, slug]);
+
+  useEffect(() => {
     if (!isReady || !slug || online.session?.tableSlug === slug || accessError) return;
 
-    const attemptKey = `${slug}|${inviteToken || ''}|${tables.map((table) => table.slug).join(',')}`;
+    const attemptKey = `${slug}|${inviteToken || ''}|${tables.map((table) => table.slug).join(',')}|${retryNonce}`;
     if (attemptRef.current === attemptKey) return;
     attemptRef.current = attemptKey;
+    setOpenError('');
 
     void (async () => {
       try {
         if (inviteToken) {
-          await connectToInvite(window.location.href, user?.displayName || user?.username || 'Feiticeiro');
+          const joinedSession = await connectToInvite(window.location.href, user?.displayName || user?.username || 'Feiticeiro');
+          if (!joinedSession) {
+            setOpenError('A mesa nao respondeu com uma sessao valida para este convite.');
+          }
           return;
         }
 
-        await switchTable(slug);
+        const nextSession = await switchTable(slug);
+        if (!nextSession) {
+          setOpenError('A mesa nao respondeu com uma sessao valida para esta rota.');
+        }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Não foi possível abrir a mesa solicitada.');
+        const message = error instanceof Error ? error.message : 'Nao foi possivel abrir a mesa solicitada.';
+        setOpenError(message);
+        toast.error(message);
       }
     })();
-  }, [accessError, connectToInvite, inviteToken, isReady, online.session?.tableSlug, slug, switchTable, tables, user?.displayName, user?.username]);
+  }, [accessError, connectToInvite, inviteToken, isReady, online.session?.tableSlug, retryNonce, slug, switchTable, tables, user?.displayName, user?.username]);
 
   const session = online.session?.tableSlug === slug ? online.session : null;
   const table = online.session?.tableSlug === slug ? online.table : null;
   const currentTableSummary = tables.find((item) => item.slug === slug) || tables.find((item) => item.slug === session?.tableSlug) || null;
   const members = useMemo(() => (online.members.length ? online.members : table?.memberships || []).slice(0, 6), [online.members, table?.memberships]);
+  const terminalAccessError = openError || accessError;
 
   const handleLeaveTable = async () => {
     try {
@@ -293,12 +316,13 @@ export function MesaLayout() {
     signOut();
   };
 
-  if (!isReady || (!session && !accessError)) {
+  if (!isReady || (!session && !terminalAccessError)) {
     return (
       <div className="grid min-h-screen place-items-center px-4 py-10">
         <Panel className="w-full max-w-xl rounded-[30px] p-8 text-center">
           <LoaderCircle className="mx-auto size-10 animate-spin text-sky-200" />
           <h1 className="mt-5 font-display text-4xl text-white">Carregando a mesa</h1>
+          {openError ? <p className="mt-4 text-sm text-rose-200">{openError}</p> : null}
           <p className="mt-3 text-sm leading-6 text-soft">Sincronizando permissão, membros e estado compartilhado para abrir a shell contextual.</p>
         </Panel>
       </div>
@@ -309,9 +333,41 @@ export function MesaLayout() {
     return (
       <div className="grid min-h-screen place-items-center px-4 py-10">
         <Panel className="w-full max-w-2xl rounded-[30px] p-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Mesa indisponivel</p>
+          <h1 className="mt-3 font-display text-5xl leading-none text-white">Nao foi possivel abrir /mesa/{slug}</h1>
+          <div className="mt-4 flex max-w-2xl gap-3 rounded-[22px] border border-rose-300/18 bg-rose-500/10 px-4 py-4">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-rose-200" />
+            <div className="text-sm leading-6 text-soft">
+              <p>{terminalAccessError || 'Esta rota precisa de uma membership valida ou de um convite com token ainda ativo.'}</p>
+              {online.error && online.error !== terminalAccessError ? <p className="mt-2 text-rose-200">{online.error}</p> : null}
+            </div>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button onClick={() => navigate('/mesas')}>Voltar ao portal</Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                attemptRef.current = '';
+                setOpenError('');
+                setRetryNonce((value) => value + 1);
+              }}
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        </Panel>
+      </div>
+    );
+  }
+
+  /*
+  if (!session || !table) {
+    return (
+      <div className="grid min-h-screen place-items-center px-4 py-10">
+        <Panel className="w-full max-w-2xl rounded-[30px] p-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Mesa indisponível</p>
           <h1 className="mt-3 font-display text-5xl leading-none text-white">Não foi possível abrir /mesa/{slug}</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-soft">
+          <div className="mt-4 flex max-w-2xl gap-3 rounded-[22px] border border-rose-300/18 bg-rose-500/10 px-4 py-4">
             {accessError || 'Esta rota precisa de uma membership válida ou de um convite com token ainda ativo.'}
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
@@ -324,6 +380,7 @@ export function MesaLayout() {
       </div>
     );
   }
+  */
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(87,187,255,0.16),transparent_24%),radial-gradient(circle_at_left,rgba(78,140,255,0.12),transparent_22%)]">
@@ -382,13 +439,16 @@ export function MesaLayout() {
 
           <UtilityPanel className="rounded-[24px] p-4">
             <div className="flex items-start gap-3">
-              <Avatar name={user?.displayName || user?.username || 'Usuário'} size="sm" />
+              <Avatar src={user?.avatarUrl || undefined} name={user?.displayName || user?.username || 'Usuário'} size="sm" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">{user?.displayName || 'Usuário'}</p>
                 <p className="truncate text-xs uppercase tracking-[0.18em] text-muted">@{user?.username}</p>
               </div>
             </div>
             <div className="mt-4 grid gap-2">
+              <Button variant="secondary" onClick={() => navigate('/perfil')}>
+                Minha conta
+              </Button>
               <Button variant="secondary" onClick={() => void handleLeaveTable()}>
                 Sair da mesa
               </Button>
@@ -482,6 +542,7 @@ export function MesaLayout() {
                         user={user}
                         currentTableSummary={currentTableSummary}
                         onLeave={() => void handleLeaveTable()}
+                        onOpenProfile={() => navigate('/perfil')}
                         onSignOut={handleSignOut}
                         showActions
                       />
@@ -515,6 +576,7 @@ export function MesaLayout() {
             user={user}
             currentTableSummary={currentTableSummary}
             onLeave={() => void handleLeaveTable()}
+            onOpenProfile={() => navigate('/perfil')}
             onSignOut={handleSignOut}
           />
         </aside>

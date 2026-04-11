@@ -66,6 +66,8 @@ export function MesasPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [createFromLegacy, setCreateFromLegacy] = useState(false);
   const [legacyDismissed, setLegacyDismissed] = useState(false);
+  const [openingTableSlug, setOpeningTableSlug] = useState<string | null>(null);
+  const [tableActionError, setTableActionError] = useState('');
   const defaultNickname = user?.displayName || user?.username || 'Feiticeiro';
 
   useEffect(() => {
@@ -102,9 +104,22 @@ export function MesasPage() {
   });
 
   const handleContinueTable = async (slug: string) => {
-    const session = await switchTable(slug);
-    if (session) {
+    setOpeningTableSlug(slug);
+    setTableActionError('');
+    try {
+      const session = await switchTable(slug);
+      if (!session) {
+        setTableActionError('A mesa nao respondeu com uma sessao valida. Tente novamente.');
+        return;
+      }
+
       navigate(`/mesa/${session.tableSlug}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel abrir esta mesa.';
+      setTableActionError(message);
+      toast.error(message);
+    } finally {
+      setOpeningTableSlug(null);
     }
   };
 
@@ -181,12 +196,22 @@ export function MesasPage() {
               <DoorOpen className="size-4" />
               Entrar em uma mesa
             </Button>
+            <Button size="lg" variant="ghost" onClick={() => navigate('/perfil')}>
+              <Users className="size-4" />
+              Minha conta
+            </Button>
           </>
         }
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_340px]">
         <div className="grid gap-6">
+          {tableActionError ? (
+            <UtilityPanel className="rounded-[22px] border border-rose-300/18 bg-rose-500/10 px-4 py-4">
+              <p className="text-sm leading-6 text-soft">{tableActionError}</p>
+            </UtilityPanel>
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-3">
             <MesaMetricTile label="Mesas em que você participa" value={tables.length} hint="Cada mesa tem fichas, membros e convites próprios." />
             <MesaMetricTile
@@ -213,9 +238,9 @@ export function MesasPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => void handleContinueTable(currentOrLatestTable.slug)}>
+                  <Button disabled={openingTableSlug === currentOrLatestTable.slug} onClick={() => void handleContinueTable(currentOrLatestTable.slug)}>
                     <ArrowRight className="size-4" />
-                    Continuar nesta mesa
+                    {openingTableSlug === currentOrLatestTable.slug ? 'Abrindo...' : 'Continuar nesta mesa'}
                   </Button>
                   <Button variant="secondary" onClick={() => setJoinOpen(true)}>
                     <Compass className="size-4" />
@@ -307,9 +332,9 @@ export function MesasPage() {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button onClick={() => void handleContinueTable(table.slug)}>
+                        <Button disabled={openingTableSlug === table.slug} onClick={() => void handleContinueTable(table.slug)}>
                           <ArrowRight className="size-4" />
-                          Abrir mesa
+                          {openingTableSlug === table.slug ? 'Abrindo...' : 'Abrir mesa'}
                         </Button>
                         {online.session?.tableSlug === table.slug ? (
                           <Button variant="secondary" onClick={() => navigate(`/mesa/${table.slug}`)}>

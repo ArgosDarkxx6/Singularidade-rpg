@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -372,7 +372,7 @@ export type Database = {
           name: string
           owner_id: string | null
           sort_order: number
-          table_id: string
+          table_id: string | null
           updated_at: string
         }
         Insert: {
@@ -392,7 +392,7 @@ export type Database = {
           name: string
           owner_id?: string | null
           sort_order?: number
-          table_id: string
+          table_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -412,7 +412,7 @@ export type Database = {
           name?: string
           owner_id?: string | null
           sort_order?: number
-          table_id?: string
+          table_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -768,48 +768,6 @@ export type Database = {
           },
         ]
       }
-      table_snapshots: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          label: string
-          state: Json
-          table_id: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          label?: string
-          state?: Json
-          table_id: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          label?: string
-          state?: Json
-          table_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "table_snapshots_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "table_snapshots_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       table_session_attendances: {
         Row: {
           created_at: string
@@ -921,6 +879,48 @@ export type Database = {
           },
         ]
       }
+      table_snapshots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          state: Json
+          table_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          state?: Json
+          table_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          state?: Json
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_snapshots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_snapshots_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tables: {
         Row: {
           campaign_name: string
@@ -942,8 +942,8 @@ export type Database = {
           recap: string
           series_name: string
           session_date: string | null
-          slug: string
           slot_count: number
+          slug: string
           state: Json
           status: string
           updated_at: string
@@ -968,8 +968,8 @@ export type Database = {
           recap?: string
           series_name?: string
           session_date?: string | null
-          slug: string
           slot_count?: number
+          slug: string
           state?: Json
           status?: string
           updated_at?: string
@@ -994,25 +994,25 @@ export type Database = {
           recap?: string
           series_name?: string
           session_date?: string | null
-          slug?: string
           slot_count?: number
+          slug?: string
           state?: Json
           status?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "tables_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "tables_current_session_id_fkey"
             columns: ["current_session_id"]
             isOneToOne: false
             referencedRelation: "table_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tables_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1022,8 +1022,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_character: { Args: { character_id: string }; Returns: boolean }
+      can_manage_session: { Args: { session_id: string }; Returns: boolean }
       can_manage_table: { Args: { table_id: string }; Returns: boolean }
       can_play_table: { Args: { table_id: string }; Returns: boolean }
+      can_view_character: { Args: { character_id: string }; Returns: boolean }
+      can_view_session: { Args: { session_id: string }; Returns: boolean }
       claim_join_code: {
         Args: { join_code: string }
         Returns: {
@@ -1072,6 +1076,10 @@ export type Database = {
           table_slug: string
         }[]
       }
+      delete_table_preserving_characters: {
+        Args: { p_table_id: string }
+        Returns: undefined
+      }
       is_table_gm: { Args: { table_id: string }; Returns: boolean }
       is_table_member: { Args: { table_id: string }; Returns: boolean }
       leave_table: { Args: { p_table_id: string }; Returns: undefined }
@@ -1089,6 +1097,10 @@ export type Database = {
         }[]
       }
       slugify_text: { Args: { input: string }; Returns: string }
+      transfer_table_ownership: {
+        Args: { p_table_id: string; p_target_membership_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

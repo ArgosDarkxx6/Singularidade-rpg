@@ -221,10 +221,12 @@ export interface ExternalReferenceCard {
 
 export interface PresenceMember {
   id: string;
+  userId: string;
   nickname: string;
   role: TableRole;
   characterId: string;
   characterName: string;
+  isOwner?: boolean;
 }
 
 export interface TableInvite {
@@ -286,6 +288,7 @@ export interface TableState {
   id: string;
   slug: string;
   name: string;
+  ownerId: string | null;
   meta: TableMeta;
   updatedAt: string;
   createdAt: string;
@@ -298,6 +301,17 @@ export interface TableState {
   invites: TableInvite[];
   joinCodes: TableJoinCode[];
   snapshots: TableSnapshot[];
+}
+
+export interface UserCharacterSummary {
+  id: string;
+  name: string;
+  clan: string;
+  grade: string;
+  avatarUrl: string;
+  tableId: string | null;
+  tableName: string;
+  updatedAt: string;
 }
 
 export interface OnlineState {
@@ -372,6 +386,7 @@ export interface Profile {
   username: string;
   displayName: string;
   avatarUrl: string;
+  avatarPath: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -381,6 +396,8 @@ export interface AuthUser {
   email: string;
   username: string;
   displayName: string;
+  avatarUrl: string;
+  avatarPath: string;
 }
 
 export interface AuthSession {

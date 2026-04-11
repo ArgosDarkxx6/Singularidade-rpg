@@ -12,7 +12,10 @@ function createAuthServiceMock(overrides: Partial<AuthService> = {}): AuthServic
     signUp: vi.fn().mockResolvedValue({ session: null, requiresEmailConfirmation: true }),
     signIn: vi.fn().mockResolvedValue(null),
     signOut: vi.fn().mockResolvedValue(undefined),
+    getProfile: vi.fn().mockResolvedValue(null),
     updateProfile: vi.fn().mockResolvedValue(null),
+    uploadProfileAvatar: vi.fn().mockResolvedValue(null),
+    clearProfileAvatar: vi.fn().mockResolvedValue(null),
     ...overrides
   };
 }
