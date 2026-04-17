@@ -429,7 +429,7 @@ export function MesaCompendiumPage() {
             )}
           </MesaRailCard>
 
-          <MesaRailCard eyebrow="Referências externas" title="Wiki e AniList" description="Consulta externa via worker quando a busca tiver densidade suficiente.">
+          <MesaRailCard eyebrow="Referências externas" title="Wiki e AniList" description="Busque termos fora do livro quando precisar.">
             <Field label="Escopo">
               <Select value={referenceScope} onChange={(event) => setReferenceScope(event.target.value as ReferenceScope)}>
                 <option value="all">Tudo</option>

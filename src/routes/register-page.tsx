@@ -23,7 +23,7 @@ export function RegisterPage() {
     return (
       <EmptyState
         title="Confirme seu email para ativar a conta."
-        body="O cadastro foi criado no Supabase, mas a sessão ainda não foi aberta. Valide a mensagem recebida e depois volte para entrar no Project Nexus."
+        body="Abra o link enviado para seu email e volte para entrar."
       />
     );
   }
@@ -31,10 +31,8 @@ export function RegisterPage() {
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent">Project Nexus</p>
-      <h2 className="mt-3 text-balance font-display text-4xl leading-none text-white sm:text-5xl">Crie sua conta no hub.</h2>
-      <p className="mt-4 max-w-lg text-sm leading-6 text-soft">
-        Cadastre email, username público e senha para criar mesas, entrar em sistemas e manter sua identidade de jogo organizada.
-      </p>
+      <h2 className="mt-3 text-balance font-display text-4xl leading-none text-white sm:text-5xl">Crie sua conta.</h2>
+      <p className="mt-4 max-w-lg text-sm leading-6 text-soft">Escolha um usuario unico para jogar e criar mesas.</p>
 
       <div className="mt-8">
         <RegisterForm onSuccess={handleSuccess} />

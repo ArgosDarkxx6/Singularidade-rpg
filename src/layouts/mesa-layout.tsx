@@ -47,14 +47,14 @@ const sectionIcons: Record<MesaSection, typeof LayoutDashboard> = {
 };
 
 const sectionDescriptions: Record<MesaSection, string> = {
-  overview: 'Resumo vivo da campanha, status atual e leitura rápida da sessão.',
-  sessao: 'Episódio, presença, andamento da sessão e histórico recente da mesa.',
-  fichas: 'Roster, ficha ativa e operação de personagens dentro da mesa.',
-  rolagens: 'Composer de testes, TN e histórico compartilhado da sessão.',
-  ordem: 'Fluxo tático de iniciativa, turnos e controle de confronto.',
-  livro: 'Compêndio da mesa com busca, glossário e referência editorial.',
-  membros: 'Pessoas, convites, códigos e acesso ao servidor de campanha.',
-  configuracoes: 'Metadados, snapshots, preferências e administração da mesa.'
+  overview: 'Status, membros e atalhos da campanha.',
+  sessao: 'Episodio, presenca e andamento da mesa.',
+  fichas: 'Personagens da mesa.',
+  rolagens: 'Testes e historico de rolagens.',
+  ordem: 'Iniciativa, turnos e confronto.',
+  livro: 'Livro, presets e referencias.',
+  membros: 'Pessoas, convites e codigos.',
+  configuracoes: 'Dados, snapshots e administracao.'
 };
 
 function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
@@ -177,7 +177,7 @@ function MesaUtilityContent({
               </UtilityPanel>
             ))
           ) : (
-            <EmptyState title="Sem presença ao vivo." body="A utility rail mostra membros online assim que outros clientes entram nesta mesa." />
+            <EmptyState title="Sem presenca ao vivo." body="Os membros aparecem aqui quando entram na mesa." />
           )}
         </div>
       </Panel>
@@ -322,7 +322,7 @@ export function MesaLayout() {
           <LoaderCircle className="mx-auto size-10 animate-spin text-sky-200" />
           <h1 className="mt-5 font-display text-4xl text-white">Carregando a mesa</h1>
           {openError ? <p className="mt-4 text-sm text-rose-200">{openError}</p> : null}
-          <p className="mt-3 text-sm leading-6 text-soft">Sincronizando permissão, membros e estado compartilhado para abrir a shell contextual.</p>
+          <p className="mt-3 text-sm leading-6 text-soft">Carregando permissao, membros e estado da mesa.</p>
         </Panel>
       </div>
     );
@@ -337,7 +337,7 @@ export function MesaLayout() {
           <div className="mt-4 flex max-w-2xl gap-3 rounded-lg border border-rose-300/18 bg-rose-500/10 px-4 py-4">
             <TriangleAlert className="mt-0.5 size-5 shrink-0 text-rose-200" />
             <div className="text-sm leading-6 text-soft">
-              <p>{terminalAccessError || 'Esta rota precisa de uma membership valida ou de um convite com token ainda ativo.'}</p>
+              <p>{terminalAccessError || 'Voce precisa participar da mesa ou usar um convite valido.'}</p>
               {online.error && online.error !== terminalAccessError ? <p className="mt-2 text-rose-200">{online.error}</p> : null}
             </div>
           </div>

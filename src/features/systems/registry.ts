@@ -1,4 +1,5 @@
-import { DEFAULT_GAME_SYSTEM_KEY, DEFAULT_TABLE_META } from '@lib/domain/constants';
+import { DEFAULT_GAME_SYSTEM_KEY } from '@lib/domain/constants';
+import { SINGULARIDADE_SYSTEM_ADAPTER } from '@features/systems/singularidade/adapter';
 import type { GameSystemKey, MesaSection, TableMeta } from '@/types/domain';
 
 export { DEFAULT_GAME_SYSTEM_KEY };
@@ -20,6 +21,7 @@ export interface GameSystemDefinition {
   defaults: {
     tableMeta: TableMeta;
   };
+  adapter: typeof SINGULARIDADE_SYSTEM_ADAPTER;
 }
 
 export const GAME_SYSTEMS = {
@@ -27,8 +29,7 @@ export const GAME_SYSTEMS = {
     key: 'singularidade',
     name: 'Singularidade',
     tagline: 'Energia amaldiçoada, ordem tática e drama de mesa.',
-    description:
-      'Sistema focado em campanhas inspiradas por maldições, técnicas especiais, domínios, rolagens guiadas, ordem de combate e livro próprio.',
+    description: 'Fichas, rolagens, ordem e livro para campanhas de Singularidade.',
     status: 'enabled',
     themeClassName: 'system-theme-singularidade',
     accentLabel: 'Energia amaldiçoada',
@@ -37,14 +38,13 @@ export const GAME_SYSTEMS = {
       cover: '/assets/cover.png',
       rulebook: '/assets/Singularidade_Livro_de_Regras.pdf'
     },
-    modules: ['overview', 'sessao', 'fichas', 'rolagens', 'ordem', 'livro', 'membros', 'configuracoes'],
+    modules: SINGULARIDADE_SYSTEM_ADAPTER.table.modules,
     defaults: {
       tableMeta: {
-        ...DEFAULT_TABLE_META,
-        tableName: 'Mesa Singularidade',
-        seriesName: 'Jujutsu Kaisen'
+        ...SINGULARIDADE_SYSTEM_ADAPTER.table.defaults
       }
-    }
+    },
+    adapter: SINGULARIDADE_SYSTEM_ADAPTER
   }
 } as const satisfies Record<GameSystemKey, GameSystemDefinition>;
 

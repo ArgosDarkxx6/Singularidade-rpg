@@ -24,19 +24,29 @@ async function registerUser(page: Page, prefix: string) {
   await page.getByRole('button', { name: 'Criar conta' }).click();
 
   await expect(page).toHaveURL(/\/mesas$/);
-  await expect(page.getByRole('heading', { name: 'Seu hub de mesas e sistemas.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Suas mesas' })).toBeVisible();
 
   return { displayName, safeId, email };
 }
 
-async function signInUser(page: Page, email: string) {
+async function submitRegistration(page: Page, input: { displayName: string; username: string; email: string; password?: string }) {
+  await page.goto('/cadastro');
+  await page.getByLabel(/Nome p/).fill(input.displayName);
+  await page.getByLabel('Username').fill(input.username);
+  await page.getByLabel('Email').fill(input.email);
+  await page.getByPlaceholder('Crie uma senha').fill(input.password || 'senha123');
+  await page.getByPlaceholder('Repita a senha').fill(input.password || 'senha123');
+  await page.getByRole('button', { name: 'Criar conta' }).click();
+}
+
+async function signInUser(page: Page, username: string) {
   await page.goto('/entrar');
-  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Usuario').fill(username);
   await page.getByLabel('Senha').fill('senha123');
   await page.getByRole('button', { name: 'Entrar no Project Nexus' }).click();
 
   await expect(page).toHaveURL(/\/mesas$/);
-  await expect(page.getByRole('heading', { name: 'Seu hub de mesas e sistemas.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Suas mesas' })).toBeVisible();
 }
 
 async function openCreateTableDialog(page: Page) {
@@ -139,8 +149,9 @@ async function signOutCurrentUser(page: Page) {
   } else {
     await page.evaluate(() => {
       localStorage.removeItem('singularidade-remake-auth-v1');
+      localStorage.removeItem('project-nexus-auth-v1');
       for (const key of Object.keys(localStorage)) {
-        if (key.startsWith('singularidade-remake-online-session-v1:')) {
+        if (key.startsWith('singularidade-remake-online-session-v1:') || key.startsWith('project-nexus-online-session-v1:')) {
           localStorage.removeItem(key);
         }
       }
@@ -204,6 +215,38 @@ test('registers, creates a mesa, and keeps legacy routes inside the mesa shell',
   await expect(page.getByRole('heading', { name: 'Livro da mesa, presets e busca editorial' })).toBeVisible();
 });
 
+test('account creation protects username and email uniqueness and login uses username', async ({ page }) => {
+  const account = await registerUser(page, 'Auth Guard');
+  await signOutCurrentUser(page);
+
+  await submitRegistration(page, {
+    displayName: 'Outro usuario',
+    username: account.safeId,
+    email: `${account.safeId}_other@example.com`
+  });
+  await expect(page.getByText('Este username ja esta em uso.')).toBeVisible();
+
+  await submitRegistration(page, {
+    displayName: 'Email repetido',
+    username: `${account.safeId}_2`,
+    email: account.email
+  });
+  await expect(page.getByText('Ja existe uma conta com este email.')).toBeVisible();
+
+  await page.goto('/entrar');
+  await page.getByLabel('Usuario').fill('usuario_inexistente');
+  await page.getByLabel('Senha').fill('senha123');
+  await page.getByRole('button', { name: 'Entrar no Project Nexus' }).click();
+  await expect(page.getByText('Usuario ou senha invalidos.')).toBeVisible();
+
+  await page.getByLabel('Usuario').fill(account.safeId);
+  await page.getByLabel('Senha').fill('senhaerrada');
+  await page.getByRole('button', { name: 'Entrar no Project Nexus' }).click();
+  await expect(page.getByText('Usuario ou senha invalidos.')).toBeVisible();
+
+  await signInUser(page, account.safeId);
+});
+
 test('gm sees session, presence, and sheet dialogs for the active mesa', async ({ page }) => {
   await registerUser(page, 'GM Sessão');
   const tableName = uniqueLabel('Mesa Sessão');
@@ -212,15 +255,15 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
 
   await page.goto(`/mesa/${slug}`);
   await expect(page.getByText('Sessão atual')).toBeVisible();
-  await expect(page.getByText('Sua presença')).toBeVisible();
-  await expect(page.getByText('Membros visíveis')).toBeVisible();
+  await expect(page.getByText(/Sua presen/i)).toBeVisible();
+  await expect(page.locator('body')).toContainText('Membros');
 
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByRole('heading', { name: 'Administração, metadados e segurança' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Salvar snapshot' })).toBeVisible();
 
   await page.goto(`/mesa/${slug}/membros`);
-  await expect(page.getByRole('heading', { name: 'Servidor fechado por convite' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Convites da mesa' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Gerar convite' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Gerar código' })).toBeVisible();
   await expect(page.getByLabel('Papel concedido').first()).toBeVisible();
@@ -275,7 +318,7 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
   await page.getByRole('button', { name: 'Entrar por código' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}$`));
-  await expect(page.getByText('Você está na mesa como Player.')).toBeVisible();
+  await expect(page.getByText('Voce esta como Player.')).toBeVisible();
 
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByRole('button', { name: 'Salvar snapshot' })).toHaveCount(0);
@@ -296,7 +339,7 @@ test('viewer joins read-only, legacy livro redirect stays inside the mesa, and m
   const slug = slugify(tableName);
 
   await page.goto(`/mesa/${slug}/membros`);
-  await expect(page.getByRole('heading', { name: 'Servidor fechado por convite' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Convites da mesa' })).toBeVisible();
 
   const roleSelects = page.getByLabel('Papel concedido');
   await roleSelects.nth(1).selectOption('viewer');
@@ -320,7 +363,7 @@ test('viewer joins read-only, legacy livro redirect stays inside the mesa, and m
   await page.getByRole('button', { name: 'Entrar por código' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}$`));
-  await expect(page.getByText('Você está na mesa como Viewer.')).toBeVisible();
+  await expect(page.getByText('Voce esta como Viewer.')).toBeVisible();
 
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByRole('button', { name: 'Salvar snapshot' })).toHaveCount(0);
@@ -353,7 +396,7 @@ test('player joins by linked invite URL', async ({ page }) => {
   await signOutCurrentUser(page);
   await registerUser(page, 'Player Link');
   await joinByInviteLink(page, inviteUrl, 'Player Link', slug);
-  await expect(page.getByText('Você está na mesa como Player.')).toBeVisible();
+  await expect(page.getByText('Voce esta como Player.')).toBeVisible();
 });
 
 test('profile account, ownership transfer, and table deletion preserve owned characters', async ({ page }) => {
@@ -368,7 +411,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   await signOutCurrentUser(page);
   const player = await registerUser(page, 'Player Admin');
   await joinByCode(page, playerJoinCode, 'Player Admin', slug);
-  await expect(page.getByText('Você está na mesa como Player.')).toBeVisible();
+  await expect(page.getByText('Voce esta como Player.')).toBeVisible();
 
   await page.goto('/perfil');
   await expect(page.getByText('Project Nexus')).toBeVisible();
@@ -395,7 +438,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
 
   await page.goto(`/mesa/${slug}`);
   await signOutCurrentUser(page);
-  await signInUser(page, gm.email);
+  await signInUser(page, gm.safeId);
 
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByText('Danger zone')).toBeVisible();
@@ -405,7 +448,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
 
   await page.goto(`/mesa/${slug}`);
   await signOutCurrentUser(page);
-  await signInUser(page, player.email);
+  await signInUser(page, player.safeId);
 
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByText('Danger zone')).toBeVisible();

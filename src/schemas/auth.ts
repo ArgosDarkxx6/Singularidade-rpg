@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  email: z.email('Informe um email valido.'),
+  username: z
+    .string()
+    .min(3, 'Informe seu usuario.')
+    .regex(/^[a-z0-9_]+$/i, 'Use apenas letras, numeros e underscore.'),
   password: z.string().min(6, 'A senha precisa ter ao menos 6 caracteres.')
 });
 

@@ -1031,6 +1031,7 @@ export type Database = {
       can_play_table: { Args: { table_id: string }; Returns: boolean }
       can_view_character: { Args: { character_id: string }; Returns: boolean }
       can_view_session: { Args: { session_id: string }; Returns: boolean }
+      is_username_available: { Args: { input: string }; Returns: boolean }
       claim_join_code: {
         Args: { join_code: string }
         Returns: {

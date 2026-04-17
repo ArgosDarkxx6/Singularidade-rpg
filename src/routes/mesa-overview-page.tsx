@@ -29,19 +29,19 @@ export function MesaOverviewPage() {
   const members = online.members.length ? online.members : table?.memberships || [];
 
   if (!table || !session) {
-    return <EmptyState title="Mesa offline." body="Abra uma mesa pelo portal para carregar o dashboard contextual." />;
+    return <EmptyState title="Mesa offline." body="Abra uma mesa pelo portal." />;
   }
 
   return (
     <div className="page-shell pb-8">
       <MesaHero
-        eyebrow="Overview da mesa"
+        eyebrow="Mesa"
         title={table.name}
         description={
           currentSession?.recap ||
           currentSession?.objective ||
           table.meta.description ||
-          'Use este dashboard para se localizar rapidamente antes de entrar nos módulos de ficha, rolagem, ordem e administração.'
+          'Escolha uma ferramenta para continuar.'
         }
         actions={
           <>
@@ -62,10 +62,10 @@ export function MesaOverviewPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MesaMetricTile label="Membros visíveis" value={members.length} hint="Presença em tempo real quando disponível." />
-        <MesaMetricTile label="Personagens" value={state.characters.length} hint="Fichas registradas na mesa atual." />
-        <MesaMetricTile label="Join codes" value={table.joinCodes.length} hint="Acessos rápidos ainda ativos." />
-        <MesaMetricTile label="Snapshots" value={table.snapshots.length} hint="Pontos de restauração da campanha." />
+        <MesaMetricTile label="Membros" value={members.length} hint="Presenca ao vivo quando disponivel." />
+        <MesaMetricTile label="Personagens" value={state.characters.length} hint="Fichas nesta mesa." />
+        <MesaMetricTile label="Codigos" value={table.joinCodes.length} hint="Acessos ativos." />
+        <MesaMetricTile label="Snapshots" value={table.snapshots.length} hint="Pontos salvos." />
       </div>
 
       <div className="grid gap-6">
@@ -104,8 +104,8 @@ export function MesaOverviewPage() {
           <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Roster em foco</p>
-                <h2 className="mt-2 font-display text-4xl leading-none text-white">Leitura rápida de personagens</h2>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Personagens</p>
+                <h2 className="mt-2 font-display text-4xl leading-none text-white">Fichas da mesa</h2>
               </div>
               <Link
                 to={`/mesa/${table.slug}/fichas`}
@@ -175,7 +175,7 @@ export function MesaOverviewPage() {
         </div>
 
         <div className="page-right-rail">
-          <MesaRailCard eyebrow="Sua presença" title={session.nickname} description={`Você está na mesa como ${formatRoleLabel(session.role)}.`}>
+          <MesaRailCard eyebrow="Sua presenca" title={session.nickname} description={`Voce esta como ${formatRoleLabel(session.role)}.`}>
             <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Personagem vinculado</p>
               <p className="mt-2 text-sm font-semibold text-white">
@@ -190,8 +190,8 @@ export function MesaOverviewPage() {
 
           <MesaRailCard
             eyebrow="Membros"
-            title="Presença visível"
-            description="Uma right rail de consulta rápida para acompanhar o servidor atual."
+            title="Online agora"
+            description="Membros conectados nesta mesa."
           >
             {members.length ? (
               members.slice(0, 6).map((member) => (
@@ -204,7 +204,7 @@ export function MesaOverviewPage() {
                 </UtilityPanel>
               ))
             ) : (
-              <EmptyState title="Sem outros membros online." body="Assim que outros clientes entrarem na mesa, a right rail mostra a presença deles aqui." />
+              <EmptyState title="Sem outros membros online." body="Outros membros aparecem aqui quando entram." />
             )}
           </MesaRailCard>
         </div>

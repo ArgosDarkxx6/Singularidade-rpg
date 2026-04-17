@@ -18,7 +18,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
     resolver: zodResolver(loginSchema),
     mode: 'onBlur',
     defaultValues: {
-      email: '',
+      username: '',
       password: ''
     }
   });
@@ -36,9 +36,9 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form className="grid gap-5" onSubmit={onSubmit}>
-      <Field label="Email">
-        <Input type="email" placeholder="voce@exemplo.com" autoComplete="email" {...register('email')} />
-        {errors.email ? <span className="text-xs text-rose-200">{errors.email.message}</span> : null}
+      <Field label="Usuario">
+        <Input placeholder="mysto" autoComplete="username" spellCheck={false} {...register('username')} />
+        {errors.username ? <span className="text-xs text-rose-200">{errors.username.message}</span> : null}
       </Field>
 
       <Field label="Senha">

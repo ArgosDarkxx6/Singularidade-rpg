@@ -70,17 +70,14 @@ export function MesaSettingsPage() {
       <MesaHero
         eyebrow="Configurações da mesa"
         title="Administração, metadados e segurança"
-        description="Separe aqui o que é estrutural da campanha: cabeçalho, contexto geral, snapshots e saída da mesa."
+        description="Ajuste dados da mesa, snapshots e acesso."
       />
 
       <div className="grid gap-6">
         <div className="grid gap-6">
           <Panel className="rounded-lg p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Metadados</p>
-            <h2 className="mt-2 font-display text-4xl leading-none text-white">Identidade e contexto da mesa</h2>
-            <p className="mt-3 text-sm leading-6 text-soft">
-              O cabeçalho da mesa alimenta overview, right rail e contexto para quem entra no servidor.
-            </p>
+            <h2 className="mt-2 font-display text-4xl leading-none text-white">Identidade da mesa</h2>
 
             <form
               className="mt-6 grid gap-4"
@@ -287,11 +284,7 @@ export function MesaSettingsPage() {
             </UtilityPanel>
           </MesaRailCard>
 
-          <MesaRailCard
-            eyebrow="Saída"
-            title="Deixar esta mesa"
-            description="Saia do servidor atual quando quiser. O fluxo limpa a sessão da mesa e devolve você ao portal."
-          >
+          <MesaRailCard eyebrow="Saída" title="Deixar esta mesa" description="Voce volta para suas mesas.">
             <Button
               variant="danger"
               onClick={async () => {

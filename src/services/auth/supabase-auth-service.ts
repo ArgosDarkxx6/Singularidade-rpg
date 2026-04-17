@@ -1,5 +1,6 @@
 import type { AuthChangeEvent, AuthSession as SupabaseAuthSession, Session, User } from '@supabase/supabase-js';
 import { supabase } from '@integrations/supabase/client';
+import { authApiUrl } from '@integrations/supabase/env';
 import type { AuthSession, AuthUser, Profile } from '@/types/domain';
 import type { AuthService, SignInPayload, SignUpPayload } from './types';
 
@@ -36,6 +37,10 @@ function normalizeAuthError(error: unknown): Error {
 
   if (normalized.includes('email not confirmed')) {
     return new Error('Confirme seu email antes de entrar.');
+  }
+
+  if (normalized.includes('invalid login credentials') || normalized.includes('usuario ou senha')) {
+    return new Error('Usuario ou senha invalidos.');
   }
 
   return error instanceof Error ? error : new Error(message);
@@ -139,6 +144,20 @@ export function createSupabaseAuthService(): AuthService {
     return mapProfile(user);
   }
 
+  async function assertUsernameAvailable(username: string) {
+    const { data, error } = await client.rpc('is_username_available', {
+      input: username.trim().toLowerCase()
+    });
+
+    if (!error && data === false) {
+      throw new Error('Este username ja esta em uso.');
+    }
+
+    if (error && error.code !== 'PGRST202') {
+      throw error;
+    }
+  }
+
   async function syncProfileUpdate(patch: { displayName?: string; avatarUrl?: string; avatarPath?: string }) {
     const {
       data: { user }
@@ -192,6 +211,7 @@ export function createSupabaseAuthService(): AuthService {
     },
     async signUp({ email, username, displayName, password }: SignUpPayload) {
       try {
+        await assertUsernameAvailable(username);
         const { data, error } = await client.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
@@ -213,10 +233,34 @@ export function createSupabaseAuthService(): AuthService {
         throw normalizeAuthError(error);
       }
     },
-    async signIn({ email, password }: SignInPayload) {
-      const { data, error } = await client.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password
+    async signIn({ username, password }: SignInPayload) {
+      const response = await fetch(authApiUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json'
+        },
+        body: JSON.stringify({
+          username: username.trim().toLowerCase(),
+          password
+        })
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            access_token?: string;
+            refresh_token?: string;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !payload?.access_token || !payload.refresh_token) {
+        throw normalizeAuthError(new Error(payload?.error || 'Usuario ou senha invalidos.'));
+      }
+
+      const { data, error } = await client.auth.setSession({
+        access_token: payload.access_token,
+        refresh_token: payload.refresh_token
       });
 
       if (error) throw normalizeAuthError(error);

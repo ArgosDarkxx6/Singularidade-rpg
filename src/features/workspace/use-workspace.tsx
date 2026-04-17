@@ -21,11 +21,12 @@ import {
 import { parseCharacterSheetsText, serializeCharacterToText } from '@lib/domain/parsers';
 import { copyText, downloadTextFile, readFileAsText } from '@lib/domain/utils';
 import { workspaceStateSchema } from '@schemas/domain';
-import { DEFAULT_GAME_SYSTEM_KEY, ONLINE_SESSION_STORAGE_KEY } from '@lib/domain/constants';
+import { DEFAULT_GAME_SYSTEM_KEY, LEGACY_ONLINE_SESSION_STORAGE_KEY, ONLINE_SESSION_STORAGE_KEY } from '@lib/domain/constants';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { shouldUseSupabaseRuntime } from '@integrations/supabase/env';
 import { supabase } from '@integrations/supabase/client';
 import { type WorkspaceBackend } from '@features/workspace/backend';
+import { normalizeWorkspaceError } from '@features/workspace/invite-rules';
 import { runtimeWorkspaceBackend } from '@features/workspace/runtime-backend';
 import type {
   AuthUser,
@@ -179,7 +180,9 @@ const DEFAULT_ONLINE_STATE: OnlineState = {
 
 function readStoredSession(userId: string): TableSession | null {
   try {
-    const raw = localStorage.getItem(`${ONLINE_SESSION_STORAGE_KEY}:${userId}`);
+    const raw =
+      localStorage.getItem(`${ONLINE_SESSION_STORAGE_KEY}:${userId}`) ||
+      localStorage.getItem(`${LEGACY_ONLINE_SESSION_STORAGE_KEY}:${userId}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<TableSession>;
     return {
@@ -205,6 +208,7 @@ function writeStoredSession(userId: string, session: TableSession | null) {
   }
 
   localStorage.removeItem(`${ONLINE_SESSION_STORAGE_KEY}:${userId}`);
+  localStorage.removeItem(`${LEGACY_ONLINE_SESSION_STORAGE_KEY}:${userId}`);
 }
 
 function setCharacterField(character: Character, field: string, value: string | number): Character {
@@ -253,7 +257,7 @@ function mapPresenceMembers(payload: Record<string, PresenceMember[]>): Presence
 }
 
 function getWorkspaceErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
+  return normalizeWorkspaceError(error, fallback);
 }
 
 function toConnectionFailureState(current: OnlineState, error: unknown, fallback: string): OnlineState {
@@ -1412,7 +1416,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         if (!parsed.success) throw new Error('O arquivo JSON nao corresponde ao formato esperado do remake.');
         persistState(normalizeState(parsed.data), 'Importacao de arquivo');
       },
-      exportState: () => downloadTextFile('singularidade-state.json', JSON.stringify(stateRef.current, null, 2), 'application/json;charset=utf-8'),
+      exportState: () => downloadTextFile('project-nexus-state.json', JSON.stringify(stateRef.current, null, 2), 'application/json;charset=utf-8'),
       resetState: () => persistState(createDefaultState(), 'Reset de estado'),
       createTableSession: async (meta, nickname, initialState, systemKey = DEFAULT_GAME_SYSTEM_KEY) => {
         if (!user) return null;

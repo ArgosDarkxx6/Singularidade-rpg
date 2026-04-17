@@ -1,4 +1,4 @@
-import { AUTH_STORAGE_KEY, USERS_STORAGE_KEY } from '@lib/domain/constants';
+import { AUTH_STORAGE_KEY, LEGACY_AUTH_STORAGE_KEY, LEGACY_USERS_STORAGE_KEY, USERS_STORAGE_KEY } from '@lib/domain/constants';
 import { hashString, uid } from '@lib/domain/utils';
 import type { AuthSession, AuthUser, Profile } from '@/types/domain';
 import type { AuthService, SignInPayload, SignUpPayload } from './types';
@@ -17,7 +17,8 @@ interface StoredUser {
 
 function readUsers(): StoredUser[] {
   try {
-    return JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]') as StoredUser[];
+    const raw = localStorage.getItem(USERS_STORAGE_KEY) || localStorage.getItem(LEGACY_USERS_STORAGE_KEY);
+    return JSON.parse(raw || '[]') as StoredUser[];
   } catch {
     return [];
   }
@@ -65,14 +66,17 @@ function fileToDataUrl(file: File) {
 
 function persistSession(session: AuthSession | null) {
   if (session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-  else localStorage.removeItem(AUTH_STORAGE_KEY);
+  else {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+  }
 }
 
 export function createLocalAuthService(): AuthService {
   return {
     async initialize() {
       try {
-        const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+        const raw = localStorage.getItem(AUTH_STORAGE_KEY) || localStorage.getItem(LEGACY_AUTH_STORAGE_KEY);
         return raw ? (JSON.parse(raw) as AuthSession) : null;
       } catch {
         return null;
@@ -121,13 +125,13 @@ export function createLocalAuthService(): AuthService {
         requiresEmailConfirmation: false
       };
     },
-    async signIn({ email, password }: SignInPayload) {
-      const normalizedEmail = email.trim().toLowerCase();
+    async signIn({ username, password }: SignInPayload) {
+      const normalizedUsername = username.trim().toLowerCase();
       const passwordHash = await hashString(password);
-      const user = readUsers().find((entry) => entry.email === normalizedEmail && entry.passwordHash === passwordHash);
+      const user = readUsers().find((entry) => entry.username === normalizedUsername && entry.passwordHash === passwordHash);
 
       if (!user) {
-        throw new Error('Email ou senha invalidos.');
+        throw new Error('Usuario ou senha invalidos.');
       }
 
       const session = toSession(user);

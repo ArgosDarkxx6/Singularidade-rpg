@@ -26,6 +26,7 @@ import { workspaceStateSchema } from '@schemas/domain';
 import { supabase } from '@integrations/supabase/client';
 import type { Json } from '@integrations/supabase/database.types';
 import type { JoinCodeBackendResult, UploadAvatarResult, WorkspaceBackend } from './backend';
+import { toWorkspaceError } from './invite-rules';
 
 const DRAFT_KIND = 'workspace-draft';
 
@@ -137,6 +138,7 @@ function toTableInsert(
       systemKey: normalizedSystemKey,
       ...(kind ? { kind } : {})
     },
+    system_key: normalizedSystemKey,
     state: serializeStateForStorage(state) as unknown as Json,
     owner_id: ownerId,
     current_round: state.order.round,
@@ -1125,6 +1127,7 @@ async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> 
         created_at,
         updated_at,
         status,
+        system_key,
         series_name,
         campaign_name
       )
@@ -1261,11 +1264,11 @@ async function claimInvite(input: { inviteToken: string; nickname: string }) {
     const fallback = await client.rpc('claim_table_invite', {
       invite_token: input.inviteToken
     });
-    if (fallback.error) throw fallback.error;
+    if (fallback.error) throw toWorkspaceError(fallback.error, 'Nao foi possivel aceitar este convite.');
     return fallback.data?.[0];
   }
 
-  if (error) throw error;
+  if (error) throw toWorkspaceError(error, 'Nao foi possivel aceitar este convite.');
   return data?.[0];
 }
 
@@ -1275,8 +1278,8 @@ async function resolveJoinCode(code: string) {
     join_code: code
   });
 
-  if (isMissingFunctionError(error)) return null;
-  if (error) throw error;
+  if (isMissingFunctionError(error)) throw toWorkspaceError(error, 'Nao foi possivel validar este codigo.');
+  if (error) throw toWorkspaceError(error, 'Nao foi possivel validar este codigo.');
   return data?.[0] || null;
 }
 
@@ -1292,11 +1295,11 @@ async function claimJoinCode(input: { code: string; nickname: string; characterI
     const fallback = await client.rpc('claim_join_code', {
       join_code: input.code
     });
-    if (fallback.error) throw fallback.error;
+    if (fallback.error) throw toWorkspaceError(fallback.error, 'Nao foi possivel entrar com este codigo.');
     return fallback.data?.[0];
   }
 
-  if (error) throw error;
+  if (error) throw toWorkspaceError(error, 'Nao foi possivel entrar com este codigo.');
   return data?.[0];
 }
 
@@ -1434,7 +1437,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           const response = await client
             .from('tables')
             .insert(toTableInsert(meta, state, user.id, nickname, slug, systemKey))
-            .select('id, slug, name')
+            .select('id, slug, name, system_key')
             .single();
 
           if (response.error?.code === '23505') continue;
@@ -1720,7 +1723,13 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         throw new Error('Apenas GMs podem revogar codigos.');
       }
       const client = assertClient();
-      const { error } = await client.from('table_join_codes').delete().eq('id', joinCodeId).eq('table_id', session.tableId);
+      const { error } = await client
+        .from('table_join_codes')
+        .update({
+          active: false
+        })
+        .eq('id', joinCodeId)
+        .eq('table_id', session.tableId);
       if (error) throw error;
       return fetchTableState(session.tableId);
     },

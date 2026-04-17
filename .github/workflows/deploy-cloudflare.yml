@@ -65,6 +65,12 @@ jobs:
           }
 
           if ($missing.Count -gt 0) {
+            $strict = $env:GITHUB_EVENT_NAME -eq 'push' -and $env:GITHUB_REF -eq 'refs/heads/main'
+            if ($strict) {
+              Write-Host "::error title=Supabase migration gate blocked::Configure SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD and SUPABASE_PROJECT_REF before deploying production."
+              exit 1
+            }
+
             Write-Host "::warning title=Supabase migration gate skipped::Configure SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD and SUPABASE_PROJECT_REF to enforce remote migration drift checks in GitHub Actions."
             exit 0
           }
@@ -124,6 +130,9 @@ jobs:
       CI: "true"
       VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL || vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
       WRANGLER_SEND_METRICS: "false"
@@ -140,7 +149,7 @@ jobs:
       - name: Validate required environment
         run: |
           missing=0
-          for key in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+          for key in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
             if [ -z "${!key}" ]; then
               echo "::error title=Missing required environment variable::$key must be configured as a repository variable or secret."
               missing=1
@@ -153,11 +162,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync Worker secrets
+        run: |
+          printf '%s' "$SUPABASE_URL" | npx wrangler secret put SUPABASE_URL
+          printf '%s' "$SUPABASE_ANON_KEY" | npx wrangler secret put SUPABASE_ANON_KEY
+          printf '%s' "$SUPABASE_SERVICE_ROLE_KEY" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+
       - name: Build
         run: npm run build
 
       - name: Validate Worker bundle
-        run: npx wrangler deploy --dry-run
+        run: npx wrangler deploy --dry-run --keep-vars
 
       - name: Deploy Worker
-        run: npx wrangler deploy
+        run: npx wrangler deploy --keep-vars

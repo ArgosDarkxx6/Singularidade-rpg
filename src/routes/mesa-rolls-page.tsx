@@ -58,8 +58,8 @@ export function MesaRollsPage() {
     <div className="page-shell pb-8">
       <MesaHero
         eyebrow="Rolagens dentro da mesa"
-        title="Composer central e feed tatico"
-        description="Os testes agora ficam alinhados ao contexto da mesa atual. O composer guia a rolagem e o feed lateral concentra o historico mais recente."
+        title="Rolagens da mesa"
+        description="Escolha a ficha, defina o teste e role."
         actions={
           canClearLog ? (
             <Button variant="ghost" onClick={() => void clearLog()}>
@@ -249,7 +249,7 @@ export function MesaRollsPage() {
                 </UtilityPanel>
               </motion.div>
             ) : (
-              <EmptyState title="Nenhuma rolagem ainda." body="Use um dos composers ao lado para abrir o primeiro resumo desta mesa." />
+              <EmptyState title="Nenhuma rolagem ainda." body="Faca o primeiro teste para iniciar o historico." />
             )}
           </MesaRailCard>
         </div>

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
-import { ArrowRight, Compass, DoorOpen, Layers3, Plus, RadioTower, Shield, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, Compass, DoorOpen, Plus, RadioTower, Shield, Sparkles, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +16,7 @@ import { MesaHero, MesaMetricTile, MesaRailCard } from '@features/mesa/component
 import { hasMeaningfulLegacyWorkspace } from '@features/mesa/lib/legacy-workspace';
 import { useWorkspace } from '@features/workspace/use-workspace';
 import { GAME_SYSTEM_OPTIONS, getDefaultTableMetaForSystem, getGameSystem } from '@features/systems/registry';
-import { LEGACY_MIGRATION_STORAGE_KEY } from '@lib/domain/constants';
+import { LEGACY_MIGRATION_DISMISSAL_STORAGE_KEY, LEGACY_MIGRATION_STORAGE_KEY } from '@lib/domain/constants';
 import { createTableSchema, joinCodeSchema, joinInviteSchema } from '@schemas/mesa';
 import type { WorkspaceState } from '@/types/domain';
 
@@ -72,7 +72,10 @@ export function MesasPage() {
   const defaultNickname = user?.displayName || user?.username || 'Feiticeiro';
 
   useEffect(() => {
-    setLegacyDismissed(localStorage.getItem(LEGACY_MIGRATION_STORAGE_KEY) === 'dismissed');
+    setLegacyDismissed(
+      localStorage.getItem(LEGACY_MIGRATION_STORAGE_KEY) === 'dismissed' ||
+        localStorage.getItem(LEGACY_MIGRATION_DISMISSAL_STORAGE_KEY) === 'dismissed'
+    );
   }, []);
 
   const shouldOfferMigration = useMemo(
@@ -180,8 +183,8 @@ export function MesasPage() {
     <div className="page-shell pb-10">
       <MesaHero
         eyebrow="Project Nexus"
-        title="Seu hub de mesas e sistemas."
-        description="Crie campanhas, entre por código ou convite e mantenha cada universo dentro da identidade certa. Singularidade é o primeiro sistema disponível nesta plataforma."
+        title="Suas mesas"
+        description="Crie uma campanha ou entre por convite."
         actions={
           <>
             <Button
@@ -216,7 +219,7 @@ export function MesasPage() {
           ) : null}
 
           <div className="grid gap-4 md:grid-cols-3">
-            <MesaMetricTile label="Mesas em que você participa" value={tables.length} hint="Cada mesa declara um sistema e mantém seu contexto próprio." />
+            <MesaMetricTile label="Mesas" value={tables.length} hint="Campanhas em que voce participa." />
             <MesaMetricTile
               label="Mesa conectada"
               value={online.session ? online.session.tableName : 'Nenhuma'}
@@ -225,7 +228,7 @@ export function MesasPage() {
             <MesaMetricTile
               label="Sistemas ativos"
               value={GAME_SYSTEM_OPTIONS.filter((system) => system.status === 'enabled').length}
-              hint="A base já está preparada para novos sistemas."
+              hint="Singularidade esta disponivel agora."
             />
           </div>
 
@@ -261,7 +264,7 @@ export function MesasPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Migração do legado</p>
                   <h2 className="mt-3 font-display text-4xl leading-none text-white">Seu rascunho global ainda existe.</h2>
                   <p className="mt-4 text-sm leading-6 text-soft">
-                    O remake agora trabalha por mesa. Você pode transformar esse estado antigo em uma mesa própria e continuar a campanha no modelo novo.
+                    Voce pode transformar esse rascunho em uma mesa e continuar a campanha.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -360,9 +363,9 @@ export function MesasPage() {
 
         <div className="page-right-rail">
           <MesaRailCard
-            eyebrow="Arquitetura"
-            title="Plataforma primeiro, sistema depois."
-            description="O Project Nexus organiza mesas por sistema. A identidade de cada universo aparece só quando você entra nele."
+            eyebrow="Sistemas"
+            title="Singularidade"
+            description="Disponivel para novas mesas."
           >
             <img
               src={getGameSystem('singularidade').assets.cover}
@@ -371,10 +374,9 @@ export function MesasPage() {
             />
             <UtilityPanel className="rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <Layers3 className="mt-0.5 size-4 text-sky-200" />
                 <div>
-                  <p className="text-sm font-semibold text-white">Sistemas independentes</p>
-                  <p className="mt-1 text-sm text-soft">Hoje há Singularidade. A modelagem já aceita novos sistemas depois.</p>
+                  <p className="text-sm font-semibold text-white">Mesas por sistema</p>
+                  <p className="mt-1 text-sm text-soft">Cada mesa guarda seu sistema e suas regras.</p>
                 </div>
               </div>
             </UtilityPanel>
@@ -392,7 +394,7 @@ export function MesasPage() {
                 <RadioTower className="mt-0.5 size-4 text-sky-200" />
                 <div>
                   <p className="text-sm font-semibold text-white">Presença e estado</p>
-                  <p className="mt-1 text-sm text-soft">Presença, snapshots e sync ficam presos à mesa ativa, não ao workspace inteiro.</p>
+                  <p className="mt-1 text-sm text-soft">Presenca, snapshots e historico ficam na mesa ativa.</p>
                 </div>
               </div>
             </UtilityPanel>
@@ -401,7 +403,7 @@ export function MesasPage() {
           <MesaRailCard
             eyebrow="Sessão atual"
             title={online.session ? online.session.tableName : 'Nenhuma mesa conectada'}
-            description={online.session ? `Você está conectado como ${formatRoleLabel(online.session.role)}.` : 'Abra uma mesa para ativar a shell contextual.'}
+            description={online.session ? `Voce esta como ${formatRoleLabel(online.session.role)}.` : 'Abra uma mesa para continuar.'}
           >
             <MesaMetricTile label="Membros online" value={online.members.length || 0} hint="Sincronização ao vivo da mesa atual." />
             <MesaMetricTile label="Join codes ativos" value={online.joinCodes.length || 0} hint="Visíveis quando a mesa estiver conectada." />
@@ -419,7 +421,7 @@ export function MesasPage() {
         <DialogContent className="max-h-[88vh] overflow-y-auto">
           <DialogTitle className="font-display text-4xl text-white">{createFromLegacy ? 'Migrar rascunho para uma mesa' : 'Criar uma mesa'}</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-soft">
-            Defina a identidade base da campanha. Ao concluir, você entra automaticamente como GM.
+            Ao concluir, voce entra como GM.
           </DialogDescription>
 
           <form className="mt-6 grid gap-4" onSubmit={handleCreateTable}>
@@ -427,7 +429,7 @@ export function MesasPage() {
               <Field label="Nome de presença">
                 <Input {...createForm.register('nickname')} />
               </Field>
-              <Field label="Sistema" hint="A plataforma já aceita múltiplos sistemas; apenas Singularidade está habilitado agora.">
+              <Field label="Sistema" hint="Apenas Singularidade esta habilitado agora.">
                 <Select {...createForm.register('systemKey')} aria-label="Sistema da mesa">
                   {GAME_SYSTEM_OPTIONS.map((system) => (
                     <option key={system.key} value={system.key} disabled={system.status !== 'enabled'}>
@@ -458,14 +460,14 @@ export function MesasPage() {
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100">Sistema selecionado</p>
                 <h3 className="mt-2 text-lg font-semibold text-white">{selectedSystem.name}</h3>
-                <p className="mt-2 text-sm leading-6 text-soft">{selectedSystem.description}</p>
+                <p className="mt-2 text-sm leading-6 text-soft">{selectedSystem.tagline}</p>
               </div>
             </UtilityPanel>
 
             {createFromLegacy ? (
               <UtilityPanel className="rounded-lg border border-sky-300/18 bg-sky-500/10 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100">Migração ligada</p>
-                <p className="mt-2 text-sm text-soft">O estado antigo do workspace global será usado como base desta mesa nova.</p>
+                <p className="mt-2 text-sm text-soft">O rascunho antigo sera usado nesta mesa.</p>
               </UtilityPanel>
             ) : null}
 
@@ -485,7 +487,7 @@ export function MesasPage() {
         <DialogContent className="max-h-[88vh] overflow-y-auto">
           <DialogTitle className="font-display text-4xl text-white">Entrar em uma mesa</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-soft">
-            O fluxo principal usa código de convite. Se você recebeu um link completo, também pode entrar por URL.
+            Use o codigo ou cole o link recebido.
           </DialogDescription>
 
           <Tabs defaultValue="codigo" className="mt-6">

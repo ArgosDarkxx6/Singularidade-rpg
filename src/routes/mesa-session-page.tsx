@@ -190,7 +190,7 @@ export function MesaSessionPage() {
         description={
           selectedSession
             ? `${selectedSession.episodeNumber || 'Sem número'} · ${selectedSession.status} · ${selectedSession.location || 'Local não definido'}.`
-            : 'Mesa e sessão agora são camadas separadas: a mesa guarda contexto geral e a sessão concentra episódio, presença e andamento.'
+            : 'Crie ou selecione uma sessao para acompanhar episodio, presenca e andamento.'
         }
         actions={
           canManage ? (
@@ -381,7 +381,7 @@ export function MesaSessionPage() {
                 </div>
               </div>
             ) : (
-              <EmptyState title="Crie ou selecione uma sessão." body="A presença existe dentro da sessão, não na mesa. Primeiro escolha o episódio em foco." />
+              <EmptyState title="Crie ou selecione uma sessao." body="Depois marque a presenca dos membros." />
             )}
           </Panel>
         </div>
@@ -390,7 +390,7 @@ export function MesaSessionPage() {
           <MesaRailCard
             eyebrow="Histórico"
             title="Sessões recentes"
-            description="Cada episódio vive dentro da mesa, com fluxo próprio e presença separada."
+            description="Episodios registrados nesta mesa."
           >
             {availableSessions.length ? (
               availableSessions.map((entry) => (
@@ -417,7 +417,7 @@ export function MesaSessionPage() {
           <MesaRailCard
             eyebrow="Resumo"
             title={selectedSession?.episodeTitle || 'Sem sessão em foco'}
-            description={selectedSession ? `Última atualização em ${formatDateTime(selectedSession.updatedAt)}.` : 'Selecione uma sessão para ver o resumo rápido do episódio.'}
+            description={selectedSession ? `Ultima atualizacao em ${formatDateTime(selectedSession.updatedAt)}.` : 'Selecione uma sessao.'}
           >
             <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Presentes</p>
@@ -438,7 +438,7 @@ export function MesaSessionPage() {
           </MesaRailCard>
 
           {!canManage ? (
-            <MesaRailCard eyebrow="Participação" title="Presença individual" description="Players e viewers acompanham a sessão aqui; players podem marcar apenas a própria presença.">
+            <MesaRailCard eyebrow="Participacao" title="Sua presenca" description="Players marcam a propria presenca. Viewers acompanham em leitura.">
               <UtilityPanel className="rounded-lg p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Seu status</p>
                 <p className="mt-2 text-sm font-semibold text-white">

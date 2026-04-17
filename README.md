@@ -9,10 +9,10 @@ Project Nexus é uma plataforma de mesas online em `Vite + React + TypeScript + 
 - Hub autenticado para criar, listar, retomar e entrar em mesas por convite ou código.
 - Modelagem de mesa com `systemKey`, preparada para múltiplos sistemas.
 - Sistema Singularidade preservado como experiência de mesa: fichas, rolagens, ordem, sessões, livro, membros, snapshots e permissões.
-- Autenticação com email, username e senha.
+- Cadastro com email, username unico e senha; login por username e senha.
 - Runtime local para desenvolvimento sem Supabase configurado.
 - Runtime Supabase com Auth, Postgres, Storage, Realtime, RLS e RPCs.
-- Worker Cloudflare que serve o SPA e expõe `/api/references` e `/api/health`.
+- Worker Cloudflare que serve o SPA e expõe `/api/auth/username-login`, `/api/references` e `/api/health`.
 
 ## Stack
 
@@ -55,7 +55,7 @@ npx wrangler deploy --dry-run
 
 ## Supabase
 
-A migration `20260416183000_project_nexus_system_key.sql` adiciona `tables.system_key` com fallback `singularidade`, preservando mesas antigas e preparando a base para novos sistemas.
+A migration `20260416183000_project_nexus_system_key.sql` adiciona `tables.system_key` com fallback `singularidade`. A migration `20260417120000_username_auth.sql` adiciona a checagem segura de username usada no cadastro.
 
 Se o Supabase local estiver disponível:
 
@@ -72,6 +72,9 @@ Variáveis obrigatórias:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 

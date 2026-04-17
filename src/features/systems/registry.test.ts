@@ -28,4 +28,12 @@ describe('game system registry', () => {
     expect(defaults.seriesName).toBe('Jujutsu Kaisen');
     expect(isGameSystemKey('singularidade')).toBe(true);
   });
+
+  it('keeps Singularidade sheet rules inside the system adapter', () => {
+    const system = getGameSystem('singularidade');
+
+    expect(system.adapter.sheet.resourceLabels.energy).toBe('EA');
+    expect(system.adapter.sheet.rollContexts.map((context) => context.value)).toContain('domain-clash');
+    expect(system.adapter.table.modules).toContain('rolagens');
+  });
 });

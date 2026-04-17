@@ -22,7 +22,8 @@ import { createDefaultState, makeCharacter, normalizeLogEntry, normalizeState } 
 import { deepClone, sanitizeJoinCode, slugify, uid } from '@lib/domain/utils';
 import type { JoinCodeBackendResult, UploadAvatarResult, WorkspaceBackend } from './backend';
 
-const STORE_KEY = 'singularidade-local-workspace-backend-v2';
+const STORE_KEY = 'project-nexus-local-workspace-backend-v2';
+const LEGACY_STORE_KEY = 'singularidade-local-workspace-backend-v2';
 
 type Store = {
   workspaces: Record<string, WorkspaceState>;
@@ -104,7 +105,7 @@ function canUseStorage() {
 function loadStore(): Store {
   if (!canUseStorage()) return normalizeStore(memory);
   try {
-    const raw = localStorage.getItem(STORE_KEY);
+    const raw = localStorage.getItem(STORE_KEY) || localStorage.getItem(LEGACY_STORE_KEY);
     if (!raw) return normalizeStore(memory);
     const parsed = JSON.parse(raw) as Partial<Store>;
     return normalizeStore({
@@ -493,6 +494,41 @@ function refreshMembershipSessionAttendances(record: LocalTable, membershipId: s
   }
 }
 
+function assertCharacterClaimAvailable(record: LocalTable, role: TableRole, characterId: string, userId: string) {
+  if (role !== 'player' || !characterId) return;
+  const character = record.table.state.characters.find((entry) => entry.id === characterId);
+  if (!character) throw new Error('character not found');
+  const currentOwner = record.characterOwners[characterId] || null;
+  if (currentOwner && currentOwner !== userId && currentOwner !== record.table.ownerId) {
+    throw new Error('character already claimed');
+  }
+}
+
+function upsertLocalMembership(record: LocalTable, input: { userId: string; role: TableRole; characterId: string; nickname: string }) {
+  const existing = record.memberships.find((entry) => entry.userId === input.userId);
+  if (existing) {
+    existing.role = input.role;
+    existing.characterId = input.characterId || existing.characterId;
+    existing.nickname = input.nickname;
+    existing.active = true;
+    existing.updatedAt = now();
+    return existing;
+  }
+
+  const membership: LocalMembership = {
+    id: uid('membership'),
+    userId: input.userId,
+    role: input.role,
+    characterId: input.characterId,
+    nickname: input.nickname,
+    active: true,
+    joinedAt: now(),
+    updatedAt: now()
+  };
+  record.memberships.push(membership);
+  return membership;
+}
+
 function assertCanEditCharacter(session: TableSession, characterId: string) {
   if (session.role === 'viewer') {
     throw new Error('Seu papel atual permite apenas leitura.');
@@ -636,23 +672,18 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
       if (!record) throw new Error('Convite invalido ou expirado.');
       const invite = record.invites.find((entry) => entry.token === token && !entry.revokedAt);
       if (!invite) throw new Error('Convite invalido ou expirado.');
-      const membershipId = uid('membership');
-      const membership: LocalMembership = {
-        id: membershipId,
+      assertCharacterClaimAvailable(record, invite.role, invite.characterId, user.id);
+      const membership = upsertLocalMembership(record, {
         userId: user.id,
         role: invite.role,
         characterId: invite.characterId,
-        nickname,
-        active: true,
-        joinedAt: now(),
-        updatedAt: now()
-      };
-      record.memberships.push(membership);
+        nickname
+      });
       if (invite.role === 'player' && invite.characterId) {
         record.characterOwners[invite.characterId] = user.id;
       }
       invite.acceptedAt = now();
-      refreshMembershipSessionAttendances(record, membershipId);
+      refreshMembershipSessionAttendances(record, membership.id);
       syncOwnedCharactersForTable(store, record);
       saveStore(store);
       emitTable(record.table.id);
@@ -663,7 +694,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
           tableSlug: record.table.slug,
           tableName: record.table.name,
           systemKey: record.table.systemKey,
-          membershipId,
+          membershipId: membership.id,
           role: invite.role,
           nickname,
           characterId: invite.characterId
@@ -689,27 +720,28 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
             systemKey: record.table.systemKey,
             meta: clone(record.table.meta)
           },
-          characters: record.table.state.characters.map((character) => ({ id: character.id, name: character.name, grade: character.grade, clan: character.clan }))
+          characters: record.table.state.characters
+            .filter((character) => {
+              const ownerId = record.characterOwners[character.id] || null;
+              return !ownerId || ownerId === user.id || ownerId === record.table.ownerId;
+            })
+            .map((character) => ({ id: character.id, name: character.name, grade: character.grade, clan: character.clan }))
         };
       }
-      const membershipId = uid('membership');
-      const membership: LocalMembership = {
-        id: membershipId,
+      const resolvedCharacterId = characterId || joinCode.characterId;
+      assertCharacterClaimAvailable(record, joinCode.role, resolvedCharacterId, user.id);
+      const membership = upsertLocalMembership(record, {
         userId: user.id,
         role: joinCode.role,
-        characterId: characterId || joinCode.characterId,
-        nickname,
-        active: true,
-        joinedAt: now(),
-        updatedAt: now()
-      };
-      record.memberships.push(membership);
-      if (joinCode.role === 'player' && (characterId || joinCode.characterId)) {
-        record.characterOwners[characterId || joinCode.characterId] = user.id;
+        characterId: resolvedCharacterId,
+        nickname
+      });
+      if (joinCode.role === 'player' && resolvedCharacterId) {
+        record.characterOwners[resolvedCharacterId] = user.id;
       }
       joinCode.lastUsedAt = now();
       joinCode.updatedAt = now();
-      refreshMembershipSessionAttendances(record, membershipId);
+      refreshMembershipSessionAttendances(record, membership.id);
       syncOwnedCharactersForTable(store, record);
       saveStore(store);
       emitTable(record.table.id);
@@ -720,10 +752,10 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
           tableSlug: record.table.slug,
           tableName: record.table.name,
           systemKey: record.table.systemKey,
-          membershipId,
+          membershipId: membership.id,
           role: joinCode.role,
           nickname,
-          characterId: characterId || joinCode.characterId
+          characterId: resolvedCharacterId
         })
       } satisfies JoinCodeBackendResult;
     },

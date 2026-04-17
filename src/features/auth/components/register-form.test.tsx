@@ -55,4 +55,31 @@ describe('RegisterForm', () => {
       requiresEmailConfirmation: true
     });
   });
+
+  it('shows duplicate username and email errors from the auth service', async () => {
+    const user = userEvent.setup();
+    const service = createAuthServiceMock({
+      signUp: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Este username ja esta em uso.'))
+        .mockRejectedValueOnce(new Error('Ja existe uma conta com este email.'))
+    });
+
+    render(
+      <AuthProvider service={service}>
+        <RegisterForm onSuccess={vi.fn()} />
+      </AuthProvider>
+    );
+
+    await user.type(screen.getByLabelText(/Nome p/i), 'Mysto');
+    await user.type(screen.getByLabelText('Username'), 'mysto');
+    await user.type(screen.getByLabelText('Email'), 'mysto@example.com');
+    await user.type(screen.getByPlaceholderText('Crie uma senha'), 'senha123');
+    await user.type(screen.getByPlaceholderText('Repita a senha'), 'senha123');
+    await user.click(screen.getByRole('button', { name: 'Criar conta' }));
+    expect(await screen.findByText('Este username ja esta em uso.')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Criar conta' }));
+    expect(await screen.findByText('Ja existe uma conta com este email.')).toBeVisible();
+  });
 });

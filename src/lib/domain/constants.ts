@@ -9,90 +9,65 @@
   SessionAttendanceStatus,
   TableMeta
 } from '@/types/domain';
+import {
+  SINGULARIDADE_ATTRIBUTE_CONFIG,
+  SINGULARIDADE_ATTRIBUTE_LABELS,
+  SINGULARIDADE_CONDITION_COLORS,
+  SINGULARIDADE_DEFAULT_MESA_META,
+  SINGULARIDADE_DEFAULT_TABLE_META,
+  SINGULARIDADE_GRADE_OPTIONS,
+  SINGULARIDADE_MESA_SECTION_LABELS,
+  SINGULARIDADE_RANKS,
+  SINGULARIDADE_RESOURCE_KEYS,
+  SINGULARIDADE_RESOURCE_LABELS,
+  SINGULARIDADE_ROLL_CONTEXTS,
+  SINGULARIDADE_ROLL_TN_PRESETS,
+  SINGULARIDADE_SESSION_ATTENDANCE_STATUS_LABELS,
+  SINGULARIDADE_TECHNIQUE_TYPES
+} from '@features/systems/singularidade/adapter';
 
 export const CURRENT_VERSION = 8;
 export const DEFAULT_GAME_SYSTEM_KEY: GameSystemKey = 'singularidade';
-export const STORAGE_KEY = 'singularidade-remake-state-v8';
-export const AUTH_STORAGE_KEY = 'singularidade-remake-auth-v1';
-export const USERS_STORAGE_KEY = 'singularidade-remake-users-v1';
-export const TABLES_STORAGE_KEY = 'singularidade-remake-tables-v1';
-export const ONLINE_SESSION_STORAGE_KEY = 'singularidade-remake-online-session-v1';
-export const LEGACY_MIGRATION_STORAGE_KEY = 'singularidade-remake-legacy-migration-v1';
+export const STORAGE_KEY = 'project-nexus-state-v8';
+export const AUTH_STORAGE_KEY = 'project-nexus-auth-v1';
+export const USERS_STORAGE_KEY = 'project-nexus-users-v1';
+export const TABLES_STORAGE_KEY = 'project-nexus-tables-v1';
+export const ONLINE_SESSION_STORAGE_KEY = 'project-nexus-online-session-v1';
+export const LEGACY_MIGRATION_STORAGE_KEY = 'project-nexus-legacy-migration-v1';
 
-export const RESOURCE_KEYS: ResourceKey[] = ['hp', 'energy', 'sanity'];
+export const LEGACY_STORAGE_KEY = 'singularidade-remake-state-v8';
+export const LEGACY_AUTH_STORAGE_KEY = 'singularidade-remake-auth-v1';
+export const LEGACY_USERS_STORAGE_KEY = 'singularidade-remake-users-v1';
+export const LEGACY_TABLES_STORAGE_KEY = 'singularidade-remake-tables-v1';
+export const LEGACY_ONLINE_SESSION_STORAGE_KEY = 'singularidade-remake-online-session-v1';
+export const LEGACY_MIGRATION_DISMISSAL_STORAGE_KEY = 'singularidade-remake-legacy-migration-v1';
 
-export const RESOURCE_LABELS: Record<ResourceKey, string> = {
-  hp: 'PV',
-  energy: 'EA',
-  sanity: 'SAN'
-};
+export const RESOURCE_KEYS: ResourceKey[] = SINGULARIDADE_RESOURCE_KEYS;
 
-export const ATTRIBUTE_CONFIG: Array<{ key: AttributeKey; label: string; isMental: boolean }> = [
-  { key: 'strength', label: 'Força', isMental: false },
-  { key: 'resistance', label: 'Resistência', isMental: false },
-  { key: 'dexterity', label: 'Destreza', isMental: false },
-  { key: 'speed', label: 'Velocidade', isMental: false },
-  { key: 'fight', label: 'Lutar', isMental: false },
-  { key: 'precision', label: 'Precisão', isMental: false },
-  { key: 'intelligence', label: 'Inteligência', isMental: true },
-  { key: 'charisma', label: 'Carisma', isMental: true }
-];
+export const RESOURCE_LABELS: Record<ResourceKey, string> = SINGULARIDADE_RESOURCE_LABELS;
 
-export const ATTRIBUTE_LABELS = Object.fromEntries(ATTRIBUTE_CONFIG.map((item) => [item.key, item.label])) as Record<
-  AttributeKey,
-  string
->;
+export const ATTRIBUTE_CONFIG: Array<{ key: AttributeKey; label: string; isMental: boolean }> = SINGULARIDADE_ATTRIBUTE_CONFIG;
 
-export const RANKS: Rank[] = ['C', 'B', 'A', 'S', 'SS', 'SSS'];
-export const TECHNIQUE_TYPES = ['Ofensiva', 'Suporte', 'Controle', 'Toque'] as const;
-export const GRADE_OPTIONS = ['Grau 4', 'Grau 3', 'Grau 2', 'Grau 1', 'Grau Especial'];
-export const ROLL_TN_PRESETS = [10, 13, 15, 17, 20];
+export const ATTRIBUTE_LABELS: Record<AttributeKey, string> = SINGULARIDADE_ATTRIBUTE_LABELS;
+
+export const RANKS: Rank[] = SINGULARIDADE_RANKS;
+export const TECHNIQUE_TYPES = SINGULARIDADE_TECHNIQUE_TYPES;
+export const GRADE_OPTIONS = SINGULARIDADE_GRADE_OPTIONS;
+export const ROLL_TN_PRESETS = SINGULARIDADE_ROLL_TN_PRESETS;
 export const TABLE_STATUS_OPTIONS = ['Planejamento', 'Em sessão', 'Intervalo', 'Finalizada'];
 export const SESSION_STATUS_OPTIONS = ['Planejamento', 'Em sessão', 'Intervalo', 'Finalizada'] as const;
 
-export const SESSION_ATTENDANCE_STATUS_LABELS: Record<SessionAttendanceStatus, string> = {
-  pending: 'Pendente',
-  present: 'Presente',
-  absent: 'Ausente'
-};
+export const SESSION_ATTENDANCE_STATUS_LABELS: Record<SessionAttendanceStatus, string> = SINGULARIDADE_SESSION_ATTENDANCE_STATUS_LABELS;
 
-export const MESA_SECTION_LABELS = {
-  overview: 'Mesa',
-  sessao: 'Sessão',
-  fichas: 'Fichas',
-  rolagens: 'Rolagens',
-  ordem: 'Ordem',
-  livro: 'Livro',
-  membros: 'Membros',
-  configuracoes: 'Configurações'
-} as const;
+export const MESA_SECTION_LABELS = SINGULARIDADE_MESA_SECTION_LABELS;
 
-export const ROLL_CONTEXTS: Array<{ value: RollContext; label: string }> = [
-  { value: 'standard', label: 'Teste padrão' },
-  { value: 'physical-attack', label: 'Ataque físico' },
-  { value: 'ranged-attack', label: 'Ataque à distância' },
-  { value: 'domain-clash', label: 'Conflito de domínio' }
-];
+export const ROLL_CONTEXTS: Array<{ value: RollContext; label: string }> = SINGULARIDADE_ROLL_CONTEXTS;
 
-export const CONDITION_COLORS = {
-  purple: { label: 'Roxo', bg: 'rgba(113, 96, 255, 0.16)', border: 'rgba(113, 96, 255, 0.4)' },
-  red: { label: 'Vermelho', bg: 'rgba(255, 89, 101, 0.16)', border: 'rgba(255, 89, 101, 0.4)' },
-  blue: { label: 'Azul', bg: 'rgba(77, 182, 255, 0.16)', border: 'rgba(77, 182, 255, 0.4)' },
-  green: { label: 'Verde', bg: 'rgba(89, 204, 145, 0.16)', border: 'rgba(89, 204, 145, 0.4)' },
-  gray: { label: 'Cinza', bg: 'rgba(180, 194, 214, 0.16)', border: 'rgba(180, 194, 214, 0.4)' }
-} as const;
+export const CONDITION_COLORS = SINGULARIDADE_CONDITION_COLORS;
 
-export const DEFAULT_MESA_META: MesaMeta = {
-  tableName: 'Mesa Singularidade',
-  description: '',
-  slotCount: 0,
-  seriesName: 'Jujutsu Kaisen',
-  campaignName: ''
-};
+export const DEFAULT_MESA_META: MesaMeta = SINGULARIDADE_DEFAULT_MESA_META;
 
-export const DEFAULT_TABLE_META: TableMeta = {
-  ...DEFAULT_MESA_META
-};
+export const DEFAULT_TABLE_META: TableMeta = SINGULARIDADE_DEFAULT_TABLE_META;
 
 export const DEFAULT_GAME_SESSION: GameSession = {
   id: '',

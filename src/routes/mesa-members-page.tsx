@@ -55,8 +55,8 @@ export function MesaMembersPage() {
     <div className="page-shell pb-8">
       <MesaHero
         eyebrow="Membros e acesso"
-        title="Servidor fechado por convite"
-        description="Administre quem entra na mesa, distribua papéis, gere convites por link e mantenha códigos ativos sob controle."
+        title="Convites da mesa"
+        description="Gere links, crie codigos e acompanhe quem entrou."
         actions={
           canManage ? (
             <a
@@ -99,7 +99,7 @@ export function MesaMembersPage() {
                   </UtilityPanel>
                 ))
               ) : (
-                <EmptyState title="Ninguém mais entrou nesta mesa." body="Assim que outro membro acessar o servidor, a lista ao vivo aparece aqui." />
+                <EmptyState title="Ninguem mais entrou nesta mesa." body="Novos membros aparecem aqui." />
               )}
             </div>
           </Panel>
@@ -107,19 +107,20 @@ export function MesaMembersPage() {
           <div className="grid gap-6 xl:grid-cols-2">
             <Panel className="rounded-lg p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Convites por link</p>
-              <h2 className="mt-2 font-display text-4xl leading-none text-white">URL completa para acesso</h2>
-              <p className="mt-3 text-sm leading-6 text-soft">
-                Links são úteis para onboarding direto. O papel e o vínculo de personagem já podem ser definidos na emissão.
-              </p>
+              <h2 className="mt-2 font-display text-4xl leading-none text-white">Link de acesso</h2>
 
               {canManage ? (
                 <form
                   className="mt-6 grid gap-4"
                   onSubmit={inviteForm.handleSubmit(async (values) => {
-                    const invite = await createInviteLink(values);
-                    if (!invite) return;
-                    await copyText(invite);
-                    toast.success('Convite criado e copiado.');
+                    try {
+                      const invite = await createInviteLink(values);
+                      if (!invite) return;
+                      await copyText(invite);
+                      toast.success('Convite criado e copiado.');
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Nao foi possivel criar este convite.');
+                    }
                   })}
                 >
                   <Field label="Papel concedido">
@@ -148,24 +149,25 @@ export function MesaMembersPage() {
                   </Button>
                 </form>
               ) : (
-                <EmptyState title="Apenas GMs geram convites." body="Seu papel atual permite leitura da mesa, mas não a administração de acesso." />
+                <EmptyState title="Apenas GMs geram convites." body="Peca um link ou codigo ao GM." />
               )}
             </Panel>
 
             <Panel className="rounded-lg p-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Join codes</p>
-              <h2 className="mt-2 font-display text-4xl leading-none text-white">Código rápido de entrada</h2>
-              <p className="mt-3 text-sm leading-6 text-soft">
-                O fluxo principal do produto usa código de convite. Players podem escolher personagem na entrada quando o vínculo não vier pronto.
-              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Codigos</p>
+              <h2 className="mt-2 font-display text-4xl leading-none text-white">Codigo de entrada</h2>
 
               {canManage ? (
                 <form
                   className="mt-6 grid gap-4"
                   onSubmit={codeForm.handleSubmit(async (values) => {
-                    const joinCode = await createJoinCode(values);
-                    if (!joinCode) return;
-                    toast.success(`Código ${formatJoinCodeDisplay(joinCode.code)} criado.`);
+                    try {
+                      const joinCode = await createJoinCode(values);
+                      if (!joinCode) return;
+                      toast.success(`Codigo ${formatJoinCodeDisplay(joinCode.code)} criado.`);
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Nao foi possivel criar este codigo.');
+                    }
                   })}
                 >
                   <Field label="Papel concedido">
@@ -235,8 +237,12 @@ export function MesaMembersPage() {
                             size="sm"
                             variant="danger"
                             onClick={async () => {
-                              await revokeJoinCode(joinCode.id);
-                              toast.success('Código revogado.');
+                              try {
+                                await revokeJoinCode(joinCode.id);
+                                toast.success('Codigo revogado.');
+                              } catch (error) {
+                                toast.error(error instanceof Error ? error.message : 'Nao foi possivel revogar este codigo.');
+                              }
                             }}
                           >
                             Revogar
@@ -247,7 +253,7 @@ export function MesaMembersPage() {
                   </UtilityPanel>
                 ))
               ) : (
-                <EmptyState title="Nenhum código ativo." body="Gere o primeiro código acima para abrir o fluxo principal de entrada em mesa." />
+                <EmptyState title="Nenhum codigo ativo." body="Gere um codigo para convidar alguem." />
               )}
             </div>
           </Panel>
@@ -257,7 +263,7 @@ export function MesaMembersPage() {
           <MesaRailCard
             eyebrow="Seu papel"
             title={formatRoleLabel(session.role)}
-            description={canManage ? 'Você administra a mesa, membros, convites e códigos.' : 'Você participa desta mesa, mas a administração fica sob controle do GM.'}
+            description={canManage ? 'Voce administra convites e codigos.' : 'Peca novos acessos ao GM.'}
           >
             <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Último convite gerado</p>

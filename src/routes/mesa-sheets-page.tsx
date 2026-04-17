@@ -145,7 +145,7 @@ export function MesaSheetsPage() {
   };
 
   if (!state.characters.length) {
-    return <EmptyState title="Nenhuma ficha carregada." body="Crie uma mesa com personagens ou importe um estado para usar o workspace de fichas." />;
+    return <EmptyState title="Nenhuma ficha carregada." body="Crie personagens para comecar." />;
   }
 
   return (
@@ -153,7 +153,7 @@ export function MesaSheetsPage() {
       <MesaHero
         eyebrow="Fichas da mesa"
         title={`${activeCharacter.name} em foco`}
-        description="A ficha agora corre em um fluxo contínuo: identidade, recursos, atributos, arsenal, técnicas, passivas, votos, inventário e condições sem guias internas quebradas."
+        description="Identidade, recursos, atributos, arsenal, tecnicas, passivas, votos, inventario e condicoes."
         actions={
           <>
             {canEditActiveCharacter ? (
@@ -227,7 +227,7 @@ export function MesaSheetsPage() {
           <MesaRailCard
             eyebrow="Leitura rápida"
             title="Resumo da ficha"
-            description="A rail lateral fica só com contexto operacional; a edição completa acontece no miolo contínuo da ficha."
+            description="Dados rapidos da ficha selecionada."
           >
             <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Condições ativas</p>
