@@ -120,7 +120,6 @@ function toTableInsert(
   return {
     slug,
     name: meta.tableName || DEFAULT_TABLE_META.tableName,
-    system_key: normalizedSystemKey,
     description: meta.description || '',
     slot_count: meta.slotCount || 0,
     series_name: meta.seriesName || DEFAULT_TABLE_META.seriesName,
@@ -1122,7 +1121,6 @@ async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> 
         id,
         slug,
         name,
-        system_key,
         owner_id,
         created_at,
         updated_at,
@@ -1146,7 +1144,7 @@ async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> 
         id: table.id,
         slug: table.slug,
         name: table.name,
-        systemKey: resolveGameSystemKey(table.system_key),
+        systemKey: resolveGameSystemKey((table as { system_key?: string | null }).system_key),
         role: record.role as TableListItem['role'],
         nickname: record.nickname,
         characterId: record.character_id || '',
@@ -1352,8 +1350,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           tables!inner (
             id,
             slug,
-            name,
-            system_key
+            name
           )
         `
         )
@@ -1437,7 +1434,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           const response = await client
             .from('tables')
             .insert(toTableInsert(meta, state, user.id, nickname, slug, systemKey))
-            .select('id, slug, name, system_key')
+            .select('id, slug, name')
             .single();
 
           if (response.error?.code === '23505') continue;
