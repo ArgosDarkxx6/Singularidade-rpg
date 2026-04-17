@@ -22,7 +22,7 @@ export function MetricChip({
           : 'border-white/10 bg-white/4 text-white';
 
   return (
-    <div className={cn('rounded-2xl border px-4 py-3', toneClass, className)}>
+    <div className={cn('rounded-lg border px-4 py-3', toneClass, className)}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{label}</p>
       <p className="mt-2 text-lg font-semibold">{value}</p>
     </div>

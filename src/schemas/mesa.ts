@@ -1,5 +1,9 @@
 ﻿import { z } from 'zod';
 
+import { DEFAULT_GAME_SYSTEM_KEY } from '@lib/domain/constants';
+
+export const gameSystemKeySchema = z.enum(['singularidade']).default(DEFAULT_GAME_SYSTEM_KEY);
+
 export const mesaMetaSchema = z.object({
   tableName: z.string().min(2, 'Informe o nome da mesa.'),
   description: z.string().default(''),
@@ -40,6 +44,7 @@ export const sessionAttendanceSchema = z.object({
 
 export const createTableSchema = z.object({
   nickname: z.string().min(2, 'Informe o nome de presença.'),
+  systemKey: gameSystemKeySchema,
   meta: mesaMetaSchema
 });
 

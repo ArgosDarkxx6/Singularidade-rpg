@@ -11,6 +11,7 @@ import { Field, Input } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { MesaHero, MesaMetricTile } from '@features/mesa/components/mesa-section-primitives';
 import { useAuth } from '@features/auth/hooks/use-auth';
+import { getGameSystem } from '@features/systems/registry';
 import { useWorkspace } from '@features/workspace/use-workspace';
 import { profileUpdateSchema } from '@schemas/auth';
 import type { UserCharacterSummary } from '@/types/domain';
@@ -78,20 +79,20 @@ export function ProfilePage() {
   return (
     <div className="page-shell pb-8">
       <MesaHero
-        eyebrow="Conta do usuário"
+        eyebrow="Project Nexus"
         title={profile?.displayName || user?.displayName || 'Perfil'}
-        description="Edite seu nome público, gerencie sua foto de perfil e acompanhe as mesas e personagens vinculados à sua conta."
+        description="Edite sua identidade da plataforma e acompanhe as mesas, sistemas e personagens vinculados à sua conta."
       />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <MesaMetricTile label="Mesas ativas" value={tables.length} hint="Campanhas nas quais sua conta participa hoje." />
+        <MesaMetricTile label="Mesas ativas" value={tables.length} hint="Campanhas e sistemas nos quais sua conta participa hoje." />
         <MesaMetricTile label="Personagens próprios" value={characters.length} hint="Personagens preservados na sua conta, mesmo fora de uma mesa." />
         <MesaMetricTile label="Última atualização" value={formatDate(profile?.updatedAt || '')} hint="Reflete dados do perfil autenticado." />
       </div>
 
       <div className="grid gap-6">
         <div className="grid gap-6">
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex items-start gap-4">
                 <Avatar src={profile?.avatarUrl || user?.avatarUrl || undefined} name={profile?.displayName || user?.displayName || 'Perfil'} size="lg" />
@@ -175,7 +176,7 @@ export function ProfilePage() {
             </form>
           </Panel>
 
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Suas mesas</p>
@@ -186,17 +187,17 @@ export function ProfilePage() {
             <div className="mt-6 grid gap-3">
               {tables.length ? (
                 tables.map((table) => (
-                  <UtilityPanel key={table.id} className="rounded-[22px] p-4">
+                  <UtilityPanel key={table.id} className="rounded-lg p-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
                         <p className="text-base font-semibold text-white">{table.name}</p>
                         <p className="mt-1 text-sm text-soft">
-                          {table.seriesName || 'Sem série'} · {table.campaignName || 'Sem campanha'} · {table.status || 'Sem sessão'}
+                          {getGameSystem(table.systemKey).name} · {table.seriesName || 'Sem série'} · {table.campaignName || 'Sem campanha'} · {table.status || 'Sem sessão'}
                         </p>
                       </div>
                       <Link
                         to={`/mesa/${table.slug}`}
-                        className="inline-flex min-h-11 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-soft transition hover:text-white"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-soft transition hover:text-white"
                       >
                         Abrir mesa
                       </Link>
@@ -211,12 +212,12 @@ export function ProfilePage() {
         </div>
 
         <div className="page-right-rail">
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Personagens próprios</p>
             <h2 className="mt-2 font-display text-4xl leading-none text-white">Acervo da conta</h2>
             <div className="mt-6 grid gap-3">
               {charactersLoading ? (
-                <UtilityPanel className="rounded-[20px] p-4">
+                <UtilityPanel className="rounded-lg p-4">
                   <p className="text-sm text-soft">Carregando personagens...</p>
                 </UtilityPanel>
               ) : characters.length ? (
@@ -224,7 +225,7 @@ export function ProfilePage() {
                   const linkedTable = character.tableId ? linkedTablesById.get(character.tableId) : null;
 
                   return (
-                    <UtilityPanel key={character.id} className="rounded-[22px] p-4">
+                    <UtilityPanel key={character.id} className="rounded-lg p-4">
                       <div className="flex items-start gap-3">
                         <Avatar src={character.avatarUrl || undefined} name={character.name} size="sm" />
                         <div className="min-w-0 flex-1">
@@ -241,7 +242,7 @@ export function ProfilePage() {
                       {linkedTable ? (
                         <Link
                           to={`/mesa/${linkedTable.slug}/fichas`}
-                          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-soft transition hover:text-white"
+                          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-soft transition hover:text-white"
                         >
                           Abrir ficha
                         </Link>

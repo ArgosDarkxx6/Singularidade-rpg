@@ -105,7 +105,7 @@ function BookBlockView({ block }: { block: BookBlock }) {
 
   if (block.type === 'list') {
     return (
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+      <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{block.title}</p>
         <ul className="mt-3 grid gap-2 text-sm leading-6 text-soft">
           {block.items.map((item) => (
@@ -121,7 +121,7 @@ function BookBlockView({ block }: { block: BookBlock }) {
 
   if (block.type === 'table') {
     return (
-      <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.04]">
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
         <div className="border-b border-white/10 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{block.title}</p>
         </div>
@@ -156,7 +156,7 @@ function BookBlockView({ block }: { block: BookBlock }) {
   const titledBlock = block as Extract<BookBlock, { title: string }>;
 
   return (
-    <div className={`rounded-[24px] border p-4 ${toneClass(block)}`}>
+    <div className={`rounded-lg border p-4 ${toneClass(block)}`}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{'label' in block ? block.label || block.type : block.type}</p>
       <h4 className="mt-2 font-display text-2xl text-white">{titledBlock.title}</h4>
       {'body' in block ? <p className="mt-3 text-sm leading-7 text-soft">{block.body}</p> : null}
@@ -239,7 +239,7 @@ export function MesaCompendiumPage() {
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(260px,0.38fr)_minmax(0,1fr)]">
-        <Panel className="rounded-[28px] p-5">
+        <Panel className="rounded-lg p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Navegação</p>
           <h2 className="mt-2 font-display text-4xl leading-none text-white">Livro da mesa</h2>
           <p className="mt-3 text-sm leading-6 text-soft">Filtre capítulos, glossário e presets a partir do mesmo campo.</p>
@@ -282,17 +282,17 @@ export function MesaCompendiumPage() {
           </div>
 
           <div className="mt-5 grid gap-2">
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Capítulos</p>
               <p className="mt-2 text-2xl font-semibold text-white">{filteredChapters.length}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Verbetes</p>
               <p className="mt-2 text-2xl font-semibold text-white">{glossaryCount}</p>
             </UtilityPanel>
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.02]">
+          <div className="mt-5 overflow-hidden rounded-lg border border-white/10 bg-white/[0.02]">
             <ScrollArea className="h-[min(52vh,560px)]">
               <div className="grid gap-2 p-3">
                 {filteredChapters.map((chapter) => (
@@ -300,7 +300,7 @@ export function MesaCompendiumPage() {
                     key={chapter.id}
                     type="button"
                     onClick={() => setActiveChapterId(chapter.id)}
-                    className={`rounded-[20px] border px-4 py-3 text-left transition ${
+                    className={`rounded-lg border px-4 py-3 text-left transition ${
                       activeChapterId === chapter.id ? 'border-sky-300/24 bg-sky-500/10 text-white' : 'border-white/10 bg-white/[0.03] text-soft hover:text-white'
                     }`}
                   >
@@ -316,7 +316,7 @@ export function MesaCompendiumPage() {
 
         <div className="grid gap-6">
           {deferredQuery.trim() ? (
-            <Panel className="rounded-[28px] p-6">
+            <Panel className="rounded-lg p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Busca editorial</p>
               <h2 className="mt-2 font-display text-5xl leading-none text-white">Resultados para "{deferredQuery}"</h2>
               <p className="mt-4 text-sm leading-6 text-soft">
@@ -326,7 +326,7 @@ export function MesaCompendiumPage() {
               <div className="mt-6 grid gap-4">
                 {filteredChapters.length ? (
                   filteredChapters.map((chapter) => (
-                    <div key={chapter.id} className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+                    <div key={chapter.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-5">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="max-w-3xl">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{chapter.label}</p>
@@ -340,7 +340,7 @@ export function MesaCompendiumPage() {
 
                       <div className="mt-5 grid gap-4">
                         {chapter.sections.map((section) => (
-                          <UtilityPanel key={section.id} className="rounded-[20px] p-4">
+                          <UtilityPanel key={section.id} className="rounded-lg p-4">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{section.id}</p>
                             <p className="mt-2 text-base font-semibold text-white">{section.title}</p>
                             <p className="mt-2 text-sm leading-6 text-soft">{section.summary}</p>
@@ -355,14 +355,14 @@ export function MesaCompendiumPage() {
               </div>
             </Panel>
           ) : activeChapter ? (
-            <Panel className="rounded-[28px] p-6">
+            <Panel className="rounded-lg p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">{activeChapter.label}</p>
               <h2 className="mt-2 font-display text-5xl leading-none text-white">{activeChapter.title}</h2>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-soft">{activeChapter.summary}</p>
 
               <div className="mt-6 grid gap-5">
                 {activeChapter.sections.map((section) => (
-                  <motion.section key={section.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[26px] border border-white/10 bg-white/[0.03] p-5">
+                  <motion.section key={section.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-white/10 bg-white/[0.03] p-5">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{section.id}</p>
                     <h3 className="mt-2 font-display text-4xl leading-none text-white">{section.title}</h3>
                     <p className="mt-3 text-sm leading-6 text-soft">{section.summary}</p>
@@ -388,9 +388,9 @@ export function MesaCompendiumPage() {
           >
             {filteredGlossary.length ? (
               filteredGlossary.slice(0, 4).map((group) => (
-                <UtilityPanel key={group.key} className={`rounded-[22px] p-4 ${getGlossaryGroupStyle(group.key).panel}`}>
+                <UtilityPanel key={group.key} className={`rounded-lg p-4 ${getGlossaryGroupStyle(group.key).panel}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`flex size-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br ${getGlossaryGroupStyle(group.key).badge} shadow-[0_10px_30px_rgba(2,8,15,0.35)]`}>
+                    <div className={`flex size-14 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br ${getGlossaryGroupStyle(group.key).badge} shadow-[0_10px_30px_rgba(2,8,15,0.35)]`}>
                       <span className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${getGlossaryGroupStyle(group.key).accent}`}>
                         {getGlossaryGroupMark(group.label)}
                       </span>
@@ -402,7 +402,7 @@ export function MesaCompendiumPage() {
                   </div>
                   <div className="mt-4 grid gap-2">
                     {group.entries.slice(0, 3).map((entry) => (
-                      <div key={entry.id} className="rounded-[18px] border border-white/8 bg-slate-950/40 px-3 py-3">
+                      <div key={entry.id} className="rounded-lg border border-white/8 bg-slate-950/40 px-3 py-3">
                         <p className="text-sm font-semibold text-white">{entry.name}</p>
                         <p className="mt-1 text-xs leading-5 text-soft">{entry.summary}</p>
                       </div>
@@ -418,7 +418,7 @@ export function MesaCompendiumPage() {
           <MesaRailCard eyebrow="Presets" title="Banco canônico" description="Armas, técnicas, passivas e itens prontos para consulta rápida durante a sessão.">
             {presetMatches.length ? (
               presetMatches.slice(0, 6).map((preset) => (
-                <UtilityPanel key={preset.id} className="rounded-[20px] p-4">
+                <UtilityPanel key={preset.id} className="rounded-lg p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{preset.origin}</p>
                   <p className="mt-2 text-sm font-semibold text-white">{preset.name}</p>
                   <p className="mt-2 text-sm leading-6 text-soft">{preset.description}</p>
@@ -440,7 +440,7 @@ export function MesaCompendiumPage() {
 
             {referencesQuery.isFetching ? (
               Array.from({ length: 3 }).map((_, index) => (
-                <div key={`reference-skeleton-${index}`} className="h-28 animate-pulse rounded-[20px] border border-white/10 bg-white/[0.04]" />
+                <div key={`reference-skeleton-${index}`} className="h-28 animate-pulse rounded-lg border border-white/10 bg-white/[0.04]" />
               ))
             ) : referencesQuery.data?.length ? (
               referencesQuery.data.map((card) => (
@@ -449,7 +449,7 @@ export function MesaCompendiumPage() {
                   href={card.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-[20px] border border-white/10 bg-white/[0.04] p-4 transition hover:border-sky-300/22 hover:bg-white/[0.06]"
+                  className="rounded-lg border border-white/10 bg-white/[0.04] p-4 transition hover:border-sky-300/22 hover:bg-white/[0.06]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>

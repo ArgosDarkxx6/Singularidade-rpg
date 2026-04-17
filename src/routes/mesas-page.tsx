@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
-import { ArrowRight, Compass, DoorOpen, Plus, RadioTower, Shield, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, Compass, DoorOpen, Layers3, Plus, RadioTower, Shield, Sparkles, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
@@ -8,14 +8,15 @@ import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
-import { Field, Input, Textarea } from '@components/ui/field';
+import { Field, Input, Select, Textarea } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { MesaHero, MesaMetricTile, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { hasMeaningfulLegacyWorkspace } from '@features/mesa/lib/legacy-workspace';
 import { useWorkspace } from '@features/workspace/use-workspace';
-import { DEFAULT_TABLE_META, LEGACY_MIGRATION_STORAGE_KEY } from '@lib/domain/constants';
+import { GAME_SYSTEM_OPTIONS, getDefaultTableMetaForSystem, getGameSystem } from '@features/systems/registry';
+import { LEGACY_MIGRATION_STORAGE_KEY } from '@lib/domain/constants';
 import { createTableSchema, joinCodeSchema, joinInviteSchema } from '@schemas/mesa';
 import type { WorkspaceState } from '@/types/domain';
 
@@ -39,12 +40,12 @@ function formatDate(value: string) {
 }
 
 function buildCreateDefaults(nickname: string): CreateTableValues {
+  const systemKey = 'singularidade';
+
   return {
     nickname,
-    meta: {
-      ...DEFAULT_TABLE_META,
-      seriesName: 'Jujutsu Kaisen'
-    }
+    systemKey,
+    meta: getDefaultTableMetaForSystem(systemKey)
   };
 }
 
@@ -102,6 +103,7 @@ export function MesasPage() {
       nickname: defaultNickname
     }
   });
+  const selectedSystem = getGameSystem(createForm.watch('systemKey'));
 
   const handleContinueTable = async (slug: string) => {
     setOpeningTableSlug(slug);
@@ -126,11 +128,12 @@ export function MesasPage() {
   const currentOrLatestTable = online.session
     ? tables.find((table) => table.slug === online.session?.tableSlug) || tables[0]
     : tables[0];
+  const currentOrLatestSystem = currentOrLatestTable ? getGameSystem(currentOrLatestTable.systemKey) : null;
 
   const handleCreateTable = createForm.handleSubmit(async (values) => {
     try {
       const nextState: WorkspaceState | undefined = createFromLegacy && legacyState ? legacyState : undefined;
-      const session = await createTableSession(values.meta, values.nickname, nextState);
+      const session = await createTableSession(values.meta, values.nickname, nextState, values.systemKey);
       if (!session) return;
 
       if (createFromLegacy) {
@@ -176,9 +179,9 @@ export function MesasPage() {
   return (
     <div className="page-shell pb-10">
       <MesaHero
-        eyebrow="Portal autenticado"
-        title="Escolha uma mesa ou abra a sua."
-        description="Agora o produto inteiro gira em torno de mesas privadas. Entre por código, crie um novo servidor de campanha e acesse fichas, rolagens, ordem e compêndio sempre dentro do contexto certo."
+        eyebrow="Project Nexus"
+        title="Seu hub de mesas e sistemas."
+        description="Crie campanhas, entre por código ou convite e mantenha cada universo dentro da identidade certa. Singularidade é o primeiro sistema disponível nesta plataforma."
         actions={
           <>
             <Button
@@ -207,33 +210,33 @@ export function MesasPage() {
       <div className="grid gap-6">
         <div className="grid gap-6">
           {tableActionError ? (
-            <UtilityPanel className="rounded-[22px] border border-rose-300/18 bg-rose-500/10 px-4 py-4">
+            <UtilityPanel className="rounded-lg border border-rose-300/18 bg-rose-500/10 px-4 py-4">
               <p className="text-sm leading-6 text-soft">{tableActionError}</p>
             </UtilityPanel>
           ) : null}
 
           <div className="grid gap-4 md:grid-cols-3">
-            <MesaMetricTile label="Mesas em que você participa" value={tables.length} hint="Cada mesa tem fichas, membros e convites próprios." />
+            <MesaMetricTile label="Mesas em que você participa" value={tables.length} hint="Cada mesa declara um sistema e mantém seu contexto próprio." />
             <MesaMetricTile
-              label="Sessão conectada"
+              label="Mesa conectada"
               value={online.session ? online.session.tableName : 'Nenhuma'}
               hint={online.session ? formatRoleLabel(online.session.role) : 'Escolha uma mesa para continuar.'}
             />
             <MesaMetricTile
-              label="Presença viva"
-              value={online.members.length || 0}
-              hint={online.session ? 'Membros online na mesa atual.' : 'Visível depois de entrar em uma mesa.'}
+              label="Sistemas ativos"
+              value={GAME_SYSTEM_OPTIONS.filter((system) => system.status === 'enabled').length}
+              hint="A base já está preparada para novos sistemas."
             />
           </div>
 
           {currentOrLatestTable ? (
-            <Panel className="rounded-[30px] p-6">
+            <Panel className="rounded-lg p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="max-w-2xl">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Retomar campanha</p>
                   <h2 className="mt-3 font-display text-5xl leading-none text-white">{currentOrLatestTable.name}</h2>
                   <p className="mt-4 text-sm leading-6 text-soft">
-                    {currentOrLatestTable.seriesName || 'Mesa sem série definida'} · {currentOrLatestTable.campaignName || 'Sem arco nomeado'} · status{' '}
+                    {currentOrLatestSystem?.name || 'Sistema'} · {currentOrLatestTable.seriesName || 'Mesa sem série definida'} · {currentOrLatestTable.campaignName || 'Sem arco nomeado'} · status{' '}
                     {currentOrLatestTable.status || 'Planejamento'}.
                   </p>
                 </div>
@@ -252,7 +255,7 @@ export function MesasPage() {
           ) : null}
 
           {shouldOfferMigration ? (
-            <Panel className="rounded-[30px] border-sky-300/18 bg-sky-500/10 p-6">
+            <Panel className="rounded-lg border-sky-300/18 bg-sky-500/10 p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="max-w-2xl">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Migração do legado</p>
@@ -292,7 +295,7 @@ export function MesasPage() {
             </Panel>
           ) : null}
 
-          <Panel className="rounded-[30px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Suas mesas</p>
@@ -312,13 +315,16 @@ export function MesasPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.03 }}
-                    className="rounded-[24px] border border-white/10 bg-white/[0.025] p-5"
+                    className="rounded-lg border border-white/10 bg-white/[0.025] p-5"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="max-w-2xl">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-sky-300/18 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-100">
                             {formatRoleLabel(table.role)}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-soft">
+                            {getGameSystem(table.systemKey).name}
                           </span>
                           {table.isOwner ? (
                             <span className="rounded-full border border-amber-300/18 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100">
@@ -354,11 +360,25 @@ export function MesasPage() {
 
         <div className="page-right-rail">
           <MesaRailCard
-            eyebrow="Como funciona agora"
-            title="Tudo vive dentro da mesa."
-            description="Fichas, rolagens, ordem, compêndio e administração não existem mais como módulos globais."
+            eyebrow="Arquitetura"
+            title="Plataforma primeiro, sistema depois."
+            description="O Project Nexus organiza mesas por sistema. A identidade de cada universo aparece só quando você entra nele."
           >
-            <UtilityPanel className="rounded-[20px] p-4">
+            <img
+              src={getGameSystem('singularidade').assets.cover}
+              alt="Singularidade"
+              className="h-40 w-full rounded-lg object-cover"
+            />
+            <UtilityPanel className="rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Layers3 className="mt-0.5 size-4 text-sky-200" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Sistemas independentes</p>
+                  <p className="mt-1 text-sm text-soft">Hoje há Singularidade. A modelagem já aceita novos sistemas depois.</p>
+                </div>
+              </div>
+            </UtilityPanel>
+            <UtilityPanel className="rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <Shield className="mt-0.5 size-4 text-sky-200" />
                 <div>
@@ -367,16 +387,7 @@ export function MesasPage() {
                 </div>
               </div>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
-              <div className="flex items-start gap-3">
-                <Users className="mt-0.5 size-4 text-sky-200" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Acesso fechado</p>
-                  <p className="mt-1 text-sm text-soft">Entradas são feitas por convite ou código. Cada campanha tem contexto e membros próprios.</p>
-                </div>
-              </div>
-            </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <RadioTower className="mt-0.5 size-4 text-sky-200" />
                 <div>
@@ -416,6 +427,15 @@ export function MesasPage() {
               <Field label="Nome de presença">
                 <Input {...createForm.register('nickname')} />
               </Field>
+              <Field label="Sistema" hint="A plataforma já aceita múltiplos sistemas; apenas Singularidade está habilitado agora.">
+                <Select {...createForm.register('systemKey')} aria-label="Sistema da mesa">
+                  {GAME_SYSTEM_OPTIONS.map((system) => (
+                    <option key={system.key} value={system.key} disabled={system.status !== 'enabled'}>
+                      {system.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label="Nome da mesa">
                 <Input {...createForm.register('meta.tableName')} />
               </Field>
@@ -433,8 +453,17 @@ export function MesasPage() {
               </Field>
             </div>
 
+            <UtilityPanel className="grid gap-4 rounded-lg border border-sky-300/18 bg-sky-500/10 p-4 sm:grid-cols-[96px_minmax(0,1fr)]">
+              <img src={selectedSystem.assets.cover} alt={selectedSystem.name} className="h-24 w-full rounded-lg object-cover sm:w-24" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100">Sistema selecionado</p>
+                <h3 className="mt-2 text-lg font-semibold text-white">{selectedSystem.name}</h3>
+                <p className="mt-2 text-sm leading-6 text-soft">{selectedSystem.description}</p>
+              </div>
+            </UtilityPanel>
+
             {createFromLegacy ? (
-              <UtilityPanel className="rounded-[20px] border border-sky-300/18 bg-sky-500/10 p-4">
+              <UtilityPanel className="rounded-lg border border-sky-300/18 bg-sky-500/10 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100">Migração ligada</p>
                 <p className="mt-2 text-sm text-soft">O estado antigo do workspace global será usado como base desta mesa nova.</p>
               </UtilityPanel>
@@ -484,7 +513,7 @@ export function MesasPage() {
               </form>
 
               {online.pendingCodeJoin ? (
-                <Panel className="mt-5 rounded-[24px] border-sky-300/18 bg-sky-500/10 p-5">
+                <Panel className="mt-5 rounded-lg border-sky-300/18 bg-sky-500/10 p-5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Seleção obrigatória</p>
                   <h3 className="mt-3 font-display text-3xl leading-none text-white">Escolha o personagem vinculado ao acesso.</h3>
                   <div className="mt-5 grid gap-3">
@@ -503,7 +532,7 @@ export function MesasPage() {
                             toast.error(error instanceof Error ? error.message : 'Não foi possível concluir a entrada.');
                           }
                         }}
-                        className="rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-300/24 hover:bg-white/[0.05]"
+                        className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-300/24 hover:bg-white/[0.05]"
                       >
                         <p className="text-base font-semibold text-white">{character.name}</p>
                         <p className="mt-1 text-sm text-soft">

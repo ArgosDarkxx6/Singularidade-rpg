@@ -24,7 +24,7 @@ async function registerUser(page: Page, prefix: string) {
   await page.getByRole('button', { name: 'Criar conta' }).click();
 
   await expect(page).toHaveURL(/\/mesas$/);
-  await expect(page.getByRole('heading', { name: 'Escolha uma mesa ou abra a sua.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Seu hub de mesas e sistemas.' })).toBeVisible();
 
   return { displayName, safeId, email };
 }
@@ -33,10 +33,10 @@ async function signInUser(page: Page, email: string) {
   await page.goto('/entrar');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Senha').fill('senha123');
-  await page.getByRole('button', { name: 'Entrar no portal' }).click();
+  await page.getByRole('button', { name: 'Entrar no Project Nexus' }).click();
 
   await expect(page).toHaveURL(/\/mesas$/);
-  await expect(page.getByRole('heading', { name: 'Escolha uma mesa ou abra a sua.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Seu hub de mesas e sistemas.' })).toBeVisible();
 }
 
 async function openCreateTableDialog(page: Page) {
@@ -46,6 +46,8 @@ async function openCreateTableDialog(page: Page) {
 
 async function createTable(page: Page, tableName: string) {
   await openCreateTableDialog(page);
+  await expect(page.getByLabel('Sistema da mesa')).toHaveValue('singularidade');
+  await expect(page.getByText('Sistema selecionado')).toBeVisible();
   await page.getByLabel('Nome da mesa').fill(tableName);
   await page.getByRole('button', { name: 'Criar e entrar' }).click();
   await expect(page).toHaveURL(new RegExp(`/mesa/${slugify(tableName)}$`));
@@ -175,7 +177,7 @@ test('registers, creates a mesa, and keeps legacy routes inside the mesa shell',
   await createTable(page, tableName);
   const slug = slugify(tableName);
 
-  await expect(page.getByRole('banner').getByText('Mesa atual')).toBeVisible();
+  await expect(page.getByRole('banner').getByText('Singularidade')).toBeVisible();
   await expect(page.getByRole('heading', { name: new RegExp(tableName) }).first()).toBeVisible();
 
   await page.goto('/mesa');
@@ -369,7 +371,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   await expect(page.getByText('Você está na mesa como Player.')).toBeVisible();
 
   await page.goto('/perfil');
-  await expect(page.getByText(/Conta do usu/)).toBeVisible();
+  await expect(page.getByText('Project Nexus')).toBeVisible();
   await expect(page.getByText(tableName, { exact: true })).toBeVisible();
   await expect(page.getByText(/Personagens pr/).first()).toBeVisible();
   await expect(page.getByText(new RegExp(`Vinculado a ${tableName}`))).toBeVisible();

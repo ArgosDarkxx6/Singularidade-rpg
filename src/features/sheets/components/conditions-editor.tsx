@@ -49,7 +49,7 @@ export function ConditionsEditor({ editable = true }: { editable?: boolean }) {
           activeCharacter.conditions.map((condition) => (
             <div
               key={condition.id}
-              className="rounded-[24px] border px-4 py-4"
+              className="rounded-lg border px-4 py-4"
               style={{
                 background: CONDITION_COLORS[condition.color].bg,
                 borderColor: CONDITION_COLORS[condition.color].border

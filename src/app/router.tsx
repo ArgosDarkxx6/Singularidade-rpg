@@ -1,12 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { MesaLayout } from '@layouts/mesa-layout';
 import { GuestLayout } from '@routes/guest-layout';
 import { LegacyRouteRedirect } from '@routes/legacy-route-redirect';
-import { LoginPage } from '@routes/login-page';
-import { MesasPage } from '@routes/mesas-page';
 import { NotFoundPage } from '@routes/not-found-page';
 import { ProtectedLayout } from '@routes/protected-layout';
-import { RegisterPage } from '@routes/register-page';
 import { RootRedirect } from '@routes/root-redirect';
 
 const Placeholder = () => <div className="text-sm text-soft">Carregando modulo...</div>;
@@ -22,11 +18,11 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/entrar',
-        element: <LoginPage />
+        lazy: async () => ({ Component: (await import('@routes/login-page')).LoginPage })
       },
       {
         path: '/cadastro',
-        element: <RegisterPage />
+        lazy: async () => ({ Component: (await import('@routes/register-page')).RegisterPage })
       }
     ]
   },
@@ -36,7 +32,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/mesas',
-        element: <MesasPage />
+        lazy: async () => ({ Component: (await import('@routes/mesas-page')).MesasPage })
       },
       {
         path: '/perfil',
@@ -64,7 +60,7 @@ export const router = createBrowserRouter([
       },
       {
         path: '/mesa/:slug',
-        element: <MesaLayout />,
+        lazy: async () => ({ Component: (await import('@layouts/mesa-layout')).MesaLayout }),
         children: [
           {
             index: true,

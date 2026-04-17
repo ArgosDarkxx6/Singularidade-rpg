@@ -223,7 +223,7 @@ export function MesaSessionPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-6">
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Estrutura da sessão</p>
@@ -315,14 +315,14 @@ export function MesaSessionPage() {
                   ) : null}
                 </div>
               ) : (
-                <UtilityPanel className="rounded-[20px] p-4">
+                <UtilityPanel className="rounded-lg p-4">
                   <p className="text-sm text-soft">Seu papel atual é de leitura operacional. O GM controla criação e edição de sessões.</p>
                 </UtilityPanel>
               )}
             </form>
           </Panel>
 
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Presença</p>
@@ -343,7 +343,7 @@ export function MesaSessionPage() {
                   const canUpdateMember = canManage || member.id === session.membershipId;
 
                   return (
-                    <UtilityPanel key={member.id} className="rounded-[22px] p-4">
+                    <UtilityPanel key={member.id} className="rounded-lg p-4">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                           <p className="text-base font-semibold text-white">{member.nickname}</p>
@@ -394,7 +394,7 @@ export function MesaSessionPage() {
           >
             {availableSessions.length ? (
               availableSessions.map((entry) => (
-                <UtilityPanel key={entry.id} className="rounded-[20px] p-4">
+                <UtilityPanel key={entry.id} className="rounded-lg p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-white">{entry.episodeTitle || 'Sessão sem título'}</p>
@@ -419,19 +419,19 @@ export function MesaSessionPage() {
             title={selectedSession?.episodeTitle || 'Sem sessão em foco'}
             description={selectedSession ? `Última atualização em ${formatDateTime(selectedSession.updatedAt)}.` : 'Selecione uma sessão para ver o resumo rápido do episódio.'}
           >
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Presentes</p>
               <p className="mt-2 text-sm font-semibold text-white">{presentCount}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Ausentes</p>
               <p className="mt-2 text-sm font-semibold text-white">{absentCount}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Sessão ativa</p>
               <p className="mt-2 text-sm font-semibold text-white">{selectedSession?.isActive ? 'Sim' : 'Não'}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Seu papel</p>
               <p className="mt-2 text-sm font-semibold text-white">{formatRoleLabel(session.role)}</p>
             </UtilityPanel>
@@ -439,7 +439,7 @@ export function MesaSessionPage() {
 
           {!canManage ? (
             <MesaRailCard eyebrow="Participação" title="Presença individual" description="Players e viewers acompanham a sessão aqui; players podem marcar apenas a própria presença.">
-              <UtilityPanel className="rounded-[20px] p-4">
+              <UtilityPanel className="rounded-lg p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Seu status</p>
                 <p className="mt-2 text-sm font-semibold text-white">
                   {SESSION_ATTENDANCE_STATUS_LABELS[attendanceMap.get(session.membershipId)?.status || 'pending']}

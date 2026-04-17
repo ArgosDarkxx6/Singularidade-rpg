@@ -23,7 +23,7 @@ function ReadonlyRosterPanel({
   onSelect: (characterId: string) => void;
 }) {
   return (
-    <Panel className="rounded-[28px] p-5">
+    <Panel className="rounded-lg p-5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Roster da mesa</p>
       <h2 className="mt-2 font-display text-4xl leading-none text-white">Personagens registrados</h2>
       <div className="mt-5 grid gap-3">
@@ -32,7 +32,7 @@ function ReadonlyRosterPanel({
             key={character.id}
             type="button"
             onClick={() => onSelect(character.id)}
-            className={`rounded-[22px] border px-4 py-4 text-left transition ${
+            className={`rounded-lg border px-4 py-4 text-left transition ${
               activeCharacterId === character.id ? 'border-sky-300/24 bg-sky-500/10' : 'border-white/10 bg-white/[0.03] hover:border-white/16'
             }`}
           >
@@ -55,7 +55,7 @@ function ReadonlyCharacterSummary({
   onRollAttribute: (attributeKey: keyof Character['attributes']) => void;
 }) {
   return (
-    <Panel className="rounded-[28px] p-6">
+    <Panel className="rounded-lg p-6">
       <div className="flex flex-col gap-5 lg:flex-row">
         <Avatar src={character.avatar || undefined} name={character.name} size="lg" />
         <div className="min-w-0">
@@ -70,7 +70,7 @@ function ReadonlyCharacterSummary({
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         {(['hp', 'energy', 'sanity'] as const).map((resourceKey) => (
-          <UtilityPanel key={resourceKey} className="rounded-[20px] p-4">
+          <UtilityPanel key={resourceKey} className="rounded-lg p-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{RESOURCE_LABELS[resourceKey]}</p>
             <p className="mt-2 text-lg font-semibold text-white">
               {character.resources[resourceKey].current}/{character.resources[resourceKey].max}
@@ -89,7 +89,7 @@ function ReadonlyCharacterSummary({
 
       <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {ATTRIBUTE_CONFIG.map((attribute) => (
-          <UtilityPanel key={attribute.key} className="rounded-[20px] p-4">
+          <UtilityPanel key={attribute.key} className="rounded-lg p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
               <Button type="button" size="sm" variant="secondary" className="size-9 rounded-full px-0" onClick={() => onRollAttribute(attribute.key)} aria-label={`Rolar ${attribute.label}`}>
@@ -216,7 +216,7 @@ export function MesaSheetsPage() {
                   : 'Viewers acompanham a ficha em leitura.'
             }
           >
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Ficha vinculada</p>
               <p className="mt-2 text-sm font-semibold text-white">
                 {state.characters.find((character) => character.id === session?.characterId)?.name || 'Sem vínculo'}
@@ -229,15 +229,15 @@ export function MesaSheetsPage() {
             title="Resumo da ficha"
             description="A rail lateral fica só com contexto operacional; a edição completa acontece no miolo contínuo da ficha."
           >
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Condições ativas</p>
               <p className="mt-2 text-sm font-semibold text-white">{activeCharacter.conditions.length}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Dinheiro</p>
               <p className="mt-2 text-sm font-semibold text-white">{activeCharacter.inventory.money}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Passivas</p>
               <p className="mt-2 text-sm font-semibold text-white">{activeCharacter.passives.length}</p>
             </UtilityPanel>

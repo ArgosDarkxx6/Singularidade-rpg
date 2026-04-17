@@ -28,7 +28,7 @@ export const DialogContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 flex max-h-[min(88vh,920px)] w-[min(92vw,760px)] min-w-0 -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto overscroll-contain rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,25,37,0.98),rgba(7,14,23,0.98))] p-6 shadow-[0_40px_120px_rgba(0,0,0,0.55)]',
+        'fixed left-1/2 top-1/2 z-50 flex max-h-[min(88vh,920px)] w-[min(92vw,760px)] min-w-0 -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(14,25,37,0.98),rgba(7,14,23,0.98))] p-6 shadow-[0_40px_120px_rgba(0,0,0,0.55)]',
         className
       )}
       {...props}

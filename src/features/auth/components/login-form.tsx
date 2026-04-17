@@ -47,11 +47,11 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       </Field>
 
       {errors.root ? (
-        <div className="rounded-[18px] border border-rose-300/18 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{errors.root.message}</div>
+        <div className="rounded-lg border border-rose-300/18 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{errors.root.message}</div>
       ) : null}
 
       <Button type="submit" size="lg" disabled={isSubmitting}>
-        {isSubmitting ? 'Entrando…' : 'Entrar no portal'}
+        {isSubmitting ? 'Entrando…' : 'Entrar no Project Nexus'}
       </Button>
     </form>
   );

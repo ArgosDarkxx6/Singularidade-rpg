@@ -16,6 +16,8 @@ export type TechniqueType = 'Ofensiva' | 'Suporte' | 'Controle' | 'Toque';
 
 export type TableRole = 'gm' | 'player' | 'viewer';
 
+export type GameSystemKey = 'singularidade';
+
 export type MesaSection = 'overview' | 'sessao' | 'fichas' | 'rolagens' | 'ordem' | 'livro' | 'membros' | 'configuracoes';
 
 export type RollContext = 'standard' | 'physical-attack' | 'ranged-attack' | 'domain-clash';
@@ -202,6 +204,7 @@ export interface TableAccessSession {
   membershipId: string;
   tableSlug: string;
   tableName: string;
+  systemKey: GameSystemKey;
   role: TableRole;
   nickname: string;
   characterId: string;
@@ -255,6 +258,7 @@ export interface TableListItem {
   id: string;
   slug: string;
   name: string;
+  systemKey: GameSystemKey;
   role: TableRole;
   nickname: string;
   characterId: string;
@@ -288,6 +292,7 @@ export interface TableState {
   id: string;
   slug: string;
   name: string;
+  systemKey: GameSystemKey;
   ownerId: string | null;
   meta: TableMeta;
   updatedAt: string;
@@ -329,7 +334,7 @@ export interface OnlineState {
     code: string;
     nickname: string;
     role: TableRole;
-    table: Pick<TableState, 'id' | 'slug' | 'name' | 'meta'>;
+    table: Pick<TableState, 'id' | 'slug' | 'name' | 'meta' | 'systemKey'>;
     characters: Pick<Character, 'id' | 'name' | 'grade' | 'clan'>[];
   } | null;
   lastInvite: string | null;

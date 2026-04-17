@@ -61,7 +61,7 @@ export function MesaMembersPage() {
           canManage ? (
             <a
               href="#codigos-ativos"
-              className="inline-flex min-h-11 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
             >
               Ver códigos ativos
             </a>
@@ -71,7 +71,7 @@ export function MesaMembersPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-6">
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Presença visível</p>
@@ -85,7 +85,7 @@ export function MesaMembersPage() {
             <div className="mt-6 grid gap-3">
               {members.length ? (
                 members.map((member) => (
-                  <UtilityPanel key={member.id} className="rounded-[22px] p-4">
+                  <UtilityPanel key={member.id} className="rounded-lg p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-base font-semibold text-white">{member.nickname}</p>
@@ -105,7 +105,7 @@ export function MesaMembersPage() {
           </Panel>
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <Panel className="rounded-[28px] p-6">
+            <Panel className="rounded-lg p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Convites por link</p>
               <h2 className="mt-2 font-display text-4xl leading-none text-white">URL completa para acesso</h2>
               <p className="mt-3 text-sm leading-6 text-soft">
@@ -152,7 +152,7 @@ export function MesaMembersPage() {
               )}
             </Panel>
 
-            <Panel className="rounded-[28px] p-6">
+            <Panel className="rounded-lg p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Join codes</p>
               <h2 className="mt-2 font-display text-4xl leading-none text-white">Código rápido de entrada</h2>
               <p className="mt-3 text-sm leading-6 text-soft">
@@ -197,7 +197,7 @@ export function MesaMembersPage() {
             </Panel>
           </div>
 
-          <Panel className="rounded-[28px] p-6" id="codigos-ativos">
+          <Panel className="rounded-lg p-6" id="codigos-ativos">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Códigos ativos</p>
@@ -211,7 +211,7 @@ export function MesaMembersPage() {
             <div className="mt-6 grid gap-3">
               {table.joinCodes.length ? (
                 table.joinCodes.map((joinCode) => (
-                  <UtilityPanel key={joinCode.id} className="rounded-[22px] p-4">
+                  <UtilityPanel key={joinCode.id} className="rounded-lg p-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{joinCode.label}</p>
@@ -259,11 +259,11 @@ export function MesaMembersPage() {
             title={formatRoleLabel(session.role)}
             description={canManage ? 'Você administra a mesa, membros, convites e códigos.' : 'Você participa desta mesa, mas a administração fica sob controle do GM.'}
           >
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Último convite gerado</p>
               <p className="mt-2 break-all text-sm font-semibold text-white">{online.lastInvite || 'Nenhum convite criado nesta sessão.'}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Personagens disponíveis</p>
               <p className="mt-2 text-sm font-semibold text-white">{state.characters.length}</p>
             </UtilityPanel>

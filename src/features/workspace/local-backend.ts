@@ -2,6 +2,7 @@
   AuthUser,
   Character,
   GameSession,
+  GameSystemKey,
   PresenceMember,
   SessionAttendance,
   TableInvite,
@@ -15,7 +16,8 @@
   UserCharacterSummary,
   WorkspaceState
 } from '@/types/domain';
-import { DEFAULT_GAME_SESSION, DEFAULT_TABLE_META } from '@lib/domain/constants';
+import { DEFAULT_GAME_SESSION, DEFAULT_GAME_SYSTEM_KEY, DEFAULT_TABLE_META } from '@lib/domain/constants';
+import { resolveGameSystemKey } from '@features/systems/registry';
 import { createDefaultState, makeCharacter, normalizeLogEntry, normalizeState } from '@lib/domain/state';
 import { deepClone, sanitizeJoinCode, slugify, uid } from '@lib/domain/utils';
 import type { JoinCodeBackendResult, UploadAvatarResult, WorkspaceBackend } from './backend';
@@ -132,6 +134,7 @@ function normalizeStore(store: Store): Store {
     record.sessionHistory = record.sessionHistory || [];
     record.attendanceBySession = record.attendanceBySession || {};
     record.table.state = normalizeState(record.table.state || createDefaultState());
+    record.table.systemKey = resolveGameSystemKey(record.table.systemKey);
     record.table.ownerId =
       record.table.ownerId ||
       record.memberships.find((membership) => membership.active && membership.role === 'gm' && membership.userId)?.userId ||
@@ -344,12 +347,14 @@ function makeTableSession(input: {
   role: TableRole;
   nickname: string;
   characterId?: string;
+  systemKey?: GameSystemKey;
 }): TableSession {
   return {
     tableId: input.tableId,
     membershipId: input.membershipId,
     tableSlug: input.tableSlug,
     tableName: input.tableName,
+    systemKey: resolveGameSystemKey(input.systemKey),
     role: input.role,
     nickname: input.nickname,
     characterId: input.characterId || '',
@@ -362,12 +367,14 @@ function createTableRecord(input: {
   slug: string;
   name: string;
   meta: TableMeta;
+  systemKey?: GameSystemKey;
   state: WorkspaceState;
   user: AuthUser;
   nickname: string;
 }): LocalTable {
   const createdAt = now();
   const state = normalizeState(input.state);
+  const systemKey = resolveGameSystemKey(input.systemKey);
   const initialSession = toGameSession({
     ...DEFAULT_GAME_SESSION,
     id: uid('session'),
@@ -390,6 +397,7 @@ function createTableRecord(input: {
     id: input.tableId,
     slug: input.slug,
     name: input.name,
+    systemKey,
     ownerId: input.user.id,
     meta: clone(input.meta),
     updatedAt: createdAt,
@@ -522,6 +530,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
             id: record.table.id,
             slug: record.table.slug,
             name: record.table.name,
+            systemKey: resolveGameSystemKey(record.table.systemKey),
             role: membership.role,
             nickname: membership.nickname,
             characterId: membership.characterId,
@@ -571,6 +580,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
           tableId: record.table.id,
           tableSlug: record.table.slug,
           tableName: record.table.name,
+          systemKey: record.table.systemKey,
           membershipId: membership.id,
           role: membership.role,
           nickname: membership.nickname,
@@ -588,11 +598,11 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
         if (!current?.size) subscribers.delete(session.tableId);
       };
     },
-    async createTable({ user, nickname, meta, state }) {
+    async createTable({ user, nickname, systemKey = DEFAULT_GAME_SYSTEM_KEY, meta, state }) {
       const store = loadStore();
       const tableId = uid('table');
       const slug = uniqueSlug(meta.tableName || DEFAULT_TABLE_META.tableName, store);
-      const record = createTableRecord({ tableId, slug, name: meta.tableName || DEFAULT_TABLE_META.tableName, meta, state, user, nickname });
+      const record = createTableRecord({ tableId, slug, name: meta.tableName || DEFAULT_TABLE_META.tableName, systemKey, meta, state, user, nickname });
       store.tables[tableId] = record;
       syncOwnedCharactersForTable(store, record);
       saveStore(store);
@@ -603,6 +613,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
           tableId,
           tableSlug: slug,
           tableName: record.table.name,
+          systemKey: record.table.systemKey,
           membershipId: record.memberships[0].id,
           role: 'gm',
           nickname
@@ -651,6 +662,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
           tableId: record.table.id,
           tableSlug: record.table.slug,
           tableName: record.table.name,
+          systemKey: record.table.systemKey,
           membershipId,
           role: invite.role,
           nickname,
@@ -670,7 +682,13 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
         return {
           requiresCharacter: true,
           role: joinCode.role,
-          table: { id: record.table.id, slug: record.table.slug, name: record.table.name, meta: clone(record.table.meta) },
+          table: {
+            id: record.table.id,
+            slug: record.table.slug,
+            name: record.table.name,
+            systemKey: record.table.systemKey,
+            meta: clone(record.table.meta)
+          },
           characters: record.table.state.characters.map((character) => ({ id: character.id, name: character.name, grade: character.grade, clan: character.clan }))
         };
       }
@@ -701,6 +719,7 @@ export function createLocalWorkspaceBackend(): WorkspaceBackend {
           tableId: record.table.id,
           tableSlug: record.table.slug,
           tableName: record.table.name,
+          systemKey: record.table.systemKey,
           membershipId,
           role: joinCode.role,
           nickname,

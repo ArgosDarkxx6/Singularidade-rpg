@@ -54,7 +54,7 @@ function profileDefaults(character: Character): CharacterProfileValues {
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
-    <UtilityPanel className="rounded-[18px] px-4 py-3">
+    <UtilityPanel className="rounded-lg px-4 py-3">
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{label}</p>
       <p className="mt-2 text-base font-semibold text-white">{value}</p>
     </UtilityPanel>
@@ -86,7 +86,7 @@ function ResourceBar({
   const percent = getResourcePercent(resource);
 
   return (
-    <UtilityPanel className="rounded-[20px] p-4">
+    <UtilityPanel className="rounded-lg p-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
@@ -184,10 +184,10 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
     <Card className="p-6">
       <div className="grid gap-6 xl:grid-cols-[minmax(260px,0.42fr)_minmax(0,1fr)]">
         <div className="grid gap-4">
-          <UtilityPanel className="rounded-[26px] p-5">
+          <UtilityPanel className="rounded-lg p-5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Avatar & recursos</p>
             <div className="mt-4 flex items-start gap-4">
-              <Avatar src={activeCharacter.avatar || undefined} name={activeCharacter.name} size="lg" className="size-24 rounded-[24px]" />
+              <Avatar src={activeCharacter.avatar || undefined} name={activeCharacter.name} size="lg" className="size-24 rounded-lg" />
               <div className="min-w-0">
                 <p className="text-2xl font-semibold text-white">{activeCharacter.name}</p>
                 <p className="mt-1 text-sm text-soft">
@@ -422,7 +422,7 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
 
               <div className="grid gap-4 md:grid-cols-2">
                 {ATTRIBUTE_CONFIG.map((attribute) => (
-                  <UtilityPanel key={attribute.key} className="rounded-[22px] p-4">
+                  <UtilityPanel key={attribute.key} className="rounded-lg p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
                       <AttributeRollButton label={attribute.label} onRoll={() => rollAttribute(attribute.key)} />
@@ -443,7 +443,7 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
             </form>
           ) : (
             <div className="grid gap-6">
-              <UtilityPanel className="rounded-[22px] p-5">
+              <UtilityPanel className="rounded-lg p-5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Descrição</p>
                 <p className="mt-3 text-sm leading-7 text-soft">{activeCharacter.appearance || 'Sem descrição visual cadastrada.'}</p>
               </UtilityPanel>
@@ -462,7 +462,7 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
 
               <div className="grid gap-4 md:grid-cols-2">
                 {ATTRIBUTE_CONFIG.map((attribute) => (
-                  <UtilityPanel key={attribute.key} className="rounded-[22px] px-4 py-3">
+                  <UtilityPanel key={attribute.key} className="rounded-lg px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>

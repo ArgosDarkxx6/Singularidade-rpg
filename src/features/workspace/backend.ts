@@ -2,6 +2,7 @@ import type {
   AuthUser,
   Character,
   GameSession,
+  GameSystemKey,
   LogEntry,
   TableInvite,
   TableJoinCode,
@@ -18,7 +19,7 @@ import type {
 export interface JoinCodePendingResult {
   requiresCharacter: true;
   role: TableRole;
-  table: Pick<TableState, 'id' | 'slug' | 'name' | 'meta'>;
+  table: Pick<TableState, 'id' | 'slug' | 'name' | 'meta' | 'systemKey'>;
   characters: Pick<Character, 'id' | 'name' | 'grade' | 'clan'>[];
 }
 
@@ -43,7 +44,13 @@ export interface WorkspaceBackend {
   getTable: (session: TableSession) => Promise<TableState>;
   switchTable: (input: { user: AuthUser; tableSlug: string }) => Promise<{ table: TableState; session: TableSession }>;
   subscribeToTable: (session: TableSession, callback: (table: TableState) => void) => Promise<() => void> | (() => void);
-  createTable: (input: { user: AuthUser; nickname: string; meta: TableMeta; state: WorkspaceState }) => Promise<{ table: TableState; session: TableSession }>;
+  createTable: (input: {
+    user: AuthUser;
+    nickname: string;
+    systemKey: GameSystemKey;
+    meta: TableMeta;
+    state: WorkspaceState;
+  }) => Promise<{ table: TableState; session: TableSession }>;
   updateTableMeta: (input: { session: TableSession; meta: TableMeta }) => Promise<TableState>;
   joinByInvite: (input: { user: AuthUser; inviteUrl: string; nickname: string }) => Promise<{ table: TableState; session: TableSession }>;
   joinByCode: (input: { user: AuthUser; code: string; nickname: string; characterId?: string }) => Promise<JoinCodeBackendResult>;

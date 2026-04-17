@@ -1,95 +1,86 @@
-# Singularidade RPG
+# Project Nexus
 
-Remake do site em `Vite + React + TypeScript + Tailwind CSS + Framer Motion + React Hook Form + Zod + Supabase`.
+Unindo universos, criando histórias.
 
-## O que este repositório entrega
+Project Nexus é uma plataforma de mesas online em `Vite + React + TypeScript + Tailwind CSS + Supabase + Cloudflare`. A plataforma organiza mesas por sistema, mantendo o hub principal neutro e escalável. Singularidade é o primeiro sistema habilitado, com identidade, livro, fichas, rolagens, ordem e ferramentas próprias.
 
-- interface nova centrada em mesas para `Fichas`, `Rolagens`, `Ordem`, `Livro` e administração
-- autenticação com `email + username + senha`
-- base pronta para Supabase Auth, Postgres, Storage e Realtime
-- deploy no Cloudflare com worker mínimo
-- endpoint local de referências em `/api/references`
+## O Que Este Repositório Entrega
 
-## Stack atual
+- Hub autenticado para criar, listar, retomar e entrar em mesas por convite ou código.
+- Modelagem de mesa com `systemKey`, preparada para múltiplos sistemas.
+- Sistema Singularidade preservado como experiência de mesa: fichas, rolagens, ordem, sessões, livro, membros, snapshots e permissões.
+- Autenticação com email, username e senha.
+- Runtime local para desenvolvimento sem Supabase configurado.
+- Runtime Supabase com Auth, Postgres, Storage, Realtime, RLS e RPCs.
+- Worker Cloudflare que serve o SPA e expõe `/api/references` e `/api/health`.
+
+## Stack
 
 - Frontend: Vite, React, TypeScript e Tailwind CSS
-- Animações: Framer Motion
-- Formulários: React Hook Form + Zod
+- UI e estado: Framer Motion, React Hook Form, Zod, Zustand e TanStack Query
 - Backend: Supabase
 - Deploy: Cloudflare Workers
+- Testes: Vitest, Testing Library e Playwright
 
-## Estrutura operacional
+## Estrutura
 
-- `src/`: app React novo
-- `supabase/`: schema, seeds e políticas
-- `cloudflare/worker.ts`: serve o SPA e expõe `/api/references`
-- `public/assets/`: imagens, PDF e artes do livro
+- `src/`: aplicação React
+- `src/features/systems/`: registry de sistemas e defaults por sistema
+- `src/features/workspace/`: backends local/Supabase e provider principal
+- `src/routes/`: rotas da plataforma e das mesas
+- `supabase/`: migrations, schema, policies e RPCs
+- `cloudflare/worker.ts`: Worker do SPA e APIs auxiliares
+- `public/assets/`: assets da plataforma e do sistema Singularidade
 
-## Desenvolvimento local
-
-1. Instale dependências:
+## Desenvolvimento Local
 
 ```bash
 npm ci
-```
-
-2. Rode o frontend:
-
-```bash
 npm run dev
 ```
 
-3. Gere a build de produção:
+Build de produção:
 
 ```bash
 npm run build
 ```
 
-4. Se quiser validar o worker localmente, use:
+Validação completa:
 
 ```bash
-npx wrangler dev
+npm run check
+npm run test:e2e
+npx wrangler deploy --dry-run
 ```
 
-## Deploy
+## Supabase
 
-O build de produção sai em `dist/` e o Cloudflare publica esse diretório diretamente.
+A migration `20260416183000_project_nexus_system_key.sql` adiciona `tables.system_key` com fallback `singularidade`, preservando mesas antigas e preparando a base para novos sistemas.
+
+Se o Supabase local estiver disponível:
 
 ```bash
-npm run cf:deploy
+npm run supabase:reset
+npm run supabase:types
 ```
 
-Esse comando executa a build e depois faz o deploy do worker configurado em `wrangler.jsonc`.
+## Deploy Cloudflare
 
-## CI
+O Worker mantém o nome de infraestrutura `singularidade-online` por compatibilidade, mas o produto público é Project Nexus. O deploy de produção é feito pelo GitHub Actions em push para `main` usando Wrangler.
 
-O workflow em `.github/workflows/deploy-cloudflare.yml`:
-
-- valida as variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` como variáveis do repositório ou secrets
-- executa `npm run check`
-- instala o Chromium do Playwright e executa `npm run test:e2e`
-- executa `npm run build`
-- valida o bundle do Worker com `npx wrangler deploy --dry-run`
-- publica no Cloudflare somente em push para `main`
-
-## Variáveis de ambiente
-
-Frontend:
+Variáveis obrigatórias:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-
-GitHub Actions / Cloudflare:
-
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-Esses valores podem ser cadastrados como `vars` ou `secrets` no repositório. O workflow usa o que estiver disponível e falha com mensagem explícita se faltar algum requisito.
+Variáveis recomendadas para gate de migrations:
 
-Cloudflare opcional:
+- `SUPABASE_ACCESS_TOKEN`
+- `SUPABASE_DB_PASSWORD`
+- `SUPABASE_PROJECT_REF`
 
-- `REFERENCE_SOURCE_URL` para buscar referências externas antes do fallback local
+## Observação Sobre Singularidade
 
-## Observação sobre o legado
-
-A versão antiga fica preservada pelo histórico Git e pela branch anterior ao corte. O produto atual é centrado em mesas, com portal autenticado em `/mesas` e shell contextual em `/mesa/:slug/*`.
+Singularidade não é mais o nome da plataforma. Ele é um sistema dentro do Project Nexus. A paleta e o vocabulário de energia amaldiçoada ficam confinados à experiência interna das mesas desse sistema.

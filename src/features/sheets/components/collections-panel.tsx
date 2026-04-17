@@ -53,7 +53,7 @@ function ItemCard({
   onRemove: () => void;
 }) {
   return (
-    <UtilityPanel className="rounded-[22px] p-4">
+    <UtilityPanel className="rounded-lg p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-lg font-semibold text-white">{title}</p>
@@ -169,7 +169,7 @@ export function CollectionsPanel({ section = 'all', editable = true }: { section
         <Card className="p-6">
           <SectionTitle eyebrow="Itens & recursos" title="Inventário" description="Itens e dinheiro do personagem ficam juntos, com edição por diálogo." actions={editable ? <Button variant="secondary" onClick={() => openDialog('inventory')}><Plus className="size-4" />Adicionar item</Button> : undefined} />
           <div className="mt-6 grid gap-4">
-            <UtilityPanel className="rounded-[22px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Dinheiro disponível</p>

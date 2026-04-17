@@ -42,7 +42,7 @@ describe('LoginForm', () => {
       </AuthProvider>
     );
 
-    const submitButton = screen.getByRole('button', { name: 'Entrar no portal' });
+    const submitButton = screen.getByRole('button', { name: 'Entrar no Project Nexus' });
     expect(submitButton).toBeEnabled();
 
     await user.type(screen.getByLabelText('Email'), 'tester@example.com');

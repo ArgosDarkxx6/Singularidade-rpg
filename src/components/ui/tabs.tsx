@@ -11,7 +11,7 @@ export const TabsList = forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn('inline-flex flex-wrap items-center gap-2 rounded-[18px] border border-white/8 bg-white/[0.03] p-1.5', className)}
+    className={cn('inline-flex flex-wrap items-center gap-2 rounded-lg border border-white/8 bg-white/[0.03] p-1.5', className)}
     {...props}
   />
 ));

@@ -75,7 +75,7 @@ export function MesaSettingsPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-6">
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Metadados</p>
             <h2 className="mt-2 font-display text-4xl leading-none text-white">Identidade e contexto da mesa</h2>
             <p className="mt-3 text-sm leading-6 text-soft">
@@ -117,14 +117,14 @@ export function MesaSettingsPage() {
                   Salvar configurações
                 </Button>
               ) : (
-                <UtilityPanel className="rounded-[20px] p-4">
+                <UtilityPanel className="rounded-lg p-4">
                   <p className="text-sm text-soft">Seu papel atual é de leitura. Apenas GMs podem alterar metadados e controlar snapshots.</p>
                 </UtilityPanel>
               )}
             </form>
           </Panel>
 
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Snapshots</p>
@@ -158,7 +158,7 @@ export function MesaSettingsPage() {
             <div className="mt-6 grid gap-3">
               {table.snapshots.length ? (
                 table.snapshots.map((snapshot) => (
-                  <UtilityPanel key={snapshot.id} className="rounded-[22px] p-4">
+                  <UtilityPanel key={snapshot.id} className="rounded-lg p-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
                         <p className="text-base font-semibold text-white">{snapshot.label}</p>
@@ -193,7 +193,7 @@ export function MesaSettingsPage() {
           </Panel>
 
           {isPrimaryOwner ? (
-            <Panel className="rounded-[28px] border border-rose-300/18 bg-rose-500/10 p-6">
+            <Panel className="rounded-lg border border-rose-300/18 bg-rose-500/10 p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-100">Danger zone</p>
               <h2 className="mt-2 font-display text-4xl leading-none text-white">Transferencia e exclusao da mesa</h2>
               <p className="mt-3 text-sm leading-6 text-soft">
@@ -202,14 +202,14 @@ export function MesaSettingsPage() {
               </p>
 
               <div className="mt-6 grid gap-6 xl:grid-cols-2">
-                <UtilityPanel className="rounded-[22px] p-5">
+                <UtilityPanel className="rounded-lg p-5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Transferir administracao</p>
                   <p className="mt-3 text-sm text-soft">Escolha um membro ativo para assumir a posse principal da mesa.</p>
                   <Field label="Novo administrador" className="mt-4">
                     <select
                       value={transferTargetId}
                       onChange={(event) => setTransferTargetId(event.target.value)}
-                      className="min-h-12 w-full rounded-[18px] border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/75"
+                      className="min-h-12 w-full rounded-lg border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/75"
                     >
                       <option value="">Selecione um membro</option>
                       {eligibleTransferTargets.map((member) => (
@@ -241,7 +241,7 @@ export function MesaSettingsPage() {
                   </Button>
                 </UtilityPanel>
 
-                <UtilityPanel className="rounded-[22px] p-5">
+                <UtilityPanel className="rounded-lg p-5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Excluir mesa</p>
                   <p className="mt-3 text-sm text-soft">
                     Digite <span className="font-semibold text-white">{table.name}</span> para confirmar a exclusao definitiva.
@@ -277,11 +277,11 @@ export function MesaSettingsPage() {
 
         <div className="page-right-rail">
           <MesaRailCard eyebrow="Sessão atual" title={table.name} description={`Último sync em ${formatDateTime(table.updatedAt)}.`}>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Seu papel</p>
               <p className="mt-2 text-sm font-semibold capitalize text-white">{session.role}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status da campanha</p>
               <p className="mt-2 text-sm font-semibold text-white">{table.currentSession?.status || 'Sem sessão ativa'}</p>
             </UtilityPanel>

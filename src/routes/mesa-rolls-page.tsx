@@ -79,7 +79,7 @@ export function MesaRollsPage() {
       <div className="grid gap-6">
         <div className="grid gap-6">
           <div className="grid gap-6 xl:grid-cols-2">
-            <Panel className="rounded-[28px] p-6">
+            <Panel className="rounded-lg p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Fluxo guiado</p>
               <h2 className="mt-2 font-display text-4xl leading-none text-white">Teste de atributo</h2>
               <p className="mt-3 text-sm leading-6 text-soft">Escolha personagem, atributo, contexto e TN. O resumo entra no log da mesa.</p>
@@ -147,7 +147,7 @@ export function MesaRollsPage() {
               {selectedCharacter ? (
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   {ATTRIBUTE_CONFIG.map((attribute) => (
-                    <UtilityPanel key={attribute.key} className="rounded-[18px] px-4 py-3">
+                    <UtilityPanel key={attribute.key} className="rounded-lg px-4 py-3">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
                       <p className="mt-2 text-sm font-semibold text-white">{attributeRankLabel(selectedCharacter, attribute.key)}</p>
                     </UtilityPanel>
@@ -156,7 +156,7 @@ export function MesaRollsPage() {
               ) : null}
             </Panel>
 
-            <Panel className="rounded-[28px] p-6">
+            <Panel className="rounded-lg p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Fluxo livre</p>
               <h2 className="mt-2 font-display text-4xl leading-none text-white">Rolagem customizada</h2>
               <p className="mt-3 text-sm leading-6 text-soft">Use para dano, cura, efeitos especiais ou qualquer expressao fora do d20 base.</p>
@@ -194,13 +194,13 @@ export function MesaRollsPage() {
             </Panel>
           </div>
 
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Historico operacional</p>
             <h2 className="mt-2 font-display text-4xl leading-none text-white">Ultimas entradas do log</h2>
             <div className="mt-6 grid gap-3">
               {state.log.length ? (
                 state.log.slice(0, 12).map((entry) => (
-                  <UtilityPanel key={entry.id} className="rounded-[20px] p-4">
+                  <UtilityPanel key={entry.id} className="rounded-lg p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{entry.category}</p>
@@ -229,18 +229,18 @@ export function MesaRollsPage() {
           >
             {lastRoll ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid gap-3">
-                <UtilityPanel className="rounded-[20px] p-4">
+                <UtilityPanel className="rounded-lg p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
                     {lastRoll.custom ? 'Rolagem customizada' : contextLabel(lastRoll.context || 'standard')}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-white">{lastRoll.label}</p>
                   <p className="mt-3 text-sm text-soft">Total {lastRoll.total}</p>
                 </UtilityPanel>
-                <UtilityPanel className="rounded-[20px] p-4">
+                <UtilityPanel className="rounded-lg p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Rolagens</p>
                   <p className="mt-2 text-sm font-semibold text-white">{lastRoll.rolls.join(', ')}</p>
                 </UtilityPanel>
-                <UtilityPanel className="rounded-[20px] p-4">
+                <UtilityPanel className="rounded-lg p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Resultado</p>
                   <p className="mt-2 text-sm font-semibold text-white">{lastRoll.outcomeLabel}</p>
                   <p className="mt-2 text-sm text-soft">

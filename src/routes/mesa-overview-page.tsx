@@ -47,13 +47,13 @@ export function MesaOverviewPage() {
           <>
             <Link
               to={`/mesa/${table.slug}/rolagens`}
-              className="inline-flex min-h-11 items-center justify-center rounded-[18px] border border-sky-300/18 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-sky-300/28 hover:bg-sky-500/14"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-sky-300/18 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-sky-300/28 hover:bg-sky-500/14"
             >
               Abrir rolagens
             </Link>
             <Link
               to={`/mesa/${table.slug}/membros`}
-              className="inline-flex min-h-11 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
             >
               Gerenciar membros
             </Link>
@@ -70,7 +70,7 @@ export function MesaOverviewPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-6">
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Sessão atual</p>
@@ -83,25 +83,25 @@ export function MesaOverviewPage() {
               </div>
               <Link
                 to={`/mesa/${table.slug}/configuracoes`}
-                className="inline-flex min-h-11 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
               >
                 Ajustar metadados
               </Link>
             </div>
 
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
-              <UtilityPanel className="rounded-[22px] p-4">
+              <UtilityPanel className="rounded-lg p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Recapitulação</p>
                 <p className="mt-3 text-sm leading-6 text-soft">{currentSession?.recap || 'Nenhum recap preenchido ainda para esta sessão.'}</p>
               </UtilityPanel>
-              <UtilityPanel className="rounded-[22px] p-4">
+              <UtilityPanel className="rounded-lg p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Objetivo de jogo</p>
                 <p className="mt-3 text-sm leading-6 text-soft">{currentSession?.objective || 'Defina um objetivo tático ou narrativo em Sessão.'}</p>
               </UtilityPanel>
             </div>
           </Panel>
 
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Roster em foco</p>
@@ -109,7 +109,7 @@ export function MesaOverviewPage() {
               </div>
               <Link
                 to={`/mesa/${table.slug}/fichas`}
-                className="inline-flex min-h-11 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
               >
                 Abrir fichas
               </Link>
@@ -117,7 +117,7 @@ export function MesaOverviewPage() {
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {state.characters.slice(0, 4).map((character) => (
-                <UtilityPanel key={character.id} className="rounded-[22px] p-4">
+                <UtilityPanel key={character.id} className="rounded-lg p-4">
                   <div className="flex items-start gap-4">
                     <Avatar src={character.avatar || undefined} name={character.name} />
                     <div className="min-w-0">
@@ -143,7 +143,7 @@ export function MesaOverviewPage() {
             </div>
           </Panel>
 
-          <Panel className="rounded-[28px] p-6">
+          <Panel className="rounded-lg p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Pontos de segurança</p>
@@ -151,7 +151,7 @@ export function MesaOverviewPage() {
               </div>
               <Link
                 to={`/mesa/${table.slug}/configuracoes`}
-                className="inline-flex min-h-11 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/18 hover:bg-white/[0.08]"
               >
                 Abrir restauração
               </Link>
@@ -160,7 +160,7 @@ export function MesaOverviewPage() {
             <div className="mt-6 grid gap-3">
               {table.snapshots.length ? (
                 table.snapshots.slice(0, 4).map((snapshot) => (
-                  <UtilityPanel key={snapshot.id} className="rounded-[20px] px-4 py-4">
+                  <UtilityPanel key={snapshot.id} className="rounded-lg px-4 py-4">
                     <p className="text-sm font-semibold text-white">{snapshot.label}</p>
                     <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted">
                       {snapshot.actorName} · {formatDateTime(snapshot.createdAt)}
@@ -176,13 +176,13 @@ export function MesaOverviewPage() {
 
         <div className="page-right-rail">
           <MesaRailCard eyebrow="Sua presença" title={session.nickname} description={`Você está na mesa como ${formatRoleLabel(session.role)}.`}>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Personagem vinculado</p>
               <p className="mt-2 text-sm font-semibold text-white">
                 {state.characters.find((character) => character.id === session.characterId)?.name || 'Sem vínculo'}
               </p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-[20px] p-4">
+            <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Ficha ativa</p>
               <p className="mt-2 text-sm font-semibold text-white">{activeCharacter.name}</p>
             </UtilityPanel>
@@ -195,7 +195,7 @@ export function MesaOverviewPage() {
           >
             {members.length ? (
               members.slice(0, 6).map((member) => (
-                <UtilityPanel key={member.id} className="rounded-[20px] p-4">
+                <UtilityPanel key={member.id} className="rounded-lg p-4">
                   <p className="text-sm font-semibold text-white">{member.nickname}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted">
                     {formatRoleLabel(member.role)}

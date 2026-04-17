@@ -3,6 +3,7 @@ import type {
   AuthUser,
   Character,
   GameSession,
+  GameSystemKey,
   LogEntry,
   PresenceMember,
   SessionAttendance,
@@ -17,7 +18,8 @@ import type {
   UserCharacterSummary,
   WorkspaceState
 } from '@/types/domain';
-import { DEFAULT_TABLE_META } from '@lib/domain/constants';
+import { DEFAULT_GAME_SYSTEM_KEY, DEFAULT_TABLE_META } from '@lib/domain/constants';
+import { resolveGameSystemKey } from '@features/systems/registry';
 import { createDefaultState, makeCharacter, normalizeLogEntry, normalizeState } from '@lib/domain/state';
 import { deepClone, sanitizeJoinCode, slugify, uid } from '@lib/domain/utils';
 import { workspaceStateSchema } from '@schemas/domain';
@@ -104,10 +106,21 @@ function toTableMeta(row: TableRow): TableMeta {
   };
 }
 
-function toTableInsert(meta: TableMeta, state: WorkspaceState, ownerId: string, lastEditor: string, slug: string, kind?: string) {
+function toTableInsert(
+  meta: TableMeta,
+  state: WorkspaceState,
+  ownerId: string,
+  lastEditor: string,
+  slug: string,
+  systemKey: GameSystemKey = DEFAULT_GAME_SYSTEM_KEY,
+  kind?: string
+) {
+  const normalizedSystemKey = resolveGameSystemKey(systemKey);
+
   return {
     slug,
     name: meta.tableName || DEFAULT_TABLE_META.tableName,
+    system_key: normalizedSystemKey,
     description: meta.description || '',
     slot_count: meta.slotCount || 0,
     series_name: meta.seriesName || DEFAULT_TABLE_META.seriesName,
@@ -122,6 +135,7 @@ function toTableInsert(meta: TableMeta, state: WorkspaceState, ownerId: string, 
     objective: '',
     meta: {
       ...meta,
+      systemKey: normalizedSystemKey,
       ...(kind ? { kind } : {})
     },
     state: serializeStateForStorage(state) as unknown as Json,
@@ -231,6 +245,7 @@ type TableRow = {
   id: string;
   slug: string;
   name: string;
+  system_key?: string | null;
   description: string;
   slot_count: number;
   series_name: string;
@@ -577,7 +592,7 @@ async function fetchTableRowById(tableId: string) {
   const client = assertClient();
   const { data, error } = await client.from('tables').select('*').eq('id', tableId).single();
   if (error) throw error;
-  return data;
+  return data as TableRow;
 }
 
 async function fetchSnapshots(tableId: string): Promise<TableSnapshot[]> {
@@ -1027,6 +1042,7 @@ async function fetchTableLogs(tableId: string, fallbackLogs: LogEntry[]): Promis
 
 async function fetchTableState(tableId: string): Promise<TableState> {
   const row = await fetchTableRowById(tableId);
+  const systemKey = resolveGameSystemKey(row.system_key);
   const fallbackState = parseWorkspaceState(row.state);
   const [characters, logs, snapshots, joinCodes, invites, membershipRows, currentSession, sessionHistoryPreview] = await Promise.all([
     fetchRelationalCharacters(row.id, fallbackState),
@@ -1051,6 +1067,7 @@ async function fetchTableState(tableId: string): Promise<TableState> {
     id: row.id,
     slug: row.slug,
     name: row.name,
+    systemKey,
     ownerId: row.owner_id,
     meta: toTableMeta(row),
     updatedAt: row.updated_at,
@@ -1071,6 +1088,7 @@ function buildTableSession(input: {
   tableId: string;
   tableSlug: string;
   tableName: string;
+  systemKey?: string | null;
   membershipId: string;
   role: TableSession['role'];
   nickname: string;
@@ -1081,6 +1099,7 @@ function buildTableSession(input: {
     membershipId: input.membershipId,
     tableSlug: input.tableSlug,
     tableName: input.tableName,
+    systemKey: resolveGameSystemKey(input.systemKey),
     role: input.role,
     nickname: input.nickname,
     characterId: input.characterId || '',
@@ -1103,6 +1122,7 @@ async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> 
         id,
         slug,
         name,
+        system_key,
         owner_id,
         created_at,
         updated_at,
@@ -1126,6 +1146,7 @@ async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> 
         id: table.id,
         slug: table.slug,
         name: table.name,
+        systemKey: resolveGameSystemKey(table.system_key),
         role: record.role as TableListItem['role'],
         nickname: record.nickname,
         characterId: record.character_id || '',
@@ -1215,6 +1236,7 @@ async function ensureDraftTable(user: AuthUser): Promise<string> {
         user.id,
         user.displayName,
         slug,
+        DEFAULT_GAME_SYSTEM_KEY,
         DRAFT_KIND
       )
     )
@@ -1330,7 +1352,8 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           tables!inner (
             id,
             slug,
-            name
+            name,
+            system_key
           )
         `
         )
@@ -1344,12 +1367,15 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const table = Array.isArray(data.tables) ? data.tables[0] : data.tables;
       if (!table) throw new Error('Mesa nao encontrada.');
 
+      const tableState = await fetchTableState(table.id);
+
       return {
-        table: await fetchTableState(table.id),
+        table: tableState,
         session: buildTableSession({
           tableId: table.id,
           tableSlug: table.slug,
           tableName: table.name,
+          systemKey: tableState.systemKey,
           membershipId: data.id,
           role: data.role as TableSession['role'],
           nickname: data.nickname,
@@ -1400,9 +1426,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         void client.removeChannel(channel);
       };
     },
-    async createTable({ user, nickname, meta, state }) {
+    async createTable({ user, nickname, systemKey = DEFAULT_GAME_SYSTEM_KEY, meta, state }) {
       const client = assertClient();
-      let insertedTable: { id: string; slug: string; name: string } | null = null;
+      let insertedTable: { id: string; slug: string; name: string; system_key?: string | null } | null = null;
 
       try {
         for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -1410,8 +1436,8 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`.slice(0, 48);
           const response = await client
             .from('tables')
-            .insert(toTableInsert(meta, state, user.id, nickname, slug))
-            .select('id, slug, name')
+            .insert(toTableInsert(meta, state, user.id, nickname, slug, systemKey))
+            .select('id, slug, name, system_key')
             .single();
 
           if (response.error?.code === '23505') continue;
@@ -1521,6 +1547,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
             membershipId: membership.id,
             tableSlug: createdTable.slug,
             tableName: createdTable.name,
+            systemKey: table.systemKey,
             role: 'gm',
             nickname
           })
@@ -1576,6 +1603,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           membershipId: claimed.membership_id,
           tableSlug: claimed.table_slug,
           tableName: claimed.table_name,
+          systemKey: table.systemKey,
           role: claimed.role as TableSession['role'],
           nickname,
           characterId: claimed.character_id
@@ -1596,6 +1624,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
             id: resolved.table_id,
             slug: resolved.table_slug,
             name: resolved.table_name,
+            systemKey: resolveGameSystemKey(resolved.system_key),
             meta: DEFAULT_TABLE_META
           },
           characters: Array.isArray(resolved.characters)
@@ -1619,6 +1648,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           membershipId: claimed.membership_id,
           tableSlug: claimed.table_slug,
           tableName: claimed.table_name,
+          systemKey: table.systemKey,
           role: claimed.role as TableSession['role'],
           nickname,
           characterId: claimed.character_id

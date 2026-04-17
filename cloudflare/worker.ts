@@ -25,7 +25,7 @@ const LOCAL_REFERENCE_CARDS: ReferenceCard[] = [
     title: 'Black Flash',
     category: 'combat',
     summary: 'Explains the critical timing window, the reward for precision and the narrative use of burst damage.',
-    source: 'Singularidade RPG',
+    source: 'Project Nexus / Singularidade',
     url: '/livro#black-flash'
   },
   {
@@ -33,7 +33,7 @@ const LOCAL_REFERENCE_CARDS: ReferenceCard[] = [
     title: 'Domain Expansion',
     category: 'combat',
     summary: 'Covers the escalation point where the fight becomes a rule dispute instead of a trade of attacks.',
-    source: 'Singularidade RPG',
+    source: 'Project Nexus / Singularidade',
     url: '/livro#dominio'
   },
   {
@@ -41,7 +41,7 @@ const LOCAL_REFERENCE_CARDS: ReferenceCard[] = [
     title: 'Votos vinculativos',
     category: 'builds',
     summary: 'Describes how a sacrifice becomes a permanent advantage for a character or table arc.',
-    source: 'Singularidade RPG',
+    source: 'Project Nexus / Singularidade',
     url: '/livro#votos'
   },
   {
@@ -49,7 +49,7 @@ const LOCAL_REFERENCE_CARDS: ReferenceCard[] = [
     title: 'Ordem de combate',
     category: 'table',
     summary: 'Summarizes the initiative loop, turn flow and the way the order tracker keeps the table aligned.',
-    source: 'Singularidade RPG',
+    source: 'Project Nexus / Singularidade',
     url: '/ordem'
   }
 ];
@@ -143,7 +143,7 @@ export default {
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, service: 'singularidade-online' });
+      return json({ ok: true, service: 'project-nexus', worker: 'singularidade-online' });
     }
 
     return serveAssets(request, env);

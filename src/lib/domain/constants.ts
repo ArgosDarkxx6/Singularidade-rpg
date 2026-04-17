@@ -1,6 +1,7 @@
 ﻿import type {
   AttributeKey,
   GameSession,
+  GameSystemKey,
   MesaMeta,
   Rank,
   ResourceKey,
@@ -10,6 +11,7 @@
 } from '@/types/domain';
 
 export const CURRENT_VERSION = 8;
+export const DEFAULT_GAME_SYSTEM_KEY: GameSystemKey = 'singularidade';
 export const STORAGE_KEY = 'singularidade-remake-state-v8';
 export const AUTH_STORAGE_KEY = 'singularidade-remake-auth-v1';
 export const USERS_STORAGE_KEY = 'singularidade-remake-users-v1';

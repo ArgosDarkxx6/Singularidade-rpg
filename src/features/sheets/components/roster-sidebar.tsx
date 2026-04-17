@@ -30,7 +30,7 @@ function RosterCard({
 }) {
   return (
     <div
-      className={`rounded-[22px] border px-4 py-4 transition ${
+      className={`rounded-lg border px-4 py-4 transition ${
         active ? 'border-sky-300/28 bg-sky-500/10' : 'border-white/10 bg-white/[0.03] hover:border-white/16'
       }`}
     >

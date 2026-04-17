@@ -946,6 +946,7 @@ export type Database = {
           slug: string
           state: Json
           status: string
+          system_key: string
           updated_at: string
         }
         Insert: {
@@ -972,6 +973,7 @@ export type Database = {
           slug: string
           state?: Json
           status?: string
+          system_key?: string
           updated_at?: string
         }
         Update: {
@@ -998,6 +1000,7 @@ export type Database = {
           slug?: string
           state?: Json
           status?: string
+          system_key?: string
           updated_at?: string
         }
         Relationships: [
@@ -1034,6 +1037,7 @@ export type Database = {
           character_id: string
           membership_id: string
           role: string
+          system_key: string
           table_id: string
           table_name: string
           table_slug: string
@@ -1049,6 +1053,7 @@ export type Database = {
           character_id: string
           membership_id: string
           role: string
+          system_key: string
           table_id: string
           table_name: string
           table_slug: string
@@ -1060,6 +1065,7 @@ export type Database = {
           character_id: string
           membership_id: string
           role: string
+          system_key: string
           table_id: string
           table_name: string
           table_slug: string
@@ -1071,6 +1077,7 @@ export type Database = {
           character_id: string
           membership_id: string
           role: string
+          system_key: string
           table_id: string
           table_name: string
           table_slug: string
@@ -1091,6 +1098,7 @@ export type Database = {
           characters: Json
           requires_character: boolean
           role: string
+          system_key: string
           table_id: string
           table_name: string
           table_slug: string

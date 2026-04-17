@@ -20,7 +20,7 @@ export function MesaHero({
     <motion.section
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn('surface-panel-strong rounded-[30px] p-6 sm:p-7', className)}
+      className={cn('surface-panel-strong rounded-lg p-6 sm:p-7', className)}
     >
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl">
@@ -46,7 +46,7 @@ export function MesaMetricTile({
   className?: string;
 }) {
   return (
-    <UtilityPanel className={cn('rounded-[24px] p-4', className)}>
+    <UtilityPanel className={cn('rounded-lg p-4', className)}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{label}</p>
       <div className="mt-3 text-3xl font-semibold text-white">{value}</div>
       {hint ? <div className="mt-2 text-sm text-soft">{hint}</div> : null}
@@ -68,7 +68,7 @@ export function MesaRailCard({
   className?: string;
 }) {
   return (
-    <Panel className={cn('rounded-[26px] p-5', className)}>
+    <Panel className={cn('rounded-lg p-5', className)}>
       {eyebrow ? <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{eyebrow}</p> : null}
       <h2 className="mt-2 font-display text-3xl leading-none text-white">{title}</h2>
       {description ? <p className="mt-3 text-sm leading-6 text-soft">{description}</p> : null}
@@ -91,7 +91,7 @@ export function MesaDataRow({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 rounded-[18px] border border-white/8 bg-white/[0.025] px-4 py-3',
+        'flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/[0.025] px-4 py-3',
         tone === 'accent' ? 'border-sky-300/18 bg-sky-500/10' : '',
         className
       )}

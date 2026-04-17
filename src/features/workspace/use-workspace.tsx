@@ -21,7 +21,7 @@ import {
 import { parseCharacterSheetsText, serializeCharacterToText } from '@lib/domain/parsers';
 import { copyText, downloadTextFile, readFileAsText } from '@lib/domain/utils';
 import { workspaceStateSchema } from '@schemas/domain';
-import { ONLINE_SESSION_STORAGE_KEY } from '@lib/domain/constants';
+import { DEFAULT_GAME_SYSTEM_KEY, ONLINE_SESSION_STORAGE_KEY } from '@lib/domain/constants';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { shouldUseSupabaseRuntime } from '@integrations/supabase/env';
 import { supabase } from '@integrations/supabase/client';
@@ -39,6 +39,7 @@ import type {
   Passive,
   PresenceMember,
   GameSession,
+  GameSystemKey,
   RollResult,
   SessionAttendanceStatus,
   TableJoinCode,
@@ -106,7 +107,12 @@ interface WorkspaceContextValue {
   importStateFromFile: (file: File) => Promise<void>;
   exportState: () => void;
   resetState: () => void;
-  createTableSession: (meta: TableMeta, nickname: string, initialState?: WorkspaceState) => Promise<TableSession | null>;
+  createTableSession: (
+    meta: TableMeta,
+    nickname: string,
+    initialState?: WorkspaceState,
+    systemKey?: GameSystemKey
+  ) => Promise<TableSession | null>;
   switchTable: (tableSlug: string) => Promise<TableSession | null>;
   refreshTables: () => Promise<TableListItem[]>;
   updateTableMeta: (meta: TableMeta) => Promise<TableState | null>;
@@ -174,7 +180,19 @@ const DEFAULT_ONLINE_STATE: OnlineState = {
 function readStoredSession(userId: string): TableSession | null {
   try {
     const raw = localStorage.getItem(`${ONLINE_SESSION_STORAGE_KEY}:${userId}`);
-    return raw ? (JSON.parse(raw) as TableSession) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<TableSession>;
+    return {
+      tableId: parsed.tableId || '',
+      membershipId: parsed.membershipId || '',
+      tableSlug: parsed.tableSlug || '',
+      tableName: parsed.tableName || '',
+      systemKey: parsed.systemKey || DEFAULT_GAME_SYSTEM_KEY,
+      role: parsed.role || 'viewer',
+      nickname: parsed.nickname || '',
+      characterId: parsed.characterId || '',
+      lastJoinedAt: parsed.lastJoinedAt
+    };
   } catch {
     return null;
   }
@@ -1396,13 +1414,14 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       },
       exportState: () => downloadTextFile('singularidade-state.json', JSON.stringify(stateRef.current, null, 2), 'application/json;charset=utf-8'),
       resetState: () => persistState(createDefaultState(), 'Reset de estado'),
-      createTableSession: async (meta, nickname, initialState) => {
+      createTableSession: async (meta, nickname, initialState, systemKey = DEFAULT_GAME_SYSTEM_KEY) => {
         if (!user) return null;
         setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
         try {
           const created = await workspaceBackend.createTable({
             user,
             nickname,
+            systemKey,
             meta,
             state: initialState ? normalizeState(initialState) : stateRef.current
           });

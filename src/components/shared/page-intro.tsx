@@ -19,7 +19,7 @@ export function PageIntro({
     <motion.section
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="surface-panel-strong ritual-outline rounded-[32px] px-6 py-7"
+      className="surface-panel-strong ritual-outline rounded-lg px-6 py-7"
     >
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl">

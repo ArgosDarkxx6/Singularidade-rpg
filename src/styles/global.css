@@ -3,15 +3,15 @@
 
 :root {
   --bg-975: #04080f;
-  --bg-950: #071019;
-  --bg-920: #0b1624;
-  --bg-900: #101c2b;
-  --panel-950: rgba(8, 14, 22, 0.94);
-  --panel-900: rgba(12, 22, 34, 0.92);
-  --panel-860: rgba(16, 29, 43, 0.94);
-  --panel-800: rgba(18, 33, 48, 0.94);
-  --line: rgba(133, 179, 223, 0.12);
-  --line-strong: rgba(133, 179, 223, 0.24);
+  --bg-950: #07090d;
+  --bg-920: #0d1117;
+  --bg-900: #151b23;
+  --panel-950: rgba(8, 10, 14, 0.94);
+  --panel-900: rgba(13, 17, 23, 0.92);
+  --panel-860: rgba(17, 23, 31, 0.94);
+  --panel-800: rgba(22, 29, 39, 0.94);
+  --line: rgba(143, 165, 190, 0.14);
+  --line-strong: rgba(103, 154, 220, 0.28);
   --text-strong: #eff6ff;
   --text-soft: rgba(223, 236, 248, 0.78);
   --text-muted: rgba(194, 210, 227, 0.5);
@@ -39,10 +39,7 @@
 
   body {
     min-height: 100vh;
-    background:
-      radial-gradient(circle at top right, rgba(87, 187, 255, 0.2), transparent 26%),
-      radial-gradient(circle at left 18%, rgba(78, 140, 255, 0.14), transparent 24%),
-      linear-gradient(180deg, var(--bg-920) 0%, var(--bg-975) 100%);
+    background: linear-gradient(180deg, var(--bg-920) 0%, var(--bg-975) 100%);
     color: var(--text-strong);
     font-family: var(--font-body);
     text-rendering: optimizeLegibility;
@@ -87,28 +84,28 @@
   }
 
   .surface-panel {
-    background: linear-gradient(180deg, rgba(17, 28, 41, 0.92), rgba(10, 18, 28, 0.96));
+    background: rgba(12, 16, 22, 0.94);
     border: 1px solid var(--line);
     box-shadow: var(--shadow-soft);
     backdrop-filter: blur(22px);
   }
 
   .surface-panel-strong {
-    background: linear-gradient(180deg, rgba(20, 32, 47, 0.96), rgba(10, 18, 29, 0.98));
+    background: rgba(13, 18, 26, 0.98);
     border: 1px solid var(--line-strong);
     box-shadow: var(--shadow-strong);
     backdrop-filter: blur(28px);
   }
 
   .surface-shell {
-    background: linear-gradient(180deg, rgba(11, 20, 31, 0.98), rgba(6, 12, 20, 0.98));
+    background: rgba(7, 10, 15, 0.98);
     border: 1px solid rgba(133, 179, 223, 0.08);
     box-shadow: var(--shadow-strong);
     backdrop-filter: blur(26px);
   }
 
   .surface-utility {
-    background: linear-gradient(180deg, rgba(18, 27, 38, 0.95), rgba(9, 16, 25, 0.98));
+    background: rgba(16, 21, 29, 0.96);
     border: 1px solid rgba(133, 179, 223, 0.08);
     box-shadow: 0 16px 34px rgba(2, 8, 17, 0.24);
     backdrop-filter: blur(18px);
@@ -142,6 +139,19 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
+  }
+
+  .platform-shell {
+    background: linear-gradient(180deg, #0d1117 0%, #05070b 100%);
+  }
+
+  .system-theme-singularidade {
+    --accent-500: #4e8cff;
+    --accent-450: #57bbff;
+    --accent-400: #8fe4ff;
+    background:
+      radial-gradient(circle at top right, rgba(87, 187, 255, 0.16), transparent 24%),
+      linear-gradient(180deg, #071019 0%, #04080f 100%);
   }
 
   .page-grid {
