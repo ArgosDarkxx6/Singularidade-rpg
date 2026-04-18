@@ -9,7 +9,7 @@ Project Nexus é uma plataforma de mesas online em `Vite + React + TypeScript + 
 - Hub autenticado para criar, listar, retomar e entrar em mesas por convite ou código.
 - Modelagem de mesa com `systemKey`, preparada para múltiplos sistemas.
 - Sistema Singularidade preservado como experiência de mesa: fichas, rolagens, ordem, sessões, livro, membros, snapshots e permissões.
-- Cadastro com email, username unico e senha; login por username e senha.
+- Cadastro com email, username unico e senha; login por email ou username com senha.
 - Runtime único com Supabase para Auth, Postgres, Storage, Realtime, RLS e RPCs.
 - Worker Cloudflare que serve o SPA e expõe `/api/auth/username-login`, `/api/references` e `/api/health`.
 
