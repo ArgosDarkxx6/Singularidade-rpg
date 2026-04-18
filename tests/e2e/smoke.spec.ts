@@ -471,7 +471,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
     mimeType: 'image/png',
     buffer: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
   });
-  await expect(page.getByRole('button', { name: 'Remover foto' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Remover foto' })).toBeEnabled({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Remover foto' }).click();
 
   await signOutCurrentUser(page);

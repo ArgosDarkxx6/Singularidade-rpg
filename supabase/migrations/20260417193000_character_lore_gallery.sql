@@ -16,14 +16,22 @@ create table if not exists public.character_gallery_images (
 
 create index if not exists idx_character_gallery_images_character_id on public.character_gallery_images(character_id);
 
+drop trigger if exists character_gallery_images_touch_updated_at on public.character_gallery_images;
+
 create trigger character_gallery_images_touch_updated_at
 before update on public.character_gallery_images
-for each row execute procedure public.set_updated_at();
+for each row execute function public.touch_updated_at();
+
+drop policy if exists "Character gallery images are visible to table members"
+on public.character_gallery_images;
 
 create policy "Character gallery images are visible to table members"
 on public.character_gallery_images
 for select
 using (public.is_table_member((select table_id from public.characters where id = character_id)));
+
+drop policy if exists "Character gallery images can be managed by owners or managers"
+on public.character_gallery_images;
 
 create policy "Character gallery images can be managed by owners or managers"
 on public.character_gallery_images
