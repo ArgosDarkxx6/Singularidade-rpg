@@ -1807,7 +1807,12 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         stateRef.current = fallbackState;
         setState(fallbackState);
         setOnline(DEFAULT_ONLINE_STATE);
-        await refreshTables();
+        setTables((current) => current.filter((table) => table.id !== currentSession.tableId));
+        try {
+          await refreshTables();
+        } catch {
+          // The destructive action already succeeded; do not block the route back to the hub.
+        }
       },
       restoreCloudSnapshot: async (snapshotId) => {
         const currentSession = onlineRef.current.session;
