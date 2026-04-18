@@ -899,6 +899,10 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         return;
       }
 
+      if (entry.event?.kind === 'roll') {
+        return;
+      }
+
       if (currentSession.role === 'viewer') return;
 
       if (currentSession.role === 'gm') {
@@ -973,10 +977,59 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       },
       setCompendiumQuery,
       setCompendiumCategory,
-      adjustResource: (characterId, resourceKey, delta) =>
-        updateCharacters(
-          (characters) =>
-            characters.map((character) =>
+      adjustResource: (characterId, resourceKey, delta) => {
+        const currentSession = onlineRef.current.session;
+        const previousCharacter = stateRef.current.characters.find((character) => character.id === characterId);
+        if (!previousCharacter) return;
+
+        if (!currentSession) {
+          updateCharacters(
+            (characters) =>
+              characters.map((character) =>
+                character.id === characterId
+                  ? {
+                      ...character,
+                      resources: {
+                        ...character.resources,
+                        [resourceKey]: {
+                          ...character.resources[resourceKey],
+                          current: Math.max(
+                            0,
+                            Math.min(character.resources[resourceKey].max, character.resources[resourceKey].current + delta)
+                          )
+                        }
+                      }
+                    }
+                  : character
+              ),
+            'Ajuste de recurso'
+          );
+          return;
+        }
+
+        if (!user) return;
+        if (currentSession.role === 'viewer') {
+          setOnline((current) => ({
+            ...current,
+            status: 'error',
+            error: 'Seu papel atual permite apenas leitura.'
+          }));
+          return;
+        }
+
+        if (currentSession.role === 'player' && currentSession.characterId !== characterId) {
+          setOnline((current) => ({
+            ...current,
+            status: 'error',
+            error: 'Players so podem ajustar recursos da propria ficha vinculada.'
+          }));
+          return;
+        }
+
+        const applyResourceSnapshot = (currentValue: number, maxValue: number, status: OnlineState['status']) => {
+          const nextState = normalizeState({
+            ...stateRef.current,
+            characters: stateRef.current.characters.map((character) =>
               character.id === characterId
                 ? {
                     ...character,
@@ -984,14 +1037,59 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
                       ...character.resources,
                       [resourceKey]: {
                         ...character.resources[resourceKey],
-                        current: Math.max(0, character.resources[resourceKey].current + delta)
+                        current: Math.max(0, Math.min(maxValue, currentValue)),
+                        max: maxValue
                       }
                     }
                   }
                 : character
-            ),
-          'Ajuste de recurso'
-        ),
+            )
+          });
+
+          stateRef.current = nextState;
+          setState(nextState);
+
+          setOnline((current) =>
+            current.table
+              ? syncTableIntoOnlineState(
+                  current,
+                  {
+                    ...current.table,
+                    state: nextState,
+                    lastEditor: currentSession.nickname || 'Ajuste de recurso',
+                    updatedAt: new Date().toISOString()
+                  },
+                  status
+                )
+              : current
+          );
+        };
+
+        const previousCurrent = previousCharacter.resources[resourceKey].current;
+        const previousMax = previousCharacter.resources[resourceKey].max;
+        const optimisticCurrent = Math.max(0, Math.min(previousMax, previousCurrent + delta));
+        applyResourceSnapshot(optimisticCurrent, previousMax, 'syncing');
+
+        void workspaceBackend
+          .adjustCharacterResource({
+            session: currentSession,
+            userId: user.id,
+            characterId,
+            resourceKey,
+            delta
+          })
+          .then((result) => {
+            applyResourceSnapshot(result.current, result.max, 'connected');
+          })
+          .catch((error) => {
+            applyResourceSnapshot(previousCurrent, previousMax, 'error');
+            setOnline((current) => ({
+              ...current,
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Nao foi possivel ajustar este recurso agora.'
+            }));
+          });
+      },
       setResourceCurrent: (characterId, resourceKey, value) =>
         updateCharacters(
           (characters) =>
@@ -1003,7 +1101,10 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
                       ...character.resources,
                       [resourceKey]: {
                         ...character.resources[resourceKey],
-                        current: Number(value)
+                        current: Math.max(
+                          0,
+                          Math.min(character.resources[resourceKey].max, Number(value))
+                        )
                       }
                     }
                   }
@@ -1022,7 +1123,14 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
                       ...character.resources,
                       [resourceKey]: {
                         ...character.resources[resourceKey],
-                        max: Number(value)
+                        max: Math.max(resourceKey === 'energy' ? 0 : 1, Number(value)),
+                        current: Math.max(
+                          0,
+                          Math.min(
+                            Math.max(resourceKey === 'energy' ? 0 : 1, Number(value)),
+                            character.resources[resourceKey].current
+                          )
+                        )
                       }
                     }
                   }
@@ -1274,18 +1382,87 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           'Atualizacao de dinheiro'
         ),
       executeAttributeRoll: (input) => {
+        const currentSession = onlineRef.current.session;
+        if (currentSession?.role === 'viewer') {
+          setOnline((current) => ({
+            ...current,
+            status: 'error',
+            error: 'Seu papel atual permite apenas leitura.'
+          }));
+          return null;
+        }
+
+        if (currentSession?.role === 'player' && currentSession.characterId !== input.characterId) {
+          setOnline((current) => ({
+            ...current,
+            status: 'error',
+            error: 'Players so podem rolar pela propria ficha vinculada.'
+          }));
+          return null;
+        }
+
         const character = stateRef.current.characters.find((entry) => entry.id === input.characterId);
         if (!character) return null;
         const result = buildRollOutcome(character, input.attributeKey, input.context, input.extraBonus, Math.random, input.tn);
         setLastRoll(result);
+        const logEntry = createLogEntry({
+          category: 'Rolagem',
+          title: `${result.attributeLabel} - ${character.name}`,
+          text: `d20 ${result.natural} ${result.effectiveModifier && result.effectiveModifier >= 0 ? '+' : ''}${result.effectiveModifier ?? 0} = ${result.total}`,
+          meta: buildRollMeta(result),
+          event: {
+            kind: 'roll',
+            characterId: character.id,
+            characterName: character.name,
+            payload: {
+              mode: 'guided',
+              attributeKey: result.attributeKey,
+              attributeLabel: result.attributeLabel,
+              context: result.context,
+              natural: result.natural,
+              effectiveModifier: result.effectiveModifier,
+              extraBonus: result.extraBonus,
+              total: result.total,
+              tn: result.tn,
+              margin: result.margin,
+              outcomeLabel: result.outcomeLabel
+            }
+          }
+        });
         appendLog(
-          createLogEntry({
-            category: 'Rolagem',
-            title: `${result.attributeLabel} - ${character.name}`,
-            text: `d20 ${result.natural} ${result.effectiveModifier && result.effectiveModifier >= 0 ? '+' : ''}${result.effectiveModifier ?? 0} = ${result.total}`,
-            meta: buildRollMeta(result)
-          })
+          logEntry
         );
+
+        if (currentSession && user) {
+          void workspaceBackend
+            .recordGuidedRoll({
+              session: currentSession,
+              userId: user.id,
+              characterId: character.id,
+              characterName: character.name,
+              attributeKey: input.attributeKey,
+              attributeLabel: result.attributeLabel || '',
+              context: input.context,
+              natural: result.natural || 0,
+              effectiveModifier: result.effectiveModifier || 0,
+              extraBonus: input.extraBonus,
+              total: result.total,
+              tn: input.tn,
+              outcomeLabel: result.outcomeLabel,
+              margin: result.margin,
+              meta: buildRollMeta(result),
+              text: `d20 ${result.natural} ${result.effectiveModifier && result.effectiveModifier >= 0 ? '+' : ''}${result.effectiveModifier ?? 0} = ${result.total}`,
+              title: `${result.attributeLabel} - ${character.name}`
+            })
+            .catch((error) => {
+              setOnline((current) => ({
+                ...current,
+                status: 'error',
+                error: error instanceof Error ? error.message : 'Nao foi possivel registrar a rolagem no backend.'
+              }));
+            });
+        }
+
         return result;
       },
       executeCustomRoll: (input) => {

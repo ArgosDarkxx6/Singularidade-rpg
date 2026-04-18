@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 84" role="img" aria-label="Project Nexus Wordmark">
+  <defs>
+    <linearGradient id="nexusWordGlow" x1="16" y1="8" x2="440" y2="76" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B0EEFF" />
+      <stop offset="0.55" stop-color="#6CB5FF" />
+      <stop offset="1" stop-color="#4C73FF" />
+    </linearGradient>
+  </defs>
+  <rect width="460" height="84" rx="14" fill="#060C18" />
+  <path d="M32 57V27h20c10 0 16 6 16 14s-6 16-16 16H32zm12-10h7c4 0 6-2 6-6 0-3-2-5-6-5h-7v11z" fill="#EAF6FF" />
+  <path d="M78 57V27h11l20 20V27h12v30h-10L90 37v20H78z" fill="#EAF6FF" />
+  <path d="M133 57V27h12v19h20v11h-32z" fill="#EAF6FF" />
+  <path d="M175 57V27h13v30h-13z" fill="#EAF6FF" />
+  <path d="M198 57V27h12l20 20V27h12v30h-10l-21-21v21h-13z" fill="#EAF6FF" />
+  <path d="M255 57V27h35v9h-22v3h20v9h-20v3h23v9h-36z" fill="#EAF6FF" />
+  <path d="M300 57V27h19c11 0 16 5 16 13 0 6-3 10-9 12l11 5h-15l-8-4h-2v4h-12zm12-12h7c3 0 5-1 5-4s-2-4-5-4h-7v8z" fill="#EAF6FF" />
+  <path d="M346 57V27h12v30h-12z" fill="#EAF6FF" />
+  <path d="M370 57V27h12l9 13 9-13h12v30h-11V43l-10 14-10-14v14h-11z" fill="#EAF6FF" />
+  <path d="M422 57V27h13v30h-13z" fill="#EAF6FF" />
+  <path d="M24 70h412" stroke="url(#nexusWordGlow)" stroke-opacity="0.45" stroke-width="2" />
+</svg>

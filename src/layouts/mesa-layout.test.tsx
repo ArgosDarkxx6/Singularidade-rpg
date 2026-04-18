@@ -176,4 +176,35 @@ describe('MesaLayout', () => {
     expect(screen.getByText('Membros content')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Membros' })).toBeVisible();
   });
+
+  it('renders the mobile bottom navigation with four primary mesa tabs', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={['/mesa/mesa-alpha']}>
+        <Routes>
+          <Route path="/mesa/:slug" element={<MesaLayout />}>
+            <Route index element={<div>Overview content</div>} />
+            <Route path="fichas" element={<div>Fichas content</div>} />
+            <Route path="rolagens" element={<div>Rolagens content</div>} />
+            <Route path="ordem" element={<div>Ordem content</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const geralLinks = screen.getAllByRole('link', { name: 'Geral' });
+    const fichasLinks = screen.getAllByRole('link', { name: 'Fichas' });
+    const rolagensLinks = screen.getAllByRole('link', { name: 'Rolagens' });
+    const ordemLinks = screen.getAllByRole('link', { name: 'Ordem' });
+
+    expect(geralLinks.length).toBeGreaterThan(0);
+    expect(fichasLinks.length).toBeGreaterThan(0);
+    expect(rolagensLinks.length).toBeGreaterThan(0);
+    expect(ordemLinks.length).toBeGreaterThan(0);
+    expect(geralLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
+
+    await user.click(fichasLinks[0]);
+    expect(screen.getByText('Fichas content')).toBeVisible();
+  });
 });

@@ -97,6 +97,59 @@ describe('CharacterProfileEditor', () => {
     expect(screen.getByText('Uniforme principal')).toBeVisible();
   });
 
+  it('adjusts current resources only in normal mode', async () => {
+    const user = userEvent.setup();
+
+    render(<CharacterProfileEditor editable={false} canOperateResources />);
+
+    const increaseButtons = screen.getAllByRole('button', { name: '+1' });
+    const decreaseButtons = screen.getAllByRole('button', { name: '-1' });
+    expect(increaseButtons).toHaveLength(3);
+    expect(decreaseButtons).toHaveLength(3);
+
+    await user.click(increaseButtons[0]);
+    await user.click(decreaseButtons[1]);
+
+    expect(workspaceMock.adjustResource).toHaveBeenCalledWith('char-1', 'hp', 1);
+    expect(workspaceMock.adjustResource).toHaveBeenCalledWith('char-1', 'energy', -1);
+  });
+
+  it('edits only resource max values in edit mode', async () => {
+    const user = userEvent.setup();
+
+    render(<CharacterProfileEditor editable />);
+
+    expect(screen.queryByLabelText('PV atual')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('EA atual')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('SAN atual')).not.toBeInTheDocument();
+
+    const hpMaxField = screen.getByLabelText('PV máximo');
+    const energyMaxField = screen.getByLabelText('EA máximo');
+    const sanityMaxField = screen.getByLabelText('SAN máximo');
+
+    await user.clear(hpMaxField);
+    await user.type(hpMaxField, '18');
+    await user.clear(energyMaxField);
+    await user.type(energyMaxField, '9');
+    await user.clear(sanityMaxField);
+    await user.type(sanityMaxField, '44');
+    await user.click(screen.getByRole('button', { name: 'Salvar ficha principal' }));
+
+    await waitFor(() => {
+      expect(workspaceMock.setResourceMax).toHaveBeenCalledWith('char-1', 'hp', 18);
+      expect(workspaceMock.setResourceMax).toHaveBeenCalledWith('char-1', 'energy', 9);
+      expect(workspaceMock.setResourceMax).toHaveBeenCalledWith('char-1', 'sanity', 44);
+      expect(workspaceMock.setResourceCurrent).not.toHaveBeenCalled();
+    });
+  });
+
+  it('disables operational controls when resource interaction is not allowed', () => {
+    render(<CharacterProfileEditor editable={false} canOperateResources={false} />);
+
+    expect(screen.queryByRole('button', { name: '+1' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Rolar Força' })).toBeDisabled();
+  });
+
   it('saves lore changes in edit mode', async () => {
     const user = userEvent.setup();
 

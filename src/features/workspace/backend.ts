@@ -1,5 +1,6 @@
 import type {
   AuthUser,
+  AttributeKey,
   Character,
   CharacterGalleryImage,
   GameSession,
@@ -39,6 +40,13 @@ export interface UploadAvatarResult {
 
 export interface UploadCharacterGalleryImageResult extends UploadAvatarResult {
   image: CharacterGalleryImage;
+}
+
+export interface ResourceSyncResult {
+  characterId: string;
+  resourceKey: 'hp' | 'energy' | 'sanity';
+  current: number;
+  max: number;
 }
 
 export interface WorkspaceBackend {
@@ -89,6 +97,32 @@ export interface WorkspaceBackend {
     status: SessionAttendanceStatus;
   }) => Promise<TableState>;
   clearSessionAttendance: (input: { session: TableSession; sessionId?: string }) => Promise<TableState>;
+  adjustCharacterResource: (input: {
+    session: TableSession;
+    userId: string;
+    characterId: string;
+    resourceKey: 'hp' | 'energy' | 'sanity';
+    delta: number;
+  }) => Promise<ResourceSyncResult>;
+  recordGuidedRoll: (input: {
+    session: TableSession;
+    userId: string;
+    characterId: string;
+    characterName: string;
+    attributeKey: AttributeKey;
+    attributeLabel: string;
+    context: string;
+    natural: number;
+    effectiveModifier: number;
+    extraBonus: number;
+    total: number;
+    tn: number | null;
+    outcomeLabel: string;
+    margin: number | null;
+    meta: string;
+    text: string;
+    title: string;
+  }) => Promise<void>;
   saveCharacter: (input: { session: TableSession; userId: string; character: Character }) => Promise<void>;
   appendTableLog: (input: { session: TableSession; userId: string; entry: LogEntry }) => Promise<void>;
   clearTableLogs: (input: { session: TableSession; userId: string }) => Promise<void>;

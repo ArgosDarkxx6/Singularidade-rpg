@@ -175,11 +175,14 @@ export function normalizeLogEntry(entry: Partial<LogEntry>): LogEntry {
     category: entry.category || 'Sistema',
     title: entry.title || '',
     text: entry.text || '',
-    meta: entry.meta || ''
+    meta: entry.meta || '',
+    event: entry.event || null
   };
 }
 
-export function createLogEntry(input: Pick<LogEntry, 'category' | 'title' | 'text'> & Partial<Pick<LogEntry, 'meta'>>): LogEntry {
+export function createLogEntry(
+  input: Pick<LogEntry, 'category' | 'title' | 'text'> & Partial<Pick<LogEntry, 'meta' | 'event'>>
+): LogEntry {
   return normalizeLogEntry({
     ...input,
     timestamp: new Date().toISOString()

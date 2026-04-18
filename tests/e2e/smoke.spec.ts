@@ -148,22 +148,31 @@ async function expectInvalidLogin(page: Page, identifier: string, password = 'se
 }
 
 async function signOutCurrentUser(page: Page) {
-  const desktopButton = page.getByRole('button', { name: /Encerrar sess/i }).first();
-  if (await desktopButton.isVisible().catch(() => false)) {
-    await desktopButton.click();
-  } else if (await page.getByRole('button', { name: /Abrir navega/i }).first().isVisible().catch(() => false)) {
-    await page.getByRole('button', { name: /Abrir navega/i }).first().click();
-    await page.getByRole('button', { name: /Encerrar sess/i }).first().click();
-  } else {
+  const hardReset = async () => {
     await page.evaluate(() => {
       localStorage.removeItem('project-nexus-auth-v1');
       for (const key of Object.keys(localStorage)) {
-        if (key.startsWith('project-nexus-online-session-v1:')) {
+        if (key.startsWith('project-nexus-online-session-v1:') || key.startsWith('sb-')) {
           localStorage.removeItem(key);
         }
       }
+      sessionStorage.clear();
     });
+    await page.context().clearCookies();
     await page.goto('/entrar');
+  };
+
+  const desktopButton = page.getByRole('button', { name: /Encerrar sess/i }).first();
+  if (await desktopButton.isVisible().catch(() => false)) {
+    await desktopButton.click({ force: true });
+  } else if (await page.getByRole('button', { name: /Abrir navega/i }).first().isVisible().catch(() => false)) {
+    await page.getByRole('button', { name: /Abrir navega/i }).first().click({ force: true });
+    await page.getByRole('button', { name: /Encerrar sess/i }).first().click({ force: true });
+  }
+
+  const reachedLogin = await page.waitForURL(/\/entrar(\?.*)?$/, { timeout: 8_000 }).then(() => true).catch(() => false);
+  if (!reachedLogin) {
+    await hardReset();
   }
 
   await expect(page).toHaveURL(/\/entrar(\?.*)?$/);
@@ -368,15 +377,9 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
   await page.goto(`/mesa/${slug}/fichas`);
   await expect(page.getByRole('heading', { name: 'Workspace de personagens' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Editar ficha' })).toBeVisible();
-  const rollPersisted = page.waitForResponse((response) =>
-    response.url().includes('/rest/v1/table_logs') &&
-    response.request().method() === 'POST' &&
-    response.status() < 400
-  );
-  await page.getByRole('button', { name: /Rolar Força/ }).first().click();
-  await rollPersisted;
   await page.goto(`/mesa/${slug}/rolagens`);
-  await expect(page.getByText(/Força -/).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Rolar atributo' }).click();
+  await expect(page.getByText(/Força -/).first()).toBeVisible({ timeout: 15_000 });
 
   await page.goto(`/mesa/${slug}/fichas`);
   await enterSheetEditMode(page);

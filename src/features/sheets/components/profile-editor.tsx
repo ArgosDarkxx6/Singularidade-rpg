@@ -30,11 +30,8 @@ function profileDefaults(character: Character): CharacterProfileValues {
     scar: character.identity.scar,
     anchor: character.identity.anchor,
     trigger: character.identity.trigger,
-    hpCurrent: character.resources.hp.current,
     hpMax: character.resources.hp.max,
-    energyCurrent: character.resources.energy.current,
     energyMax: character.resources.energy.max,
-    sanityCurrent: character.resources.sanity.current,
     sanityMax: character.resources.sanity.max,
     strength: character.attributes.strength.value,
     resistance: character.attributes.resistance.value,
@@ -78,12 +75,12 @@ function getResourcePercent(resource: Character['resources'][ResourceKey]) {
 function ResourceBar({
   resourceKey,
   resource,
-  editable,
+  interactive,
   onAdjust
 }: {
   resourceKey: ResourceKey;
   resource: Character['resources'][ResourceKey];
-  editable: boolean;
+  interactive: boolean;
   onAdjust: (delta: number) => void;
 }) {
   const percent = getResourcePercent(resource);
@@ -109,7 +106,7 @@ function ResourceBar({
             <div className={`h-full rounded-full bg-gradient-to-r ${resourceToneClass[resourceKey]}`} style={{ width: `${percent}%` }} />
           </div>
         </div>
-        {editable ? (
+        {interactive ? (
           <div className="flex shrink-0 gap-2">
             <Button type="button" size="sm" variant="secondary" onClick={() => onAdjust(-1)}>
               -1
@@ -124,7 +121,7 @@ function ResourceBar({
   );
 }
 
-function AttributeRollButton({ label, onRoll }: { label: string; onRoll: () => void }) {
+function AttributeRollButton({ label, onRoll, disabled = false }: { label: string; onRoll: () => void; disabled?: boolean }) {
   return (
     <Button
       type="button"
@@ -132,6 +129,7 @@ function AttributeRollButton({ label, onRoll }: { label: string; onRoll: () => v
       variant="secondary"
       className="relative z-10 size-9 shrink-0 rounded-full px-0"
       onClick={onRoll}
+      disabled={disabled}
       aria-label={`Rolar ${label}`}
     >
       <Dices className="size-4" />
@@ -139,13 +137,12 @@ function AttributeRollButton({ label, onRoll }: { label: string; onRoll: () => v
   );
 }
 
-export function CharacterProfileEditor({ editable = true }: { editable?: boolean }) {
+export function CharacterProfileEditor({ editable = true, canOperateResources = true }: { editable?: boolean; canOperateResources?: boolean }) {
   const {
     activeCharacter,
     adjustResource,
     updateCharacterField,
     updateCharacterLore,
-    setResourceCurrent,
     setResourceMax,
     setAttributeValue,
     setAttributeRank,
@@ -295,7 +292,7 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
                 key={resourceKey}
                 resourceKey={resourceKey}
                 resource={activeCharacter.resources[resourceKey]}
-                editable={editable}
+                interactive={canOperateResources && !editable}
                 onAdjust={(delta) => adjustResource(activeCharacter.id, resourceKey, delta)}
               />
             ))}
@@ -320,11 +317,8 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
                       updateCharacterField(activeCharacter.id, 'identity.anchor', values.anchor);
                       updateCharacterField(activeCharacter.id, 'identity.trigger', values.trigger);
 
-                      setResourceCurrent(activeCharacter.id, 'hp', values.hpCurrent);
                       setResourceMax(activeCharacter.id, 'hp', values.hpMax);
-                      setResourceCurrent(activeCharacter.id, 'energy', values.energyCurrent);
                       setResourceMax(activeCharacter.id, 'energy', values.energyMax);
-                      setResourceCurrent(activeCharacter.id, 'sanity', values.sanityCurrent);
                       setResourceMax(activeCharacter.id, 'sanity', values.sanityMax);
 
                       const attributes = {
@@ -413,33 +407,27 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
                   </Field>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-                  <Field label="PV atual">
-                    <Input type="number" {...profileForm.register('hpCurrent')} />
-                  </Field>
+                <div className="grid gap-4 md:grid-cols-3">
                   <Field label="PV máximo">
                     <Input type="number" {...profileForm.register('hpMax')} />
                   </Field>
-                  <Field label="EA atual">
-                    <Input type="number" {...profileForm.register('energyCurrent')} />
-                  </Field>
                   <Field label="EA máximo">
                     <Input type="number" {...profileForm.register('energyMax')} />
-                  </Field>
-                  <Field label="SAN atual">
-                    <Input type="number" {...profileForm.register('sanityCurrent')} />
                   </Field>
                   <Field label="SAN máximo">
                     <Input type="number" {...profileForm.register('sanityMax')} />
                   </Field>
                 </div>
+                <p className="text-xs leading-6 text-muted">
+                  Modo edicao altera apenas os maximos. Durante a sessao, os valores atuais sao ajustados nos controles rapidos ao lado da barra de cada recurso.
+                </p>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   {ATTRIBUTE_CONFIG.map((attribute) => (
                     <UtilityPanel key={attribute.key} className="rounded-2xl p-4">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{attribute.label}</p>
-                        <AttributeRollButton label={attribute.label} onRoll={() => rollAttribute(attribute.key)} />
+                        <AttributeRollButton label={attribute.label} onRoll={() => rollAttribute(attribute.key)} disabled={!canOperateResources} />
                       </div>
                       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_110px]">
                         <Input type="number" {...profileForm.register(attribute.key)} />
@@ -489,7 +477,7 @@ export function CharacterProfileEditor({ editable = true }: { editable?: boolean
                             {activeCharacter.attributes[attribute.key].value} · {activeCharacter.attributes[attribute.key].rank}
                           </p>
                         </div>
-                        <AttributeRollButton label={attribute.label} onRoll={() => rollAttribute(attribute.key)} />
+                        <AttributeRollButton label={attribute.label} onRoll={() => rollAttribute(attribute.key)} disabled={!canOperateResources} />
                       </div>
                     </UtilityPanel>
                   ))}

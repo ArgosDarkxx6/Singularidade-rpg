@@ -142,7 +142,19 @@ export const workspaceStateSchema = z.object({
       category: z.string(),
       title: z.string(),
       text: z.string(),
-      meta: z.string()
+      meta: z.string(),
+      event: z
+        .object({
+          kind: z.string(),
+          actorMembershipId: z.string().optional(),
+          actorUserId: z.string().optional(),
+          characterId: z.string().optional(),
+          characterName: z.string().optional(),
+          resourceKey: z.enum(['hp', 'energy', 'sanity']).optional(),
+          payload: z.record(z.string(), z.unknown()).optional()
+        })
+        .nullable()
+        .optional()
     })
   ),
   activeCharacterId: z.string()

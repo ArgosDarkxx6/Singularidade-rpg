@@ -709,31 +709,43 @@ export type Database = {
       table_logs: {
         Row: {
           actor_id: string | null
+          actor_membership_id: string | null
           body: string
           category: string
+          character_id: string | null
           created_at: string
+          event_kind: string
           id: string
           meta: string
+          payload: Json
           table_id: string
           title: string
         }
         Insert: {
           actor_id?: string | null
+          actor_membership_id?: string | null
           body?: string
           category?: string
+          character_id?: string | null
           created_at?: string
+          event_kind?: string
           id?: string
           meta?: string
+          payload?: Json
           table_id: string
           title?: string
         }
         Update: {
           actor_id?: string | null
+          actor_membership_id?: string | null
           body?: string
           category?: string
+          character_id?: string | null
           created_at?: string
+          event_kind?: string
           id?: string
           meta?: string
+          payload?: Json
           table_id?: string
           title?: string
         }
@@ -743,6 +755,20 @@ export type Database = {
             columns: ["actor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_logs_actor_membership_id_fkey"
+            columns: ["actor_membership_id"]
+            isOneToOne: false
+            referencedRelation: "table_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_logs_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
             referencedColumns: ["id"]
           },
           {
@@ -1069,6 +1095,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_character_resource_current: {
+        Args: {
+          p_character_id: string
+          p_delta: number
+          p_resource_key: string
+          p_table_id: string
+        }
+        Returns: {
+          character_id: string
+          current_value: number
+          max_value: number
+          resource_key: string
+          updated_at: string
+        }[]
+      }
       can_manage_character: { Args: { character_id: string }; Returns: boolean }
       can_manage_session: { Args: { session_id: string }; Returns: boolean }
       can_manage_table: { Args: { table_id: string }; Returns: boolean }
@@ -1136,6 +1177,21 @@ export type Database = {
       is_table_member: { Args: { table_id: string }; Returns: boolean }
       leave_table: { Args: { p_table_id: string }; Returns: undefined }
       normalize_username: { Args: { input: string }; Returns: string }
+      record_table_roll_event: {
+        Args: {
+          p_body: string
+          p_category?: string
+          p_character_id: string
+          p_meta?: string
+          p_payload?: Json
+          p_table_id: string
+          p_title: string
+        }
+        Returns: {
+          created_at: string
+          log_id: string
+        }[]
+      }
       resolve_join_code: {
         Args: { join_code: string }
         Returns: {

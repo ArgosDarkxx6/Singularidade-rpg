@@ -1260,23 +1260,67 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
 
 async function fetchTableLogs(tableId: string, fallbackLogs: LogEntry[]): Promise<LogEntry[]> {
   const client = assertClient();
-  const { data, error } = await client
-    .from('table_logs')
-    .select('id, category, title, body, meta, created_at')
-    .eq('table_id', tableId)
-    .order('created_at', { ascending: false });
+  let data: unknown[] | null = null;
+  let error: PostgrestError | null = null;
+
+  {
+    const result = await client
+      .from('table_logs')
+      .select('id, category, title, body, meta, created_at, actor_id, actor_membership_id, character_id, event_kind, payload')
+      .eq('table_id', tableId)
+      .order('created_at', { ascending: false });
+    data = result.data as unknown[] | null;
+    error = result.error;
+  }
+
+  if (
+    isMissingColumnError(error, 'event_kind') ||
+    isMissingColumnError(error, 'payload') ||
+    isMissingColumnError(error, 'actor_membership_id') ||
+    isMissingColumnError(error, 'character_id')
+  ) {
+    const legacyResult = await client
+      .from('table_logs')
+      .select('id, category, title, body, meta, created_at, actor_id')
+      .eq('table_id', tableId)
+      .order('created_at', { ascending: false });
+    data = legacyResult.data as unknown[] | null;
+    error = legacyResult.error;
+  }
 
   if (isPermissionError(error)) return fallbackLogs;
   if (error) throw error;
 
-  const mapped = (data || []).map((entry) =>
+  const mapped = ((data || []) as Array<{
+    id: string;
+    category: string;
+    title: string;
+    body: string;
+    meta: string | null;
+    created_at: string;
+    actor_id?: string | null;
+    actor_membership_id?: string | null;
+    character_id?: string | null;
+    event_kind?: string | null;
+    payload?: Json | null;
+  }>).map((entry) =>
     normalizeLogEntry({
       id: entry.id,
       category: entry.category,
       title: entry.title,
       text: entry.body,
-      meta: entry.meta,
-      timestamp: entry.created_at
+      meta: entry.meta ?? undefined,
+      timestamp: entry.created_at,
+      event:
+        entry.event_kind && entry.event_kind !== 'generic'
+          ? {
+              kind: String(entry.event_kind),
+              actorMembershipId: entry.actor_membership_id ?? undefined,
+              actorUserId: entry.actor_id ?? undefined,
+              characterId: entry.character_id ?? undefined,
+              payload: entry.payload && typeof entry.payload === 'object' ? (entry.payload as Record<string, unknown>) : undefined
+            }
+          : null
     })
   );
 
@@ -1859,19 +1903,46 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         await syncCharacterRows(createdTable.id, user.id, state);
 
         if (state.log.length) {
-          const { error: logError } = await client.from('table_logs').insert(
+          let logInsert = await client.from('table_logs').insert(
             state.log.map((entry) => omitLocalId({
               id: entry.id,
               table_id: createdTable.id,
               actor_id: user.id,
+              actor_membership_id: membership.id,
+              character_id: entry.event?.characterId || null,
               category: entry.category,
               title: entry.title,
               body: entry.text,
               meta: entry.meta,
+              event_kind: entry.event?.kind || 'generic',
+              payload: (entry.event?.payload || {}) as unknown as Json,
               created_at: entry.timestamp
             }))
           );
-          if (logError) throw logError;
+
+          if (
+            isMissingColumnError(logInsert.error, 'event_kind') ||
+            isMissingColumnError(logInsert.error, 'payload') ||
+            isMissingColumnError(logInsert.error, 'actor_membership_id') ||
+            isMissingColumnError(logInsert.error, 'character_id')
+          ) {
+            logInsert = await client.from('table_logs').insert(
+              state.log.map((entry) =>
+                omitLocalId({
+                  id: entry.id,
+                  table_id: createdTable.id,
+                  actor_id: user.id,
+                  category: entry.category,
+                  title: entry.title,
+                  body: entry.text,
+                  meta: entry.meta,
+                  created_at: entry.timestamp
+                })
+              )
+            );
+          }
+
+          if (logInsert.error) throw logInsert.error;
         }
 
         const { error: snapshotError } = await client.from('table_snapshots').insert({
@@ -2366,6 +2437,159 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       if (error) throw error;
       return fetchTableState(session.tableId);
     },
+    async adjustCharacterResource({ session, characterId, resourceKey, delta }) {
+      if (session.role === 'viewer') {
+        throw new Error('Seu papel atual permite apenas leitura.');
+      }
+
+      if (session.role === 'player' && session.characterId !== characterId) {
+        throw new Error('Players so podem ajustar recursos da propria ficha vinculada.');
+      }
+
+      const client = assertClient();
+      const rpcArgs = {
+        p_table_id: session.tableId,
+        p_character_id: characterId,
+        p_resource_key: resourceKey,
+        p_delta: delta
+      };
+
+      const { data, error } = await client.rpc('adjust_character_resource_current', rpcArgs);
+      if (!error) {
+        const row = data?.[0];
+        if (!row) {
+          throw new Error('Ajuste de recurso nao retornou dados.');
+        }
+
+        return {
+          characterId: row.character_id,
+          resourceKey: row.resource_key as 'hp' | 'energy' | 'sanity',
+          current: row.current_value,
+          max: row.max_value
+        };
+      }
+
+      if (!isMissingFunctionError(error)) {
+        throw error;
+      }
+
+      const { data: existing, error: existingError } = await client
+        .from('character_resources')
+        .select('current_value, max_value')
+        .eq('character_id', characterId)
+        .eq('resource_key', resourceKey)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (!existing) throw new Error('Recurso nao encontrado.');
+
+      const nextCurrent = Math.max(0, Math.min(existing.max_value, existing.current_value + delta));
+      const { data: updated, error: updateError } = await client
+        .from('character_resources')
+        .update({
+          current_value: nextCurrent
+        })
+        .eq('character_id', characterId)
+        .eq('resource_key', resourceKey)
+        .select('current_value, max_value')
+        .single();
+      if (updateError) throw updateError;
+
+      return {
+        characterId,
+        resourceKey,
+        current: updated.current_value,
+        max: updated.max_value
+      };
+    },
+    async recordGuidedRoll({
+      session,
+      userId,
+      characterId,
+      characterName,
+      attributeKey,
+      attributeLabel,
+      context,
+      natural,
+      effectiveModifier,
+      extraBonus,
+      total,
+      tn,
+      outcomeLabel,
+      margin,
+      meta,
+      text,
+      title
+    }) {
+      if (session.role === 'viewer') {
+        throw new Error('Seu papel atual permite apenas leitura.');
+      }
+
+      if (session.role === 'player' && session.characterId !== characterId) {
+        throw new Error('Players so podem rolar pela propria ficha vinculada.');
+      }
+
+      const payload = {
+        kind: 'roll',
+        mode: 'guided',
+        characterId,
+        characterName,
+        attributeKey,
+        attributeLabel,
+        context,
+        natural,
+        effectiveModifier,
+        extraBonus,
+        total,
+        tn,
+        outcomeLabel,
+        margin
+      } satisfies Record<string, unknown>;
+
+      const client = assertClient();
+      const { error } = await client.rpc('record_table_roll_event', {
+        p_table_id: session.tableId,
+        p_character_id: characterId,
+        p_title: title,
+        p_body: text,
+        p_meta: meta,
+        p_payload: payload as unknown as Json,
+        p_category: 'Rolagem'
+      });
+
+      if (!error) return;
+      if (!isMissingFunctionError(error)) throw error;
+
+      let fallbackInsert = await client.from('table_logs').insert({
+        table_id: session.tableId,
+        actor_id: userId,
+        actor_membership_id: session.membershipId,
+        character_id: characterId,
+        category: 'Rolagem',
+        title,
+        body: text,
+        meta,
+        event_kind: 'roll',
+        payload: payload as unknown as Json
+      });
+
+      if (
+        isMissingColumnError(fallbackInsert.error, 'event_kind') ||
+        isMissingColumnError(fallbackInsert.error, 'payload') ||
+        isMissingColumnError(fallbackInsert.error, 'actor_membership_id') ||
+        isMissingColumnError(fallbackInsert.error, 'character_id')
+      ) {
+        fallbackInsert = await client.from('table_logs').insert({
+          table_id: session.tableId,
+          actor_id: userId,
+          category: 'Rolagem',
+          title,
+          body: text,
+          meta
+        });
+      }
+
+      if (fallbackInsert.error) throw fallbackInsert.error;
+    },
     async saveCharacter({ session, userId, character }) {
       if (session.role === 'viewer') {
         throw new Error('Seu papel atual permite apenas leitura.');
@@ -2377,17 +2601,42 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     },
     async appendTableLog({ session, userId, entry }) {
       const client = assertClient();
-      const { error } = await client.from('table_logs').insert(omitLocalId({
+      let logInsert = await client.from('table_logs').insert(omitLocalId({
         id: entry.id,
         table_id: session.tableId,
         actor_id: userId,
+        actor_membership_id: session.membershipId,
+        character_id: entry.event?.characterId || null,
         category: entry.category,
         title: entry.title,
         body: entry.text,
         meta: entry.meta,
+        event_kind: entry.event?.kind || 'generic',
+        payload: (entry.event?.payload || {}) as unknown as Json,
         created_at: entry.timestamp
       }));
-      if (error) throw error;
+
+      if (
+        isMissingColumnError(logInsert.error, 'event_kind') ||
+        isMissingColumnError(logInsert.error, 'payload') ||
+        isMissingColumnError(logInsert.error, 'actor_membership_id') ||
+        isMissingColumnError(logInsert.error, 'character_id')
+      ) {
+        logInsert = await client.from('table_logs').insert(
+          omitLocalId({
+            id: entry.id,
+            table_id: session.tableId,
+            actor_id: userId,
+            category: entry.category,
+            title: entry.title,
+            body: entry.text,
+            meta: entry.meta,
+            created_at: entry.timestamp
+          })
+        );
+      }
+
+      if (logInsert.error) throw logInsert.error;
     },
     async clearTableLogs({ session }) {
       if (session.role !== 'gm') {

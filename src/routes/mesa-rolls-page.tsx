@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
 import { Dices, Target, Trash2 } from 'lucide-react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
@@ -27,7 +28,12 @@ function attributeRankLabel(character: Character, attributeKey: keyof Character[
 
 export function MesaRollsPage() {
   const { state, lastRoll, executeAttributeRoll, executeCustomRoll, clearLog, online } = useWorkspace();
-  const canClearLog = online.session?.role === 'gm';
+  const session = online.session;
+  const canClearLog = session?.role === 'gm';
+  const availableCharacters =
+    session?.role === 'player' && session.characterId
+      ? state.characters.filter((character) => character.id === session.characterId)
+      : state.characters;
 
   const guidedForm = useForm<GuidedValues>({
     resolver: zodResolver(guidedRollSchema) as never,
@@ -52,7 +58,15 @@ export function MesaRollsPage() {
     }
   });
 
-  const selectedCharacter = state.characters.find((character) => character.id === guidedForm.watch('characterId')) || state.characters[0];
+  const selectedCharacter =
+    availableCharacters.find((character) => character.id === guidedForm.watch('characterId')) || availableCharacters[0] || null;
+
+  useEffect(() => {
+    const selectedId = guidedForm.getValues('characterId');
+    if (!availableCharacters.some((character) => character.id === selectedId) && availableCharacters[0]) {
+      guidedForm.setValue('characterId', availableCharacters[0].id, { shouldValidate: true });
+    }
+  }, [availableCharacters, guidedForm]);
 
   return (
     <div className="page-shell pb-8">
@@ -105,7 +119,7 @@ export function MesaRollsPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <Field label="Personagem">
                   <Select {...guidedForm.register('characterId')}>
-                    {state.characters.map((character) => (
+                    {availableCharacters.map((character) => (
                       <option key={character.id} value={character.id}>
                         {character.name}
                       </option>

@@ -15,8 +15,8 @@ export function Field({
   className?: string;
 }) {
   return (
-    <label className={cn('grid min-w-0 gap-2 text-sm text-soft', className)}>
-      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{label}</span>
+    <label className={cn('grid min-w-0 gap-1.5 text-sm text-soft', className)}>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{label}</span>
       {children}
       {error ? <span className="text-xs text-rose-200">{error}</span> : hint ? <span className="text-xs text-muted">{hint}</span> : null}
     </label>
@@ -27,7 +27,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        'min-h-12 w-full min-w-0 rounded-lg border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/75',
+        'min-h-10 w-full min-w-0 rounded-lg border border-white/12 bg-slate-950/60 px-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/78',
         className
       )}
       {...props}
@@ -39,7 +39,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cn(
-        'min-h-28 w-full min-w-0 rounded-lg border border-white/10 bg-slate-950/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/75',
+        'min-h-24 w-full min-w-0 rounded-lg border border-white/12 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/78',
         className
       )}
       {...props}
@@ -51,7 +51,7 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
   return (
     <select
       className={cn(
-        'min-h-12 w-full min-w-0 rounded-lg border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/75',
+        'min-h-10 w-full min-w-0 rounded-lg border border-white/12 bg-slate-950/60 px-3 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/78',
         className
       )}
       {...props}

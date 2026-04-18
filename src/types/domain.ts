@@ -162,6 +162,15 @@ export interface LogEntry {
   title: string;
   text: string;
   meta: string;
+  event?: {
+    kind: string;
+    actorMembershipId?: string;
+    actorUserId?: string;
+    characterId?: string;
+    characterName?: string;
+    resourceKey?: ResourceKey;
+    payload?: Record<string, unknown>;
+  } | null;
 }
 
 export interface OrderEntry {

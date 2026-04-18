@@ -203,7 +203,7 @@ export function MesaSheetsPage() {
 
         <div className="grid gap-6">
           {canEditActiveCharacter ? (
-            <CharacterProfileEditor editable={effectiveEditable} />
+            <CharacterProfileEditor editable={effectiveEditable} canOperateResources={canEditActiveCharacter} />
           ) : (
             <ReadonlyCharacterSummary
               character={activeCharacter}

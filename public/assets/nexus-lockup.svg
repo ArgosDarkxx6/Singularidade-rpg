@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 120" role="img" aria-label="Project Nexus Lockup">
+  <defs>
+    <linearGradient id="nexusLockupLine" x1="22" y1="16" x2="610" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A8ECFF" />
+      <stop offset="0.5" stop-color="#66AFFF" />
+      <stop offset="1" stop-color="#486BFF" />
+    </linearGradient>
+  </defs>
+  <rect width="640" height="120" rx="18" fill="#050B17" />
+  <g transform="translate(18 12)">
+    <rect x="0" y="0" width="96" height="96" rx="18" fill="#081224" stroke="url(#nexusLockupLine)" stroke-opacity="0.5" />
+    <path d="M18 22h15l15 20 15-20h15L55 50l24 30H63L48 59 33 80H17l24-30-23-28z" fill="url(#nexusLockupLine)" />
+  </g>
+  <g transform="translate(134 23)">
+    <text x="0" y="24" font-family="'Plus Jakarta Sans', 'Manrope', sans-serif" font-size="14" font-weight="700" letter-spacing="4" fill="#90DFFF">PROJECT</text>
+    <text x="0" y="70" font-family="'Plus Jakarta Sans', 'Manrope', sans-serif" font-size="52" font-weight="800" letter-spacing="0" fill="#EAF4FF">NEXUS</text>
+  </g>
+  <path d="M134 92h468" stroke="url(#nexusLockupLine)" stroke-opacity="0.35" />
+</svg>

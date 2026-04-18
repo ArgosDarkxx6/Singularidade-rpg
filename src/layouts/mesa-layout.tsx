@@ -24,7 +24,7 @@ import { Panel, UtilityPanel } from '@components/ui/panel';
 import { ScrollArea } from '@components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@components/ui/sheet';
 import { useAuth } from '@features/auth/hooks/use-auth';
-import { MESA_NAV_ITEMS, getMesaSectionFromPath } from '@features/mesa/lib/mesa-routing';
+import { MESA_NAV_ITEMS, buildMesaSectionPath, getMesaSectionFromPath } from '@features/mesa/lib/mesa-routing';
 import { useMesaShellStore } from '@features/mesa/store/use-mesa-shell-store';
 import { getGameSystem } from '@features/systems/registry';
 import { useWorkspace } from '@features/workspace/use-workspace';
@@ -73,9 +73,11 @@ function formatRelativeDate(value: string) {
 
 function MesaNavigation({
   slug,
+  compact = false,
   onNavigate
 }: {
   slug: string;
+  compact?: boolean;
   onNavigate?: () => void;
 }) {
   return (
@@ -87,18 +89,53 @@ function MesaNavigation({
             key={item.section}
             to={item.href(slug)}
             onClick={onNavigate}
+            aria-label={item.label}
             className={({ isActive }) =>
               cn(
-                'group flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition',
+                'rail-nav-link group flex items-center gap-3 rounded-lg px-3.5 py-3 text-sm font-semibold transition',
                 isActive ? 'bg-sky-400/14 text-white' : 'text-soft hover:bg-white/[0.05] hover:text-white'
               )
             }
           >
             <Icon className="size-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            <span className={cn('min-w-0 flex-1 truncate', compact && 'rail-label')}>{item.label}</span>
           </NavLink>
         );
       })}
+    </nav>
+  );
+}
+
+const MOBILE_PRIMARY_SECTIONS: MesaSection[] = ['overview', 'fichas', 'rolagens', 'ordem'];
+
+function MesaMobileBottomNav({ slug, currentSection }: { slug: string; currentSection: MesaSection }) {
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/12 bg-[rgba(7,12,24,0.94)] px-2 pb-[max(env(safe-area-inset-bottom),0.45rem)] pt-2 backdrop-blur sm:hidden">
+      <ul className="mx-auto grid max-w-[560px] grid-cols-4 gap-1.5">
+        {MOBILE_PRIMARY_SECTIONS.map((section) => {
+          const navItem = MESA_NAV_ITEMS.find((item) => item.section === section);
+          if (!navItem) return null;
+          const Icon = sectionIcons[section];
+          const isActive = currentSection === section;
+          return (
+            <li key={section}>
+              <NavLink
+                to={buildMesaSectionPath(slug, section)}
+                className={cn(
+                  'flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg border text-[11px] font-semibold transition',
+                  isActive
+                    ? 'border-sky-300/35 bg-sky-500/18 text-white'
+                    : 'border-white/10 bg-white/[0.03] text-soft hover:text-white'
+                )}
+                aria-label={navItem.label}
+              >
+                <Icon className="size-4" />
+                <span>{navItem.label}</span>
+              </NavLink>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }
@@ -115,6 +152,7 @@ function MesaSidebarContent({
   onLeave,
   onOpenProfile,
   onSignOut,
+  compact = false,
   onNavigate
 }: {
   table: TableState;
@@ -128,6 +166,7 @@ function MesaSidebarContent({
   onLeave: () => void;
   onOpenProfile: () => void;
   onSignOut: () => void;
+  compact?: boolean;
   onNavigate?: () => void;
 }) {
   const activeSystem = getGameSystem(table.systemKey);
@@ -135,17 +174,17 @@ function MesaSidebarContent({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-start justify-between gap-3">
-        <LogoLockup variant="system" systemKey={table.systemKey} className="min-w-0" />
-        <span className="rounded-full border border-sky-300/18 bg-sky-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100">
+        <LogoLockup compact={compact} variant="system" systemKey={table.systemKey} className="min-w-0" />
+        <span className={cn('rounded-full border border-sky-300/18 bg-sky-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100', compact && 'rail-expanded-block')}>
           {formatRoleLabel(session.role)}
         </span>
       </div>
 
       <ScrollArea className="mt-6 min-h-0 flex-1 pr-2">
         <div className="grid gap-6 pb-4">
-          <section className="grid gap-3">
+          <section className={cn('grid gap-3', compact && 'rail-expanded-block')}>
             <p className="section-label">Mesa atual</p>
-            <Panel className="rounded-2xl p-4">
+            <Panel className="rounded-lg p-3.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">{activeSystem.name}</p>
               <h2 className="mt-2 text-xl font-semibold text-white">{table.name}</h2>
               <p className="mt-2 text-sm text-soft">
@@ -155,14 +194,14 @@ function MesaSidebarContent({
                 <Link
                   to="/mesas"
                   onClick={onNavigate}
-                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm font-semibold text-soft transition hover:border-white/18 hover:text-white"
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm font-semibold text-soft transition hover:border-white/18 hover:text-white"
                 >
                   Voltar ao hub
                 </Link>
                 <Link
                   to={`/mesa/${slug}/configuracoes`}
                   onClick={onNavigate}
-                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-sm font-semibold text-soft transition hover:border-white/18 hover:text-white"
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm font-semibold text-soft transition hover:border-white/18 hover:text-white"
                 >
                   Abrir configurações
                 </Link>
@@ -171,11 +210,11 @@ function MesaSidebarContent({
           </section>
 
           <section className="grid gap-2">
-            <p className="section-label">Módulos</p>
-            <MesaNavigation slug={slug} onNavigate={onNavigate} />
+            <p className={cn('section-label', compact && 'rail-expanded-block')}>Módulos</p>
+            <MesaNavigation slug={slug} compact={compact} onNavigate={onNavigate} />
           </section>
 
-          <section className="grid gap-3">
+          <section className={cn('grid gap-3', compact && 'rail-expanded-block')}>
             <div className="flex items-center justify-between gap-3">
               <p className="section-label">Leitura rápida</p>
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
@@ -183,22 +222,22 @@ function MesaSidebarContent({
               </span>
             </div>
             <div className="grid gap-2.5">
-              <UtilityPanel className="rounded-xl px-3.5 py-3.5">
+              <UtilityPanel className="rounded-lg px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status</p>
                 <p className="mt-2 text-sm font-semibold text-white">{currentTableSummary?.status || table.currentSession?.status || 'Sem sessão'}</p>
               </UtilityPanel>
-              <UtilityPanel className="rounded-xl px-3.5 py-3.5">
+              <UtilityPanel className="rounded-lg px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Presença</p>
                 <p className="mt-2 text-sm font-semibold text-white">{members.length} membro(s) visíveis</p>
               </UtilityPanel>
-              <UtilityPanel className="rounded-xl px-3.5 py-3.5">
+              <UtilityPanel className="rounded-lg px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Último sync</p>
                 <p className="mt-2 text-sm font-semibold text-white">{formatRelativeDate(table.updatedAt)}</p>
               </UtilityPanel>
             </div>
           </section>
 
-          <section className="grid gap-3">
+          <section className={cn('grid gap-3', compact && 'rail-expanded-block')}>
             <div className="flex items-center justify-between gap-3">
               <p className="section-label">Trocar mesa</p>
               <ArrowLeftRight className="size-4 text-soft" />
@@ -213,7 +252,7 @@ function MesaSidebarContent({
                     onNavigate?.();
                   }}
                   className={cn(
-                    'rounded-xl border px-3.5 py-3 text-left transition',
+                    'rounded-lg border px-3.5 py-3 text-left transition',
                     entry.slug === slug
                       ? 'border-sky-300/18 bg-sky-500/10'
                       : 'border-white/8 bg-white/[0.025] hover:border-sky-300/18 hover:bg-white/[0.05]'
@@ -228,7 +267,7 @@ function MesaSidebarContent({
             </div>
           </section>
 
-          <section className="grid gap-3">
+          <section className={cn('grid gap-3', compact && 'rail-expanded-block')}>
             <div className="flex items-center justify-between gap-3">
               <p className="section-label">Membros visíveis</p>
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
@@ -238,7 +277,7 @@ function MesaSidebarContent({
             <div className="grid gap-2">
               {members.length ? (
                 members.map((member) => (
-                  <UtilityPanel key={member.id} className="rounded-xl px-3.5 py-3">
+                  <UtilityPanel key={member.id} className="rounded-lg px-3 py-2.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-white">{member.nickname}</p>
@@ -260,22 +299,22 @@ function MesaSidebarContent({
       </ScrollArea>
 
       <div className="mt-4 border-t border-white/10 pt-4">
-        <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
+        <div className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
           <Avatar src={user?.avatarUrl || undefined} name={user?.displayName || user?.username || 'Usuário'} size="sm" />
-          <div className="min-w-0 flex-1">
+          <div className={cn('min-w-0 flex-1', compact && 'rail-label')}>
             <p className="truncate text-sm font-semibold text-white">{user?.displayName || 'Usuário'}</p>
             <p className="truncate text-xs uppercase tracking-[0.16em] text-muted">@{user?.username}</p>
             <p className="mt-2 text-xs uppercase tracking-[0.16em] text-muted">{session.nickname}</p>
           </div>
         </div>
-        <div className="mt-3 grid gap-2">
-          <Button variant="secondary" onClick={onOpenProfile}>
+        <div className={cn('mt-3 grid gap-2', compact && 'rail-expanded-block')}>
+          <Button size="sm" variant="secondary" onClick={onOpenProfile}>
             Minha conta
           </Button>
-          <Button variant="secondary" onClick={onLeave}>
+          <Button size="sm" variant="secondary" onClick={onLeave}>
             Sair da mesa
           </Button>
-          <Button variant="ghost" onClick={onSignOut}>
+          <Button size="sm" variant="ghost" onClick={onSignOut}>
             Encerrar sessão
           </Button>
         </div>
@@ -425,10 +464,10 @@ export function MesaLayout() {
 
   return (
     <div className={cn('relative min-h-screen overflow-hidden', activeSystem.themeClassName)}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(87,187,255,0.12),transparent_22%),radial-gradient(circle_at_top_right,rgba(143,228,255,0.06),transparent_16%),linear-gradient(180deg,rgba(3,7,12,0.7),rgba(4,8,15,0.94))]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(87,187,255,0.12),transparent_21%),radial-gradient(circle_at_top_right,rgba(143,228,255,0.08),transparent_14%),linear-gradient(180deg,rgba(4,8,16,0.74),rgba(4,8,15,0.94))]" />
 
-      <div className="relative mx-auto grid min-h-screen max-w-[1840px] grid-cols-1 gap-5 px-4 py-4 xl:grid-cols-[318px_minmax(0,1fr)] xl:px-6 xl:py-5">
-        <aside className="app-sidebar-shell hidden xl:flex xl:min-h-[calc(100svh-2.5rem)] xl:flex-col">
+      <div className="relative mx-auto grid min-h-screen max-w-[1840px] grid-cols-1 gap-4 px-3 py-3 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-4 xl:py-4">
+        <aside className="app-sidebar-shell rail-shell hidden xl:flex xl:min-h-[calc(100svh-2rem)] xl:flex-col">
           <MesaSidebarContent
             table={table}
             session={session}
@@ -441,16 +480,17 @@ export function MesaLayout() {
             onLeave={() => void handleLeaveTable()}
             onOpenProfile={() => navigate('/perfil')}
             onSignOut={handleSignOut}
+            compact
           />
         </aside>
 
-        <div className="flex min-h-screen flex-col gap-5 xl:min-h-[calc(100svh-2.5rem)]">
-          <header className="app-topbar sticky top-4 z-30">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-h-screen flex-col gap-4 xl:min-h-[calc(100svh-2rem)]">
+          <header className="app-topbar sticky top-3 z-30">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-3">
                 <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                   <SheetTrigger asChild>
-                    <button className="inline-flex rounded-xl border border-white/10 bg-white/[0.04] p-3 text-soft transition hover:text-white xl:hidden">
+                    <button className="inline-flex rounded-lg border border-white/10 bg-white/[0.04] p-2.5 text-soft transition hover:text-white xl:hidden">
                       <Menu className="size-5" />
                       <span className="sr-only">Abrir navegação</span>
                     </button>
@@ -474,30 +514,31 @@ export function MesaLayout() {
                         setMobileNavOpen(false);
                         handleSignOut();
                       }}
+                      compact={false}
                       onNavigate={() => setMobileNavOpen(false)}
                     />
                   </SheetContent>
                 </Sheet>
 
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{activeSystem.name}</p>
-                  <h1 className="mt-2 text-balance font-display text-4xl leading-none text-white sm:text-5xl">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{activeSystem.name}</p>
+                  <h1 className="mt-1 text-balance text-xl font-semibold leading-tight text-white sm:text-2xl">
                     {MESA_SECTION_LABELS[currentSection]}
                   </h1>
-                  <p className="mt-3 max-w-3xl text-sm leading-6 text-soft">{sectionDescriptions[currentSection]}</p>
+                  <p className="mt-1 max-w-3xl text-sm text-soft">{sectionDescriptions[currentSection]}</p>
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <UtilityPanel className="rounded-2xl px-4 py-3.5">
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <UtilityPanel className="rounded-lg px-3 py-2.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Mesa</p>
                   <p className="mt-2 text-sm font-semibold text-white">{table.name}</p>
                 </UtilityPanel>
-                <UtilityPanel className="rounded-2xl px-4 py-3.5">
+                <UtilityPanel className="rounded-lg px-3 py-2.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status</p>
                   <p className="mt-2 text-sm font-semibold text-white">{currentTableSummary?.status || table.currentSession?.status || 'Sem sessão'}</p>
                 </UtilityPanel>
-                <UtilityPanel className="rounded-2xl px-4 py-3.5">
+                <UtilityPanel className="rounded-lg px-3 py-2.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Presença</p>
                   <p className="mt-2 text-sm font-semibold text-white">{members.length} visíveis</p>
                 </UtilityPanel>
@@ -513,7 +554,7 @@ export function MesaLayout() {
             </div>
           </header>
 
-          <div className="app-content-shell min-h-0 flex-1 px-4 py-4 sm:px-6 xl:px-8">
+          <div className="app-content-shell min-h-0 flex-1 px-3 py-3 sm:px-4 xl:px-5">
             <AnimatePresence mode="wait">
               <motion.main
                 key={location.pathname + location.search}
@@ -521,7 +562,7 @@ export function MesaLayout() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="page-grid pb-8"
+                className="page-grid pb-24 sm:pb-8"
               >
                 <Outlet />
               </motion.main>
@@ -529,6 +570,7 @@ export function MesaLayout() {
           </div>
         </div>
       </div>
+      <MesaMobileBottomNav slug={slug} currentSection={currentSection} />
     </div>
   );
 }
