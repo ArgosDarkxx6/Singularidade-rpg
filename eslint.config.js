@@ -12,6 +12,7 @@ export default tseslint.config(
       'coverage',
       'playwright-report',
       'test-results',
+      '.wrangler',
       'supabase/.temp',
       'cloudflare/*.js',
       'cloudflare/*.d.ts',
@@ -27,7 +28,18 @@ export default tseslint.config(
     ]
   },
   js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: ['**/*.{ts,tsx}']
+  })),
+  {
+    files: ['scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: globals.node
+    }
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

@@ -29,18 +29,7 @@ import {
 export const CURRENT_VERSION = 8;
 export const DEFAULT_GAME_SYSTEM_KEY: GameSystemKey = 'singularidade';
 export const STORAGE_KEY = 'project-nexus-state-v8';
-export const AUTH_STORAGE_KEY = 'project-nexus-auth-v1';
-export const USERS_STORAGE_KEY = 'project-nexus-users-v1';
-export const TABLES_STORAGE_KEY = 'project-nexus-tables-v1';
 export const ONLINE_SESSION_STORAGE_KEY = 'project-nexus-online-session-v1';
-export const LEGACY_MIGRATION_STORAGE_KEY = 'project-nexus-legacy-migration-v1';
-
-export const LEGACY_STORAGE_KEY = 'singularidade-remake-state-v8';
-export const LEGACY_AUTH_STORAGE_KEY = 'singularidade-remake-auth-v1';
-export const LEGACY_USERS_STORAGE_KEY = 'singularidade-remake-users-v1';
-export const LEGACY_TABLES_STORAGE_KEY = 'singularidade-remake-tables-v1';
-export const LEGACY_ONLINE_SESSION_STORAGE_KEY = 'singularidade-remake-online-session-v1';
-export const LEGACY_MIGRATION_DISMISSAL_STORAGE_KEY = 'singularidade-remake-legacy-migration-v1';
 
 export const RESOURCE_KEYS: ResourceKey[] = SINGULARIDADE_RESOURCE_KEYS;
 

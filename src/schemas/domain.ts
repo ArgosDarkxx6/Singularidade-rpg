@@ -57,16 +57,26 @@ export const conditionSchema = collectionItemSchema.extend({
   note: z.string()
 });
 
+export const characterGalleryImageSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  path: z.string(),
+  caption: z.string(),
+  sortOrder: z.number().int().nonnegative()
+});
+
 export const characterSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   age: z.number().int().nonnegative(),
   appearance: z.string(),
+  lore: z.string(),
   clan: z.string(),
   grade: z.string(),
   avatarMode: z.enum(['none', 'url', 'upload']),
   avatar: z.string(),
   avatarPath: z.string().optional(),
+  gallery: z.array(characterGalleryImageSchema),
   identity: identitySchema,
   resources: z.object({
     hp: resourceSchema,

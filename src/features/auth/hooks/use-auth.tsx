@@ -8,8 +8,6 @@ import {
   type ReactNode
 } from 'react';
 import type { AuthSession, AuthUser, Profile } from '@/types/domain';
-import { shouldUseSupabaseRuntime } from '@integrations/supabase/env';
-import { createLocalAuthService } from '@services/auth/local-auth-service';
 import { createSupabaseAuthService } from '@services/auth/supabase-auth-service';
 import type { AuthService, SignInPayload, SignUpPayload, SignUpResult } from '@services/auth/types';
 
@@ -28,10 +26,12 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const defaultAuthService = shouldUseSupabaseRuntime ? createSupabaseAuthService() : createLocalAuthService();
 
 export function AuthProvider({ children, service }: { children: ReactNode; service?: AuthService }) {
-  const authService = useMemo(() => service ?? defaultAuthService, [service]);
+  const authService = useMemo(() => {
+    if (service) return service;
+    return createSupabaseAuthService();
+  }, [service]);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isReady, setIsReady] = useState(false);

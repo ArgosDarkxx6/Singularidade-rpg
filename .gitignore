@@ -12,6 +12,7 @@ playwright-report/
 test-results/
 .playwright-cli/
 .env
+.dev.vars
 .env.local
 .env.production
 supabase/.branches/

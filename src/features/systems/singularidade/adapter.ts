@@ -47,7 +47,7 @@ export const SINGULARIDADE_SESSION_ATTENDANCE_STATUS_LABELS: Record<SessionAtten
 };
 
 export const SINGULARIDADE_MESA_SECTION_LABELS: Record<MesaSection, string> = {
-  overview: 'Mesa',
+  overview: 'Geral',
   sessao: 'Sessão',
   fichas: 'Fichas',
   rolagens: 'Rolagens',

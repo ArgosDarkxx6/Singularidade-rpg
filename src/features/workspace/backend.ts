@@ -1,6 +1,7 @@
 import type {
   AuthUser,
   Character,
+  CharacterGalleryImage,
   GameSession,
   GameSystemKey,
   LogEntry,
@@ -34,6 +35,10 @@ export type JoinCodeBackendResult = JoinCodePendingResult | JoinCodeConnectedRes
 export interface UploadAvatarResult {
   url: string;
   path: string;
+}
+
+export interface UploadCharacterGalleryImageResult extends UploadAvatarResult {
+  image: CharacterGalleryImage;
 }
 
 export interface WorkspaceBackend {
@@ -92,4 +97,5 @@ export interface WorkspaceBackend {
   leaveTable: (input: { session: TableSession; userId: string }) => Promise<void>;
   disconnectSession: (input: { session: TableSession; userId: string }) => Promise<void>;
   uploadCharacterAvatar: (input: { user: AuthUser; characterId: string; file: File }) => Promise<UploadAvatarResult>;
+  uploadCharacterGalleryImage: (input: { user: AuthUser; characterId: string; file: File; caption?: string; sortOrder?: number }) => Promise<UploadCharacterGalleryImageResult>;
 }

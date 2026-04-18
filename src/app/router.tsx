@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
+import { ProtectedAppShell } from '@layouts/protected-app-shell';
 import { GuestLayout } from '@routes/guest-layout';
 import { LegacyRouteRedirect } from '@routes/legacy-route-redirect';
 import { NotFoundPage } from '@routes/not-found-page';
@@ -15,6 +16,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <GuestLayout />,
+    hydrateFallbackElement: <Placeholder />,
     children: [
       {
         path: '/entrar',
@@ -31,12 +33,17 @@ export const router = createBrowserRouter([
     element: <ProtectedLayout />,
     children: [
       {
-        path: '/mesas',
-        lazy: async () => ({ Component: (await import('@routes/mesas-page')).MesasPage })
-      },
-      {
-        path: '/perfil',
-        lazy: async () => ({ Component: (await import('@routes/profile-page')).ProfilePage })
+        element: <ProtectedAppShell />,
+        children: [
+          {
+            path: '/mesas',
+            lazy: async () => ({ Component: (await import('@routes/mesas-page')).MesasPage })
+          },
+          {
+            path: '/perfil',
+            lazy: async () => ({ Component: (await import('@routes/profile-page')).ProfilePage })
+          }
+        ]
       },
       {
         path: '/fichas',

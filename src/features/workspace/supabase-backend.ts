@@ -2,6 +2,7 @@ import type { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
 import type {
   AuthUser,
   Character,
+  CharacterGalleryImage,
   GameSession,
   GameSystemKey,
   LogEntry,
@@ -21,9 +22,10 @@ import type {
 import { DEFAULT_GAME_SYSTEM_KEY, DEFAULT_TABLE_META } from '@lib/domain/constants';
 import { resolveGameSystemKey } from '@features/systems/registry';
 import { createDefaultState, makeCharacter, normalizeLogEntry, normalizeState } from '@lib/domain/state';
-import { deepClone, sanitizeJoinCode, slugify, uid } from '@lib/domain/utils';
+import { deepClone, parseTags, sanitizeJoinCode, slugify, uid } from '@lib/domain/utils';
 import { workspaceStateSchema } from '@schemas/domain';
 import { supabase } from '@integrations/supabase/client';
+import { characterOwnershipApiUrl } from '@integrations/supabase/env';
 import type { Json } from '@integrations/supabase/database.types';
 import type { JoinCodeBackendResult, UploadAvatarResult, WorkspaceBackend } from './backend';
 import { toWorkspaceError } from './invite-rules';
@@ -52,6 +54,62 @@ function isMissingFunctionError(error: { code?: string; message?: string } | nul
   const message = String(error.message || '').toLowerCase();
   return error.code === 'PGRST202' || message.includes('could not find the function') || message.includes('function public.');
 }
+
+function shouldFallbackToLegacyClaim(error: { code?: string; message?: string; details?: string } | null | undefined) {
+  if (!error) return false;
+  const message = String(error.message || '').toLowerCase();
+  const details = String(error.details || '').toLowerCase();
+
+  return (
+    isMissingFunctionError(error) ||
+    (error.code === '42702' && message.includes('table_id') && details.includes('table column'))
+  );
+}
+
+function isMissingColumnError(error: { code?: string; message?: string } | null | undefined, column?: string) {
+  if (!error) return false;
+  const message = String(error.message || '').toLowerCase();
+  const missing =
+    error.code === '42703' ||
+    error.code === 'PGRST204' ||
+    message.includes('could not find') ||
+    message.includes('does not exist');
+
+  return missing && (!column || message.includes(column.toLowerCase()));
+}
+
+function isMissingRelationError(error: { code?: string; message?: string } | null | undefined, relation?: string) {
+  if (!error) return false;
+  const message = String(error.message || '').toLowerCase();
+  const missing =
+    error.code === '42P01' ||
+    error.code === 'PGRST205' ||
+    message.includes('could not find the table') ||
+    message.includes('does not exist');
+
+  return missing && (!relation || message.includes(relation.toLowerCase()));
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string | null | undefined): value is string {
+  return Boolean(value && UUID_PATTERN.test(value));
+}
+
+function omitLocalId<Row extends { id?: string }>(row: Row): Omit<Row, 'id'> & { id?: string } {
+  const payload = { ...row };
+  if (!isUuid(payload.id)) {
+    delete payload.id;
+  }
+
+  return payload;
+}
+
+let supportsTableSystemKey = true;
+let supportsTableSessions = true;
+let supportsSessionAttendances = true;
+let supportsCharacterLore = true;
+let supportsCharacterGallery = true;
 
 function serializeStateForStorage(state: WorkspaceState): WorkspaceState {
   const nextState = deepClone(state);
@@ -156,6 +214,7 @@ type CharacterRow = {
   clan: string;
   grade: string;
   appearance: string;
+  lore?: string;
   identity_scar: string;
   identity_anchor: string;
   identity_trigger: string;
@@ -165,6 +224,50 @@ type CharacterRow = {
   archived: boolean;
   sort_order: number;
 };
+
+type CharacterGalleryImageRow = {
+  id: string;
+  character_id: string;
+  image_url: string;
+  image_path: string;
+  caption: string;
+  sort_order: number;
+};
+
+function buildCharacterGalleryRows(character: Character): CharacterGalleryImageRow[] {
+  return character.gallery.map((image, sortOrder) => ({
+    id: image.id,
+    character_id: character.id,
+    image_url: image.url,
+    image_path: image.path,
+    caption: image.caption,
+    sort_order: sortOrder
+  }));
+}
+
+function buildCharacterGalleryRowsForWrite(character: Character) {
+  return buildCharacterGalleryRows(character).map(omitLocalId);
+}
+
+async function replaceCharacterGalleryRows(character: Character) {
+  if (!supportsCharacterGallery) return;
+  const client = assertClient();
+  const { error: deleteError } = await client.from('character_gallery_images').delete().eq('character_id', character.id);
+  if (isMissingRelationError(deleteError, 'character_gallery_images')) {
+    supportsCharacterGallery = false;
+    return;
+  }
+  if (deleteError) throw deleteError;
+
+  const rows = buildCharacterGalleryRowsForWrite(character);
+  if (!rows.length) return;
+  const { error } = await client.from('character_gallery_images').insert(rows);
+  if (isMissingRelationError(error, 'character_gallery_images')) {
+    supportsCharacterGallery = false;
+    return;
+  }
+  if (error) throw error;
+}
 
 type CharacterResourceRow = {
   character_id: string;
@@ -316,16 +419,16 @@ function buildCharacterRow(
   fallbackOwnerId: string,
   existingOwnerId?: string | null
 ) {
-  void fallbackOwnerId;
   return {
     id: character.id,
     table_id: tableId,
-    owner_id: existingOwnerId ?? null,
+    owner_id: existingOwnerId ?? fallbackOwnerId,
     name: character.name || 'Personagem',
     age: character.age,
     clan: character.clan || '',
     grade: character.grade || '',
     appearance: character.appearance || '',
+    lore: character.lore || '',
     identity_scar: character.identity.scar || '',
     identity_anchor: character.identity.anchor || '',
     identity_trigger: character.identity.trigger || '',
@@ -335,6 +438,15 @@ function buildCharacterRow(
     archived: false,
     sort_order: sortOrder
   };
+}
+
+function prepareCharacterRowForWrite(row: ReturnType<typeof buildCharacterRow>) {
+  const payload = { ...row };
+  if (!supportsCharacterLore) {
+    delete (payload as Partial<typeof payload>).lore;
+  }
+
+  return payload;
 }
 
 function buildResourceRows(character: Character): CharacterResourceRow[] {
@@ -435,6 +547,30 @@ function buildConditionRows(character: Character): CharacterConditionRow[] {
   }));
 }
 
+function buildWeaponRowsForWrite(character: Character) {
+  return buildWeaponRows(character).map(omitLocalId);
+}
+
+function buildTechniqueRowsForWrite(character: Character) {
+  return buildTechniqueRows(character).map(omitLocalId);
+}
+
+function buildPassiveRowsForWrite(character: Character) {
+  return buildPassiveRows(character).map(omitLocalId);
+}
+
+function buildVowRowsForWrite(character: Character) {
+  return buildVowRows(character).map(omitLocalId);
+}
+
+function buildInventoryItemRowsForWrite(character: Character) {
+  return buildInventoryItemRows(character).map(omitLocalId);
+}
+
+function buildConditionRowsForWrite(character: Character) {
+  return buildConditionRows(character).map(omitLocalId);
+}
+
 async function fetchExistingCharacterOwnership(tableId: string) {
   const client = assertClient();
   const { data, error } = await client.from('characters').select('id, owner_id').eq('table_id', tableId);
@@ -447,12 +583,12 @@ async function replaceCharacterChildren(character: Character) {
 
   const resourceRows = buildResourceRows(character);
   const attributeRows = buildAttributeRows(character);
-  const weaponRows = buildWeaponRows(character);
-  const techniqueRows = buildTechniqueRows(character);
-  const passiveRows = buildPassiveRows(character);
-  const vowRows = buildVowRows(character);
-  const inventoryRows = buildInventoryItemRows(character);
-  const conditionRows = buildConditionRows(character);
+  const weaponRows = buildWeaponRowsForWrite(character);
+  const techniqueRows = buildTechniqueRowsForWrite(character);
+  const passiveRows = buildPassiveRowsForWrite(character);
+  const vowRows = buildVowRowsForWrite(character);
+  const inventoryRows = buildInventoryItemRowsForWrite(character);
+  const conditionRows = buildConditionRowsForWrite(character);
 
   const deleteTables = [
     'character_resources',
@@ -509,19 +645,31 @@ async function replaceCharacterChildren(character: Character) {
     const { error } = await client.from('character_conditions').insert(conditionRows);
     if (error) throw error;
   }
+
+  await replaceCharacterGalleryRows(character);
 }
 
 async function syncCharacterRows(tableId: string, ownerId: string, state: WorkspaceState) {
   const client = assertClient();
   const ownershipMap = await fetchExistingCharacterOwnership(tableId);
-  const rows = state.characters.map((character, sortOrder) =>
-    buildCharacterRow(tableId, character, sortOrder, ownerId, ownershipMap.get(character.id))
-  );
+  const buildRows = () =>
+    state.characters.map((character, sortOrder) =>
+      prepareCharacterRowForWrite(buildCharacterRow(tableId, character, sortOrder, ownerId, ownershipMap.get(character.id)))
+    );
+  let rows = buildRows();
 
   if (rows.length) {
-    const { error } = await client.from('characters').upsert(rows, {
+    let { error } = await client.from('characters').upsert(rows, {
       onConflict: 'id'
     });
+    if (isMissingColumnError(error, 'lore')) {
+      supportsCharacterLore = false;
+      rows = buildRows();
+      const retry = await client.from('characters').upsert(rows, {
+        onConflict: 'id'
+      });
+      error = retry.error;
+    }
     if (error) throw error;
   }
 
@@ -547,10 +695,20 @@ async function saveCharacterGraph(tableId: string, userId: string, character: Ch
     .maybeSingle();
   if (existingError) throw existingError;
 
-  const row = buildCharacterRow(tableId, character, existingRows?.sort_order ?? 0, userId, existingRows?.owner_id ?? null);
-  const { error } = await client.from('characters').upsert(row, {
+  const buildRow = () =>
+    prepareCharacterRowForWrite(
+      buildCharacterRow(tableId, character, existingRows?.sort_order ?? 0, userId, existingRows?.owner_id ?? null)
+    );
+  let { error } = await client.from('characters').upsert(buildRow(), {
     onConflict: 'id'
   });
+  if (isMissingColumnError(error, 'lore')) {
+    supportsCharacterLore = false;
+    const retry = await client.from('characters').upsert(buildRow(), {
+      onConflict: 'id'
+    });
+    error = retry.error;
+  }
   if (error) throw error;
 
   await replaceCharacterChildren(character);
@@ -713,6 +871,7 @@ function toGameSession(row: TableSessionRow): GameSession {
 }
 
 async function fetchCurrentSession(tableId: string, fallbackRow: TableRow): Promise<GameSession | null> {
+  if (!supportsTableSessions) return null;
   const client = assertClient();
   if (fallbackRow.current_session_id) {
     const { data, error } = await client
@@ -722,6 +881,11 @@ async function fetchCurrentSession(tableId: string, fallbackRow: TableRow): Prom
       .eq('table_id', tableId)
       .maybeSingle();
 
+    if (isMissingRelationError(error, 'table_sessions')) {
+      supportsTableSessions = false;
+      return null;
+    }
+    if (isPermissionError(error)) return null;
     if (error) throw error;
     if (data) return toGameSession(data as TableSessionRow);
   }
@@ -735,6 +899,11 @@ async function fetchCurrentSession(tableId: string, fallbackRow: TableRow): Prom
     .limit(1)
     .maybeSingle();
 
+  if (isMissingRelationError(error, 'table_sessions')) {
+    supportsTableSessions = false;
+    return null;
+  }
+  if (isPermissionError(error)) return null;
   if (error) throw error;
   if (data) return toGameSession(data as TableSessionRow);
 
@@ -742,6 +911,7 @@ async function fetchCurrentSession(tableId: string, fallbackRow: TableRow): Prom
 }
 
 async function fetchSessionHistoryPreview(tableId: string): Promise<GameSession[]> {
+  if (!supportsTableSessions) return [];
   const client = assertClient();
   const { data, error } = await client
     .from('table_sessions')
@@ -750,11 +920,27 @@ async function fetchSessionHistoryPreview(tableId: string): Promise<GameSession[
     .order('created_at', { ascending: false })
     .limit(5);
 
+  if (isMissingRelationError(error, 'table_sessions')) {
+    supportsTableSessions = false;
+    return [];
+  }
+  if (isPermissionError(error)) return [];
   if (error) throw error;
   return (data || []).map((row) => toGameSession(row as TableSessionRow));
 }
 
 async function fetchSessionAttendances(sessionId: string, memberships: TableMembershipRow[]): Promise<SessionAttendance[]> {
+  const fallbackAttendances = () =>
+    memberships
+      .filter((membership) => membership.active)
+      .map((membership) => ({
+        id: uid('attendance'),
+        sessionId,
+        membershipId: membership.id,
+        status: 'pending' as const,
+        markedAt: now()
+      }));
+  if (!supportsSessionAttendances) return fallbackAttendances();
   const client = assertClient();
   const { data, error } = await client
     .from('table_session_attendances')
@@ -762,6 +948,11 @@ async function fetchSessionAttendances(sessionId: string, memberships: TableMemb
     .eq('session_id', sessionId)
     .order('marked_at', { ascending: false });
 
+  if (isMissingRelationError(error, 'table_session_attendances')) {
+    supportsSessionAttendances = false;
+    return fallbackAttendances();
+  }
+  if (isPermissionError(error)) return fallbackAttendances();
   if (error) throw error;
   const rows = (data || []) as TableSessionAttendanceRow[];
   const map = new Map(rows.map((row) => [row.membership_id, row]));
@@ -791,16 +982,45 @@ async function fetchSessionAttendances(sessionId: string, memberships: TableMemb
 
 async function fetchRelationalCharacters(tableId: string, fallbackState: WorkspaceState): Promise<Character[]> {
   const client = assertClient();
-  const { data, error } = await client
-    .from('characters')
-    .select('id, table_id, owner_id, name, age, clan, grade, appearance, identity_scar, identity_anchor, identity_trigger, avatar_url, avatar_path, money, archived, sort_order')
-    .eq('table_id', tableId)
-    .eq('archived', false)
-    .order('sort_order', { ascending: true });
+  const characterColumns = () =>
+    [
+      'id',
+      'table_id',
+      'owner_id',
+      'name',
+      'age',
+      'clan',
+      'grade',
+      'appearance',
+      supportsCharacterLore ? 'lore' : '',
+      'identity_scar',
+      'identity_anchor',
+      'identity_trigger',
+      'avatar_url',
+      'avatar_path',
+      'money',
+      'archived',
+      'sort_order'
+    ]
+      .filter(Boolean)
+      .join(', ');
+  const fetchCharacterRows = () =>
+    client
+      .from('characters')
+      .select(characterColumns())
+      .eq('table_id', tableId)
+      .eq('archived', false)
+      .order('sort_order', { ascending: true });
+  let characterRowsResult = await fetchCharacterRows();
 
-  if (error) throw error;
+  if (isMissingColumnError(characterRowsResult.error, 'lore')) {
+    supportsCharacterLore = false;
+    characterRowsResult = await fetchCharacterRows();
+  }
 
-  const rows = ((data || []) as CharacterRow[]).filter((row) => !row.archived);
+  if (characterRowsResult.error) throw characterRowsResult.error;
+
+  const rows = ((characterRowsResult.data || []) as unknown as CharacterRow[]).filter((row) => !row.archived);
   if (!rows.length) {
     return hydrateStateAvatars(fallbackState).then((state) => state.characters);
   }
@@ -816,7 +1036,8 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
     passiveRowsResult,
     vowRowsResult,
     inventoryRowsResult,
-    conditionRowsResult
+    conditionRowsResult,
+    galleryRowsResult
   ] = await Promise.all([
     client.from('character_resources').select('character_id, resource_key, current_value, max_value, sort_order').in('character_id', characterIds),
     client.from('character_attributes').select('character_id, attribute_key, value, rank, sort_order').in('character_id', characterIds),
@@ -825,7 +1046,10 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
     client.from('character_passives').select('id, character_id, name, tags, description, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
     client.from('character_vows').select('id, character_id, name, benefit, restriction, penalty, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
     client.from('character_inventory_items').select('id, character_id, name, quantity, effect, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
-    client.from('character_conditions').select('id, character_id, name, color, note, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true })
+    client.from('character_conditions').select('id, character_id, name, color, note, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true }),
+    supportsCharacterGallery
+      ? client.from('character_gallery_images').select('id, character_id, image_url, image_path, caption, sort_order').in('character_id', characterIds).order('sort_order', { ascending: true })
+      : Promise.resolve({ data: [], error: null })
   ]);
 
   const rowResults = [
@@ -836,11 +1060,17 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
     passiveRowsResult,
     vowRowsResult,
     inventoryRowsResult,
-    conditionRowsResult
+    conditionRowsResult,
   ];
 
   for (const result of rowResults) {
     if (result.error) throw result.error;
+  }
+
+  if (isMissingRelationError(galleryRowsResult.error, 'character_gallery_images')) {
+    supportsCharacterGallery = false;
+  } else if (galleryRowsResult.error) {
+    throw galleryRowsResult.error;
   }
 
   const resourceRows = (resourceRowsResult.data || []) as CharacterResourceRow[];
@@ -851,6 +1081,7 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
   const vowRows = (vowRowsResult.data || []) as CharacterVowRow[];
   const inventoryRows = (inventoryRowsResult.data || []) as CharacterInventoryItemRow[];
   const conditionRows = (conditionRowsResult.data || []) as CharacterConditionRow[];
+  const galleryRows = (galleryRowsResult.error ? [] : galleryRowsResult.data || []) as CharacterGalleryImageRow[];
 
   return Promise.all(
     rows.map(async (row) => {
@@ -870,9 +1101,22 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
         clan: row.clan,
         grade: row.grade,
         appearance: row.appearance,
+        lore: row.lore || fallback?.lore || '',
         avatarMode: row.avatar_path ? 'upload' : row.avatar_url ? 'url' : 'none',
         avatar,
         avatarPath: row.avatar_path || '',
+        gallery: await Promise.all(
+          galleryRows
+            .filter((entry) => entry.character_id === row.id)
+            .sort((left, right) => left.sort_order - right.sort_order)
+            .map(async (entry, index) => ({
+              id: entry.id,
+              url: entry.image_path ? await createSignedAvatarUrl(entry.image_path) : entry.image_url,
+              path: entry.image_path,
+              caption: entry.caption || '',
+              sortOrder: Number.isFinite(entry.sort_order) ? entry.sort_order : index
+            }))
+        ),
         identity: {
           scar: row.identity_scar,
           anchor: row.identity_anchor,
@@ -959,7 +1203,7 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
             name: entry.name,
             grade: entry.grade,
             damage: entry.damage,
-            tags: entry.tags || [],
+            tags: parseTags(entry.tags),
             description: entry.description
           })),
         techniques: techniqueRows
@@ -970,7 +1214,7 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
             cost: entry.cost,
             damage: entry.damage,
             type: entry.technique_type,
-            tags: entry.tags || [],
+            tags: parseTags(entry.tags),
             description: entry.description
           })),
         passives: passiveRows
@@ -978,7 +1222,7 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
           .map((entry) => ({
             id: entry.id,
             name: entry.name,
-            tags: entry.tags || [],
+            tags: parseTags(entry.tags),
             description: entry.description
           })),
         vows: vowRows
@@ -1110,10 +1354,7 @@ function buildTableSession(input: {
 
 async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> {
   const client = assertClient();
-  const { data, error } = await client
-    .from('table_memberships')
-    .select(
-      `
+  const tableSummarySelect = () => `
       id,
       role,
       nickname,
@@ -1127,18 +1368,56 @@ async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> 
         created_at,
         updated_at,
         status,
-        system_key,
+        ${supportsTableSystemKey ? 'system_key,' : ''}
         series_name,
         campaign_name
       )
-    `
-    )
-    .eq('user_id', user.id)
-    .eq('active', true);
+    `;
+  const fetchSummaries = () =>
+    client.from('table_memberships').select(tableSummarySelect()).eq('user_id', user.id).eq('active', true);
+  let result = await fetchSummaries();
 
-  if (error) throw error;
+  if (isMissingColumnError(result.error, 'system_key')) {
+    supportsTableSystemKey = false;
+    result = await fetchSummaries();
+  }
 
-  return (data || [])
+  if (result.error) throw result.error;
+
+  const records = (result.data || []) as unknown as Array<{
+    id: string;
+    role: string;
+    nickname: string;
+    character_id: string | null;
+    joined_at: string;
+    tables:
+      | {
+          id: string;
+          slug: string;
+          name: string;
+          owner_id: string;
+          created_at: string;
+          updated_at: string;
+          status: string;
+          system_key?: string | null;
+          series_name: string;
+          campaign_name: string;
+        }
+      | Array<{
+          id: string;
+          slug: string;
+          name: string;
+          owner_id: string;
+          created_at: string;
+          updated_at: string;
+          status: string;
+          system_key?: string | null;
+          series_name: string;
+          campaign_name: string;
+        }>;
+  }>;
+
+  return records
     .map((record): TableListItem | null => {
       const table = Array.isArray(record.tables) ? record.tables[0] : record.tables;
       if (!table) return null;
@@ -1225,10 +1504,8 @@ async function ensureDraftTable(user: AuthUser): Promise<string> {
 
   const initialState = createDefaultState();
   const slug = await createUniqueSlug(`workspace-${user.id}`);
-  const { data: inserted, error: insertError } = await client
-    .from('tables')
-    .insert(
-      toTableInsert(
+  const buildInsertPayload = () => {
+    const payload = toTableInsert(
         {
           ...DEFAULT_TABLE_META,
           tableName: `Workspace de ${user.username || user.displayName || 'feiticeiro'}`
@@ -1239,10 +1516,22 @@ async function ensureDraftTable(user: AuthUser): Promise<string> {
         slug,
         DEFAULT_GAME_SYSTEM_KEY,
         DRAFT_KIND
-      )
-    )
-    .select('id')
-    .single();
+    );
+    if (!supportsTableSystemKey) {
+      delete (payload as Partial<ReturnType<typeof toTableInsert>>).system_key;
+    }
+
+    return payload;
+  };
+
+  let { data: inserted, error: insertError } = await client.from('tables').insert(buildInsertPayload()).select('id').single();
+
+  if (isMissingColumnError(insertError, 'system_key')) {
+    supportsTableSystemKey = false;
+    const retry = await client.from('tables').insert(buildInsertPayload()).select('id').single();
+    inserted = retry.data;
+    insertError = retry.error;
+  }
 
   if (insertError) throw insertError;
   const insertedRow = (inserted as { id: string } | null) || null;
@@ -1260,7 +1549,7 @@ async function claimInvite(input: { inviteToken: string; nickname: string }) {
     session_nickname: input.nickname
   });
 
-  if (isMissingFunctionError(error)) {
+  if (shouldFallbackToLegacyClaim(error)) {
     const fallback = await client.rpc('claim_table_invite', {
       invite_token: input.inviteToken
     });
@@ -1291,7 +1580,7 @@ async function claimJoinCode(input: { code: string; nickname: string; characterI
     selected_character_id: input.characterId || undefined
   });
 
-  if (isMissingFunctionError(error)) {
+  if (shouldFallbackToLegacyClaim(error)) {
     const fallback = await client.rpc('claim_join_code', {
       join_code: input.code
     });
@@ -1301,6 +1590,32 @@ async function claimJoinCode(input: { code: string; nickname: string; characterI
 
   if (error) throw toWorkspaceError(error, 'Nao foi possivel entrar com este codigo.');
   return data?.[0];
+}
+
+async function reconcileCharacterOwnership(input: { tableId: string; characterId?: string | null }) {
+  if (!input.characterId) return;
+
+  const client = assertClient();
+  const { data } = await client.auth.getSession();
+  const accessToken = data.session?.access_token;
+  if (!accessToken) return;
+
+  const response = await fetch(characterOwnershipApiUrl, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      tableId: input.tableId,
+      characterId: input.characterId
+    })
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error || 'Nao foi possivel vincular a ficha ao jogador.');
+  }
 }
 
 function toInviteUrl(origin: string, tableSlug: string, token: string) {
@@ -1419,6 +1734,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'character_vows' }, reload)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'character_inventory_items' }, reload)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'character_conditions' }, reload)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'character_gallery_images' }, reload)
         .subscribe();
 
       return () => {
@@ -1434,15 +1750,28 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         for (let attempt = 0; attempt < 10; attempt += 1) {
           const baseSlug = slugify(meta.tableName || DEFAULT_TABLE_META.tableName);
           const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`.slice(0, 48);
-          const response = await client
+          const buildInsertPayload = () => {
+            const payload = toTableInsert(meta, state, user.id, nickname, slug, systemKey);
+            if (!supportsTableSystemKey) {
+              delete (payload as Partial<ReturnType<typeof toTableInsert>>).system_key;
+            }
+
+            return payload;
+          };
+          const selectColumns = () => (supportsTableSystemKey ? 'id, slug, name, system_key' : 'id, slug, name');
+          let response = await client
             .from('tables')
-            .insert(toTableInsert(meta, state, user.id, nickname, slug, systemKey))
-            .select('id, slug, name, system_key')
+            .insert(buildInsertPayload())
+            .select(selectColumns())
             .single();
+          if (isMissingColumnError(response.error, 'system_key')) {
+            supportsTableSystemKey = false;
+            response = await client.from('tables').insert(buildInsertPayload()).select(selectColumns()).single();
+          }
 
           if (response.error?.code === '23505') continue;
           if (response.error) throw response.error;
-          insertedTable = response.data;
+          insertedTable = response.data as unknown as { id: string; slug: string; name: string; system_key?: string | null };
           break;
         }
 
@@ -1466,57 +1795,72 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
         if (membershipError) throw membershipError;
 
-        const { data: initialSession, error: initialSessionError } = await client
-          .from('table_sessions')
-          .insert({
-            table_id: createdTable.id,
-            episode_number: '',
-            episode_title: '',
-            status: 'Planejamento',
-            session_date: null,
-            location: '',
-            objective: '',
-            recap: '',
-            notes: '',
-            is_active: false,
-            created_by: user.id
-          })
-          .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
-          .single();
+        let initialSessionRow: TableSessionRow | null = null;
+        if (supportsTableSessions) {
+          const { data: initialSession, error: initialSessionError } = await client
+            .from('table_sessions')
+            .insert({
+              table_id: createdTable.id,
+              episode_number: '',
+              episode_title: '',
+              status: 'Planejamento',
+              session_date: null,
+              location: '',
+              objective: '',
+              recap: '',
+              notes: '',
+              is_active: false,
+              created_by: user.id
+            })
+            .select('id, table_id, episode_number, episode_title, status, session_date, location, objective, recap, notes, is_active, created_by, created_at, updated_at')
+            .single();
 
-        if (initialSessionError) throw initialSessionError;
+          if (isMissingRelationError(initialSessionError, 'table_sessions')) {
+            supportsTableSessions = false;
+          } else if (!isPermissionError(initialSessionError)) {
+            if (initialSessionError) throw initialSessionError;
+            initialSessionRow = initialSession as TableSessionRow;
+          }
+        }
 
-        const initialSessionRow = initialSession as TableSessionRow;
-        const { error: tableSessionError } = await client
-          .from('tables')
-          .update({
-            current_session_id: initialSessionRow.id,
-            episode_number: initialSessionRow.episode_number,
-            episode_title: initialSessionRow.episode_title,
-            session_date: initialSessionRow.session_date,
-            location: initialSessionRow.location,
-            status: initialSessionRow.status,
-            recap: initialSessionRow.recap,
-            objective: initialSessionRow.objective,
-            last_editor: nickname
-          })
-          .eq('id', createdTable.id);
+        if (initialSessionRow) {
+          const { error: tableSessionError } = await client
+            .from('tables')
+            .update({
+              current_session_id: initialSessionRow.id,
+              episode_number: initialSessionRow.episode_number,
+              episode_title: initialSessionRow.episode_title,
+              session_date: initialSessionRow.session_date,
+              location: initialSessionRow.location,
+              status: initialSessionRow.status,
+              recap: initialSessionRow.recap,
+              objective: initialSessionRow.objective,
+              last_editor: nickname
+            })
+            .eq('id', createdTable.id);
 
-        if (tableSessionError) throw tableSessionError;
+          if (tableSessionError) throw tableSessionError;
 
-        const { error: attendanceError } = await client.from('table_session_attendances').insert({
-          session_id: initialSessionRow.id,
-          membership_id: membership.id,
-          status: 'pending'
-        });
+          if (supportsSessionAttendances) {
+            const { error: attendanceError } = await client.from('table_session_attendances').insert({
+              session_id: initialSessionRow.id,
+              membership_id: membership.id,
+              status: 'pending'
+            });
 
-        if (attendanceError) throw attendanceError;
+            if (isMissingRelationError(attendanceError, 'table_session_attendances')) {
+              supportsSessionAttendances = false;
+            } else if (!isPermissionError(attendanceError)) {
+              if (attendanceError) throw attendanceError;
+            }
+          }
+        }
 
         await syncCharacterRows(createdTable.id, user.id, state);
 
         if (state.log.length) {
           const { error: logError } = await client.from('table_logs').insert(
-            state.log.map((entry) => ({
+            state.log.map((entry) => omitLocalId({
               id: entry.id,
               table_id: createdTable.id,
               actor_id: user.id,
@@ -1595,6 +1939,13 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       if (!claimed) throw new Error('Convite invalido ou expirado.');
 
+      if (claimed.role === 'player' && claimed.character_id) {
+        await reconcileCharacterOwnership({
+          tableId: claimed.table_id,
+          characterId: claimed.character_id
+        });
+      }
+
       const table = await fetchTableState(claimed.table_id);
       return {
         table,
@@ -1640,6 +1991,13 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       });
 
       if (!claimed) throw new Error('Codigo invalido ou revogado.');
+
+      if (claimed.role === 'player' && claimed.character_id) {
+        await reconcileCharacterOwnership({
+          tableId: claimed.table_id,
+          characterId: claimed.character_id
+        });
+      }
 
       const table = await fetchTableState(claimed.table_id);
       return {
@@ -2019,7 +2377,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     },
     async appendTableLog({ session, userId, entry }) {
       const client = assertClient();
-      const { error } = await client.from('table_logs').insert({
+      const { error } = await client.from('table_logs').insert(omitLocalId({
         id: entry.id,
         table_id: session.tableId,
         actor_id: userId,
@@ -2028,7 +2386,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         body: entry.text,
         meta: entry.meta,
         created_at: entry.timestamp
-      });
+      }));
       if (error) throw error;
     },
     async clearTableLogs({ session }) {
@@ -2117,6 +2475,33 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       return {
         url,
         path
+      };
+    },
+    async uploadCharacterGalleryImage({ user, characterId, file, caption = '', sortOrder = 0 }) {
+      const client = assertClient();
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const path = `${user.id}/${characterId}/gallery-${crypto.randomUUID()}.${extension}`;
+
+      const { error } = await client.storage.from('avatars').upload(path, file, {
+        upsert: true,
+        contentType: file.type || 'image/png'
+      });
+
+      if (error) throw error;
+
+      const url = await createSignedAvatarUrl(path);
+      const image: CharacterGalleryImage = {
+        id: crypto.randomUUID(),
+        url,
+        path,
+        caption,
+        sortOrder
+      };
+
+      return {
+        url,
+        path,
+        image
       };
     }
   };

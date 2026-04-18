@@ -10,7 +10,7 @@ export function LoginPage() {
     <div>
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent">Project Nexus</p>
       <h2 className="mt-3 text-balance font-display text-4xl leading-none text-white sm:text-5xl">Entre na sua conta.</h2>
-      <p className="mt-4 max-w-lg text-sm leading-6 text-soft">Use seu usuario e senha para voltar as suas mesas.</p>
+      <p className="mt-4 max-w-lg text-sm leading-6 text-soft">Use seu email ou username com a senha para voltar às suas mesas.</p>
 
       <div className="mt-8">
         <LoginForm onSuccess={() => navigate(next, { replace: true })} />

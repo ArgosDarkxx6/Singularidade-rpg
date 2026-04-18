@@ -93,6 +93,47 @@ export type Database = {
           },
         ]
       }
+      character_gallery_images: {
+        Row: {
+          caption: string
+          character_id: string
+          created_at: string
+          id: string
+          image_path: string
+          image_url: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          caption?: string
+          character_id: string
+          created_at?: string
+          id?: string
+          image_path?: string
+          image_url?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          caption?: string
+          character_id?: string
+          created_at?: string
+          id?: string
+          image_path?: string
+          image_url?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_gallery_images_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       character_inventory_items: {
         Row: {
           character_id: string
@@ -366,6 +407,7 @@ export type Database = {
           grade: string
           id: string
           identity_anchor: string
+          lore: string
           identity_scar: string
           identity_trigger: string
           money: number
@@ -386,6 +428,7 @@ export type Database = {
           grade?: string
           id?: string
           identity_anchor?: string
+          lore?: string
           identity_scar?: string
           identity_trigger?: string
           money?: number
@@ -406,6 +449,7 @@ export type Database = {
           grade?: string
           id?: string
           identity_anchor?: string
+          lore?: string
           identity_scar?: string
           identity_trigger?: string
           money?: number

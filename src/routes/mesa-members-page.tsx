@@ -55,8 +55,8 @@ export function MesaMembersPage() {
     <div className="page-shell pb-8">
       <MesaHero
         eyebrow="Membros e acesso"
-        title="Convites da mesa"
-        description="Gere links, crie codigos e acompanhe quem entrou."
+        title="Acesso, convites e presença"
+        description="Controle quem entra, como entra e qual papel cada pessoa ocupa na operação da mesa."
         actions={
           canManage ? (
             <a

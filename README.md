@@ -10,8 +10,7 @@ Project Nexus é uma plataforma de mesas online em `Vite + React + TypeScript + 
 - Modelagem de mesa com `systemKey`, preparada para múltiplos sistemas.
 - Sistema Singularidade preservado como experiência de mesa: fichas, rolagens, ordem, sessões, livro, membros, snapshots e permissões.
 - Cadastro com email, username unico e senha; login por username e senha.
-- Runtime local para desenvolvimento sem Supabase configurado.
-- Runtime Supabase com Auth, Postgres, Storage, Realtime, RLS e RPCs.
+- Runtime único com Supabase para Auth, Postgres, Storage, Realtime, RLS e RPCs.
 - Worker Cloudflare que serve o SPA e expõe `/api/auth/username-login`, `/api/references` e `/api/health`.
 
 ## Stack
@@ -26,7 +25,7 @@ Project Nexus é uma plataforma de mesas online em `Vite + React + TypeScript + 
 
 - `src/`: aplicação React
 - `src/features/systems/`: registry de sistemas e defaults por sistema
-- `src/features/workspace/`: backends local/Supabase e provider principal
+- `src/features/workspace/`: backend Supabase e provider principal
 - `src/routes/`: rotas da plataforma e das mesas
 - `supabase/`: migrations, schema, policies e RPCs
 - `cloudflare/worker.ts`: Worker do SPA e APIs auxiliares
@@ -66,7 +65,7 @@ npm run supabase:types
 
 ## Deploy Cloudflare
 
-O Worker mantém o nome de infraestrutura `singularidade-online` por compatibilidade, mas o produto público é Project Nexus. O deploy de produção é feito pelo GitHub Actions em push para `main` usando Wrangler.
+O Worker mantém o nome de infraestrutura `singularidade-online` por compatibilidade, mas o produto público é Project Nexus. O deploy de produção é feito pelo GitHub Actions em push para `main` usando Wrangler. O app agora exige Supabase configurado também em desenvolvimento local.
 
 Variáveis obrigatórias:
 

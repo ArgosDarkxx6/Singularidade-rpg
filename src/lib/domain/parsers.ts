@@ -43,6 +43,7 @@ export function parseCharacterSheetText(rawText: string): Character {
   const clan = extractLineValue(text, 'Cla');
   const grade = extractLineValue(text, 'Grau');
   const appearance = extractLineValue(text, 'Aparencia');
+  const lore = getTextSection(text, 'Lore');
   const scar = extractLineValue(text, 'Cicatriz');
   const anchor = extractLineValue(text, 'Ancora');
   const trigger = extractLineValue(text, 'Gatilho');
@@ -53,6 +54,7 @@ export function parseCharacterSheetText(rawText: string): Character {
     clan,
     grade,
     appearance,
+    lore,
     identity: { scar, anchor, trigger },
     resources: {
       hp: { current: safeNumber(extractLineValue(text, 'Vida').split('/')[0], 20), max: safeNumber(extractLineValue(text, 'Vida').split('/')[1], 20) },
@@ -139,6 +141,7 @@ export function serializeCharacterToText(character: Character): string {
     'Sobre o Personagem',
     `Aparencia: ${character.appearance}`,
     `Cla: ${character.clan}`,
+    `Lore: ${character.lore}`,
     `Grau: ${character.grade}`,
     `Cicatriz: ${character.identity.scar}`,
     `Ancora: ${character.identity.anchor}`,

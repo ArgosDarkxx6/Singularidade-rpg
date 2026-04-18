@@ -70,7 +70,7 @@ export function MesaSettingsPage() {
       <MesaHero
         eyebrow="Configurações da mesa"
         title="Administração, metadados e segurança"
-        description="Ajuste dados da mesa, snapshots e acesso."
+        description="Concentre identidade da mesa, snapshots, transferência de ownership e ações críticas em uma área única e controlada."
       />
 
       <div className="grid gap-6">

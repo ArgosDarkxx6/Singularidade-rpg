@@ -1,7 +1,8 @@
 import type { AuthChangeEvent, AuthSession as SupabaseAuthSession, Session, User } from '@supabase/supabase-js';
 import { supabase } from '@integrations/supabase/client';
-import { authApiUrl } from '@integrations/supabase/env';
+import { authApiUrl, emailAvailabilityApiUrl, usernameAvailabilityApiUrl } from '@integrations/supabase/env';
 import type { AuthSession, AuthUser, Profile } from '@/types/domain';
+import { isEmailLogin, isUsernameLogin, normalizeLoginIdentifier } from '@schemas/auth';
 import type { AuthService, SignInPayload, SignUpPayload } from './types';
 
 type ProfileRow = {
@@ -149,12 +150,57 @@ export function createSupabaseAuthService(): AuthService {
       input: username.trim().toLowerCase()
     });
 
-    if (!error && data === false) {
-      throw new Error('Este username ja esta em uso.');
+    if (!error) {
+      if (data === false) {
+        throw new Error('Este username ja esta em uso.');
+      }
+      return;
     }
 
-    if (error && error.code !== 'PGRST202') {
+    if (error.code !== 'PGRST202') {
       throw error;
+    }
+
+    const response = await fetch(usernameAvailabilityApiUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json'
+      },
+      body: JSON.stringify({
+        username: username.trim().toLowerCase()
+      })
+    });
+
+    const payload = (await response.json().catch(() => null)) as { available?: boolean; error?: string } | null;
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Nao foi possivel validar o username agora.');
+    }
+
+    if (payload?.available === false) {
+      throw new Error('Este username ja esta em uso.');
+    }
+  }
+
+  async function assertEmailAvailable(email: string) {
+    const response = await fetch(emailAvailabilityApiUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json'
+      },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase()
+      })
+    });
+
+    const payload = (await response.json().catch(() => null)) as { available?: boolean; error?: string } | null;
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Nao foi possivel validar o email agora.');
+    }
+
+    if (payload?.available === false) {
+      throw new Error('Ja existe uma conta com este email.');
     }
   }
 
@@ -212,6 +258,7 @@ export function createSupabaseAuthService(): AuthService {
     async signUp({ email, username, displayName, password }: SignUpPayload) {
       try {
         await assertUsernameAvailable(username);
+        await assertEmailAvailable(email);
         const { data, error } = await client.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
@@ -233,7 +280,23 @@ export function createSupabaseAuthService(): AuthService {
         throw normalizeAuthError(error);
       }
     },
-    async signIn({ username, password }: SignInPayload) {
+    async signIn({ identifier, password }: SignInPayload) {
+      const normalizedIdentifier = normalizeLoginIdentifier(identifier);
+
+      if (isEmailLogin(normalizedIdentifier)) {
+        const { data, error } = await client.auth.signInWithPassword({
+          email: normalizedIdentifier,
+          password
+        });
+
+        if (error) throw normalizeAuthError(error);
+        return mapSession(data.session);
+      }
+
+      if (!isUsernameLogin(normalizedIdentifier)) {
+        throw normalizeAuthError(new Error('Usuario, email ou senha invalidos.'));
+      }
+
       const response = await fetch(authApiUrl, {
         method: 'POST',
         headers: {
@@ -241,7 +304,7 @@ export function createSupabaseAuthService(): AuthService {
           accept: 'application/json'
         },
         body: JSON.stringify({
-          username: username.trim().toLowerCase(),
+          identifier: normalizedIdentifier,
           password
         })
       });
@@ -255,7 +318,7 @@ export function createSupabaseAuthService(): AuthService {
         | null;
 
       if (!response.ok || !payload?.access_token || !payload.refresh_token) {
-        throw normalizeAuthError(new Error(payload?.error || 'Usuario ou senha invalidos.'));
+        throw normalizeAuthError(new Error(payload?.error || 'Usuario, email ou senha invalidos.'));
       }
 
       const { data, error } = await client.auth.setSession({

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { loginSchema, registerSchema } from './auth';
+import { isEmailLogin, isUsernameLogin, loginSchema, normalizeLoginIdentifier, registerSchema } from './auth';
 
 describe('auth schemas', () => {
-  it('accepts username login and rejects email login payloads', () => {
-    expect(loginSchema.safeParse({ username: 'mysto_1', password: 'senha123' }).success).toBe(true);
-    expect(loginSchema.safeParse({ email: 'mysto@example.com', password: 'senha123' }).success).toBe(false);
+  it('accepts email or username login payloads', () => {
+    expect(loginSchema.safeParse({ identifier: 'mysto_1', password: 'senha123' }).success).toBe(true);
+    expect(loginSchema.safeParse({ identifier: 'mysto@example.com', password: 'senha123' }).success).toBe(true);
+    expect(loginSchema.safeParse({ identifier: 'mysto-1', password: 'senha123' }).success).toBe(false);
   });
 
   it('keeps username validation aligned with account creation', () => {
@@ -27,5 +28,12 @@ describe('auth schemas', () => {
         confirmPassword: 'senha123'
       }).success
     ).toBe(false);
+  });
+
+  it('normalizes and classifies login identifiers correctly', () => {
+    expect(normalizeLoginIdentifier('  Mysto_1  ')).toBe('mysto_1');
+    expect(isUsernameLogin('mysto_1')).toBe(true);
+    expect(isEmailLogin('mysto@example.com')).toBe(true);
+    expect(isUsernameLogin('mysto@example.com')).toBe(false);
   });
 });

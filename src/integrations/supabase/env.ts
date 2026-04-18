@@ -4,11 +4,11 @@ export const supabaseConfig = {
 };
 
 export const authApiUrl = import.meta.env.VITE_AUTH_API_URL?.trim() || '/api/auth/username-login';
-
-const runtimeBackend = String(import.meta.env.VITE_RUNTIME_BACKEND || '')
-  .trim()
-  .toLowerCase();
+export const usernameAvailabilityApiUrl =
+  import.meta.env.VITE_USERNAME_AVAILABILITY_API_URL?.trim() || '/api/auth/username-availability';
+export const emailAvailabilityApiUrl = import.meta.env.VITE_EMAIL_AVAILABILITY_API_URL?.trim() || '/api/auth/email-availability';
+export const characterOwnershipApiUrl =
+  import.meta.env.VITE_CHARACTER_OWNERSHIP_API_URL?.trim() || '/api/characters/claim-ownership';
 
 export const isSupabaseConfigured = Boolean(supabaseConfig.url && supabaseConfig.anonKey);
-export const isLocalRuntimeForced = runtimeBackend === 'local';
-export const shouldUseSupabaseRuntime = isSupabaseConfigured && !isLocalRuntimeForced;
+export const shouldUseSupabaseRuntime = true;

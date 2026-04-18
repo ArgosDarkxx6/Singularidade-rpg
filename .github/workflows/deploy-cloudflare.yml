@@ -21,6 +21,9 @@ jobs:
       CI: "true"
       VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL || vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
@@ -39,7 +42,7 @@ jobs:
         shell: pwsh
         run: |
           $missing = @()
-          foreach ($name in 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY') {
+          foreach ($name in 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY') {
             if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
               Write-Host "::error title=Missing required environment variable::$name must be configured as a repository variable or secret."
               $missing += $name
@@ -82,6 +85,13 @@ jobs:
               exit 0
             }
             exit $LASTEXITCODE
+          }
+
+          if ($strict) {
+            npx supabase db push --linked --password $env:SUPABASE_DB_PASSWORD --yes
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
           }
 
           $migrationOutput = npx supabase migration list --linked 2>&1

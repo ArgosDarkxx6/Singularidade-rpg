@@ -8,7 +8,7 @@ export interface SignUpPayload {
 }
 
 export interface SignInPayload {
-  username: string;
+  identifier: string;
   password: string;
 }
 

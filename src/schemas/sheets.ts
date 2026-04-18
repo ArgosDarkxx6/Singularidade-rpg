@@ -6,6 +6,7 @@ export const characterProfileSchema = z.object({
   clan: z.string().min(1, 'Informe o cla.'),
   grade: z.string().min(1, 'Informe o grau.'),
   appearance: z.string().min(4, 'Descreva a aparencia.'),
+  lore: z.string().default(''),
   scar: z.string().min(2, 'Informe a cicatriz.'),
   anchor: z.string().min(2, 'Informe a ancora.'),
   trigger: z.string().min(2, 'Informe o gatilho.'),

@@ -121,11 +121,21 @@ export function makeCharacter(data: Partial<Character> = {}): Character {
     name: data.name || 'Novo personagem',
     age: safeNumber(data.age, 0),
     appearance: data.appearance || '',
+    lore: data.lore || '',
     clan: data.clan || '',
     grade: data.grade || '',
     avatarMode: data.avatarMode || 'none',
     avatar: data.avatar || '',
     avatarPath: data.avatarPath || '',
+    gallery: (data.gallery || [])
+      .map((image, index) => ({
+        id: image.id || uid('gallery'),
+        url: image.url || '',
+        path: image.path || '',
+        caption: image.caption || '',
+        sortOrder: Number.isFinite(image.sortOrder) ? image.sortOrder : index
+      }))
+      .sort((left, right) => left.sortOrder - right.sortOrder),
     identity: {
       scar: data.identity?.scar || '',
       anchor: data.identity?.anchor || '',

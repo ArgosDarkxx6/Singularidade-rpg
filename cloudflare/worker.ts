@@ -11,6 +11,8 @@ export interface Env {
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  VITE_SUPABASE_URL?: string;
+  VITE_SUPABASE_ANON_KEY?: string;
 }
 
 type ReferenceCard = {
@@ -69,6 +71,8 @@ function json(data: unknown, init?: ResponseInit): WorkerResponse {
 }
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/i;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function authCorsHeaders(request: WorkerRequest): Record<string, string> {
   return {
@@ -98,9 +102,9 @@ function stripTrailingSlash(value: string) {
 }
 
 function getAuthConfig(env: Env) {
-  const supabaseUrl = env.SUPABASE_URL?.trim();
-  const anonKey = env.SUPABASE_ANON_KEY?.trim();
-  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const supabaseUrl = (env.SUPABASE_URL || env.VITE_SUPABASE_URL || '').trim();
+  const anonKey = (env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '').trim();
+  const serviceRoleKey = (env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     return null;
@@ -111,6 +115,53 @@ function getAuthConfig(env: Env) {
     anonKey,
     serviceRoleKey
   };
+}
+
+function serviceHeaders(config: ReturnType<typeof getAuthConfig> & {}) {
+  return {
+    apikey: config.serviceRoleKey,
+    authorization: `Bearer ${config.serviceRoleKey}`,
+    accept: 'application/json',
+    'content-type': 'application/json'
+  };
+}
+
+function authBearerToken(request: WorkerRequest) {
+  const header = request.headers.get('authorization') || '';
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || '';
+}
+
+async function getAuthenticatedUserId(config: ReturnType<typeof getAuthConfig> & {}, request: WorkerRequest) {
+  const token = authBearerToken(request);
+  if (!token) return '';
+
+  const userResponse = await fetch(new URL('/auth/v1/user', config.supabaseUrl).toString(), {
+    headers: {
+      apikey: config.anonKey,
+      authorization: `Bearer ${token}`,
+      accept: 'application/json'
+    }
+  });
+
+  if (!userResponse.ok) return '';
+
+  const payload = (await userResponse.json().catch(() => null)) as { id?: string } | null;
+  return typeof payload?.id === 'string' ? payload.id : '';
+}
+
+async function fetchServiceRows<T>(config: ReturnType<typeof getAuthConfig> & {}, path: string, params: Record<string, string>) {
+  const url = new URL(path, config.supabaseUrl);
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: serviceHeaders(config)
+  });
+
+  if (!response.ok) return null;
+  return (await response.json().catch(() => [])) as T[];
 }
 
 function normalize(value: string) {
@@ -181,17 +232,18 @@ async function serveUsernameLogin(request: WorkerRequest, env: Env): Promise<Wor
     return authErrorJson('Login por usuario indisponivel.', 503, request);
   }
 
-  const body = (await request.json().catch(() => null)) as { username?: unknown; password?: unknown } | null;
-  const username = typeof body?.username === 'string' ? normalize(body.username) : '';
+  const body = (await request.json().catch(() => null)) as { identifier?: unknown; username?: unknown; password?: unknown } | null;
+  const identifierRaw = typeof body?.identifier === 'string' ? body.identifier : typeof body?.username === 'string' ? body.username : '';
+  const identifier = normalize(identifierRaw);
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  if (!USERNAME_PATTERN.test(username) || password.length < 6) {
-    return authErrorJson('Usuario ou senha invalidos.', 401, request);
+  if (!USERNAME_PATTERN.test(identifier) || password.length < 6) {
+    return authErrorJson('Usuario, email ou senha invalidos.', 401, request);
   }
 
   const profileUrl = new URL('/rest/v1/profiles', config.supabaseUrl);
   profileUrl.searchParams.set('select', 'email');
-  profileUrl.searchParams.set('username', `eq.${username}`);
+  profileUrl.searchParams.set('username', `eq.${identifier}`);
   profileUrl.searchParams.set('limit', '1');
 
   const profileResponse = await fetch(profileUrl.toString(), {
@@ -203,13 +255,13 @@ async function serveUsernameLogin(request: WorkerRequest, env: Env): Promise<Wor
   });
 
   if (!profileResponse.ok) {
-    return authErrorJson('Usuario ou senha invalidos.', 401, request);
+    return authErrorJson('Usuario, email ou senha invalidos.', 401, request);
   }
 
   const profiles = (await profileResponse.json().catch(() => [])) as Array<{ email?: string }>;
   const email = profiles[0]?.email;
   if (!email) {
-    return authErrorJson('Usuario ou senha invalidos.', 401, request);
+    return authErrorJson('Usuario, email ou senha invalidos.', 401, request);
   }
 
   const tokenUrl = new URL('/auth/v1/token', config.supabaseUrl);
@@ -239,7 +291,7 @@ async function serveUsernameLogin(request: WorkerRequest, env: Env): Promise<Wor
     | null;
 
   if (!tokenResponse.ok || !tokenPayload?.access_token || !tokenPayload.refresh_token) {
-    return authErrorJson('Usuario ou senha invalidos.', 401, request);
+    return authErrorJson('Usuario, email ou senha invalidos.', 401, request);
   }
 
   const { email: _email, ...safeUser } = tokenPayload.user || {};
@@ -252,6 +304,187 @@ async function serveUsernameLogin(request: WorkerRequest, env: Env): Promise<Wor
     token_type: tokenPayload.token_type,
     user: safeUser
   }, request);
+}
+
+async function serveUsernameAvailability(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: authCorsHeaders(request) }) as unknown as WorkerResponse;
+  }
+
+  if (request.method !== 'POST') {
+    return authErrorJson('Metodo nao permitido.', 405, request);
+  }
+
+  const config = getAuthConfig(env);
+  if (!config) {
+    return authErrorJson('Validacao de username indisponivel.', 503, request);
+  }
+
+  const body = (await request.json().catch(() => null)) as { username?: unknown; identifier?: unknown } | null;
+  const usernameRaw = typeof body?.username === 'string' ? body.username : typeof body?.identifier === 'string' ? body.identifier : '';
+  const username = normalize(usernameRaw);
+
+  if (!USERNAME_PATTERN.test(username)) {
+    return authJson({ available: false }, request);
+  }
+
+  const profileUrl = new URL('/rest/v1/profiles', config.supabaseUrl);
+  profileUrl.searchParams.set('select', 'id');
+  profileUrl.searchParams.set('username', `eq.${username}`);
+  profileUrl.searchParams.set('limit', '1');
+
+  const profileResponse = await fetch(profileUrl.toString(), {
+    headers: {
+      apikey: config.serviceRoleKey,
+      authorization: `Bearer ${config.serviceRoleKey}`,
+      accept: 'application/json'
+    }
+  });
+
+  if (!profileResponse.ok) {
+    return authErrorJson('Validacao de username indisponivel.', 503, request);
+  }
+
+  const profiles = (await profileResponse.json().catch(() => [])) as Array<{ id?: string }>;
+  return authJson({ available: profiles.length === 0 }, request);
+}
+
+async function serveEmailAvailability(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: authCorsHeaders(request) }) as unknown as WorkerResponse;
+  }
+
+  if (request.method !== 'POST') {
+    return authErrorJson('Metodo nao permitido.', 405, request);
+  }
+
+  const config = getAuthConfig(env);
+  if (!config) {
+    return authErrorJson('Validacao de email indisponivel.', 503, request);
+  }
+
+  const body = (await request.json().catch(() => null)) as { email?: unknown } | null;
+  const email = normalize(typeof body?.email === 'string' ? body.email : '');
+
+  if (!EMAIL_PATTERN.test(email)) {
+    return authJson({ available: false }, request);
+  }
+
+  const profileUrl = new URL('/rest/v1/profiles', config.supabaseUrl);
+  profileUrl.searchParams.set('select', 'id');
+  profileUrl.searchParams.set('email', `eq.${email}`);
+  profileUrl.searchParams.set('limit', '1');
+
+  const profileResponse = await fetch(profileUrl.toString(), {
+    headers: {
+      apikey: config.serviceRoleKey,
+      authorization: `Bearer ${config.serviceRoleKey}`,
+      accept: 'application/json'
+    }
+  });
+
+  if (!profileResponse.ok) {
+    return authErrorJson('Validacao de email indisponivel.', 503, request);
+  }
+
+  const profiles = (await profileResponse.json().catch(() => [])) as Array<{ id?: string }>;
+  return authJson({ available: profiles.length === 0 }, request);
+}
+
+async function serveCharacterOwnershipClaim(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: authCorsHeaders(request) }) as unknown as WorkerResponse;
+  }
+
+  if (request.method !== 'POST') {
+    return authErrorJson('Metodo nao permitido.', 405, request);
+  }
+
+  const config = getAuthConfig(env);
+  if (!config) {
+    return authErrorJson('Vinculo de ficha indisponivel.', 503, request);
+  }
+
+  const userId = await getAuthenticatedUserId(config, request);
+  if (!userId) {
+    return authErrorJson('Sessao invalida.', 401, request);
+  }
+
+  const body = (await request.json().catch(() => null)) as { tableId?: unknown; characterId?: unknown } | null;
+  const tableId = typeof body?.tableId === 'string' ? body.tableId : '';
+  const characterId = typeof body?.characterId === 'string' ? body.characterId : '';
+
+  if (!UUID_PATTERN.test(tableId) || !UUID_PATTERN.test(characterId)) {
+    return authErrorJson('Ficha invalida.', 400, request);
+  }
+
+  const memberships = await fetchServiceRows<{
+    id?: string;
+    role?: string;
+    character_id?: string | null;
+    table_id?: string;
+  }>(config, '/rest/v1/table_memberships', {
+    select: 'id,role,character_id,table_id',
+    table_id: `eq.${tableId}`,
+    user_id: `eq.${userId}`,
+    active: 'eq.true',
+    limit: '1'
+  });
+
+  const membership = memberships?.[0];
+  if (!membership || membership.role !== 'player' || membership.character_id !== characterId) {
+    return authErrorJson('Membership sem acesso a esta ficha.', 403, request);
+  }
+
+  const tables = await fetchServiceRows<{ owner_id?: string | null }>(config, '/rest/v1/tables', {
+    select: 'owner_id',
+    id: `eq.${tableId}`,
+    limit: '1'
+  });
+  const tableOwnerId = tables?.[0]?.owner_id || '';
+
+  const characters = await fetchServiceRows<{ id?: string; owner_id?: string | null; table_id?: string }>(config, '/rest/v1/characters', {
+    select: 'id,owner_id,table_id',
+    id: `eq.${characterId}`,
+    table_id: `eq.${tableId}`,
+    archived: 'eq.false',
+    limit: '1'
+  });
+
+  const character = characters?.[0];
+  if (!character) {
+    return authErrorJson('Ficha nao encontrada.', 404, request);
+  }
+
+  const ownerId = character.owner_id || '';
+  if (ownerId && ownerId !== userId && ownerId !== tableOwnerId) {
+    return authErrorJson('Ficha ja vinculada a outro jogador.', 409, request);
+  }
+
+  if (ownerId === userId) {
+    return authJson({ ok: true }, request);
+  }
+
+  const updateUrl = new URL('/rest/v1/characters', config.supabaseUrl);
+  updateUrl.searchParams.set('id', `eq.${characterId}`);
+  updateUrl.searchParams.set('table_id', `eq.${tableId}`);
+
+  const updateResponse = await fetch(updateUrl.toString(), {
+    method: 'PATCH',
+    headers: {
+      ...serviceHeaders(config),
+      prefer: 'return=minimal'
+    },
+    body: JSON.stringify({
+      owner_id: userId
+    })
+  });
+
+  if (!updateResponse.ok) {
+    return authErrorJson('Nao foi possivel vincular a ficha.', 502, request);
+  }
+
+  return authJson({ ok: true }, request);
 }
 
 async function serveAssets(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
@@ -279,6 +512,18 @@ export default {
 
     if (url.pathname === '/api/auth/username-login') {
       return serveUsernameLogin(request, env);
+    }
+
+    if (url.pathname === '/api/auth/username-availability') {
+      return serveUsernameAvailability(request, env);
+    }
+
+    if (url.pathname === '/api/auth/email-availability') {
+      return serveEmailAvailability(request, env);
+    }
+
+    if (url.pathname === '/api/characters/claim-ownership') {
+      return serveCharacterOwnershipClaim(request, env);
     }
 
     if (url.pathname === '/api/health') {

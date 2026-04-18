@@ -21,9 +21,8 @@ import {
 import { parseCharacterSheetsText, serializeCharacterToText } from '@lib/domain/parsers';
 import { copyText, downloadTextFile, readFileAsText } from '@lib/domain/utils';
 import { workspaceStateSchema } from '@schemas/domain';
-import { DEFAULT_GAME_SYSTEM_KEY, LEGACY_ONLINE_SESSION_STORAGE_KEY, ONLINE_SESSION_STORAGE_KEY } from '@lib/domain/constants';
+import { DEFAULT_GAME_SYSTEM_KEY, ONLINE_SESSION_STORAGE_KEY } from '@lib/domain/constants';
 import { useAuth } from '@features/auth/hooks/use-auth';
-import { shouldUseSupabaseRuntime } from '@integrations/supabase/env';
 import { supabase } from '@integrations/supabase/client';
 import { type WorkspaceBackend } from '@features/workspace/backend';
 import { normalizeWorkspaceError } from '@features/workspace/invite-rules';
@@ -31,6 +30,7 @@ import { runtimeWorkspaceBackend } from '@features/workspace/runtime-backend';
 import type {
   AuthUser,
   Character,
+  CharacterGalleryImage,
   Condition,
   CustomRollInput,
   GuidedRollInput,
@@ -61,7 +61,6 @@ type CollectionKey = 'weapons' | 'techniques' | 'passives' | 'vows' | 'inventory
 interface WorkspaceContextValue {
   isReady: boolean;
   state: WorkspaceState;
-  legacyState: WorkspaceState | null;
   activeCharacter: Character;
   lastRoll: RollResult | null;
   compendiumQuery: string;
@@ -79,6 +78,12 @@ interface WorkspaceContextValue {
   setCharacterAvatar: (characterId: string, avatar: string, mode: Character['avatarMode']) => void;
   uploadCharacterAvatar: (characterId: string, file: File) => Promise<void>;
   clearCharacterAvatar: (characterId: string) => void;
+  updateCharacterLore: (characterId: string, lore: string) => void;
+  addCharacterGalleryImage: (characterId: string, image: CharacterGalleryImage) => void;
+  uploadCharacterGalleryImage: (characterId: string, file: File, caption?: string) => Promise<void>;
+  updateCharacterGalleryImage: (characterId: string, imageId: string, patch: Partial<Pick<CharacterGalleryImage, 'caption' | 'sortOrder' | 'url' | 'path'>>) => void;
+  removeCharacterGalleryImage: (characterId: string, imageId: string) => void;
+  reorderCharacterGallery: (characterId: string, orderedIds: string[]) => void;
   setAttributeValue: (characterId: string, attributeKey: keyof Character['attributes'], value: number) => void;
   setAttributeRank: (
     characterId: string,
@@ -181,8 +186,7 @@ const DEFAULT_ONLINE_STATE: OnlineState = {
 function readStoredSession(userId: string): TableSession | null {
   try {
     const raw =
-      localStorage.getItem(`${ONLINE_SESSION_STORAGE_KEY}:${userId}`) ||
-      localStorage.getItem(`${LEGACY_ONLINE_SESSION_STORAGE_KEY}:${userId}`);
+      localStorage.getItem(`${ONLINE_SESSION_STORAGE_KEY}:${userId}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<TableSession>;
     return {
@@ -208,19 +212,28 @@ function writeStoredSession(userId: string, session: TableSession | null) {
   }
 
   localStorage.removeItem(`${ONLINE_SESSION_STORAGE_KEY}:${userId}`);
-  localStorage.removeItem(`${LEGACY_ONLINE_SESSION_STORAGE_KEY}:${userId}`);
 }
 
 function setCharacterField(character: Character, field: string, value: string | number): Character {
   if (field === 'name') return { ...character, name: String(value) };
   if (field === 'age') return { ...character, age: Number(value) };
   if (field === 'appearance') return { ...character, appearance: String(value) };
+  if (field === 'lore') return { ...character, lore: String(value) };
   if (field === 'clan') return { ...character, clan: String(value) };
   if (field === 'grade') return { ...character, grade: String(value) };
   if (field === 'identity.scar') return { ...character, identity: { ...character.identity, scar: String(value) } };
   if (field === 'identity.anchor') return { ...character, identity: { ...character.identity, anchor: String(value) } };
   if (field === 'identity.trigger') return { ...character, identity: { ...character.identity, trigger: String(value) } };
   return character;
+}
+
+function normalizeGalleryOrder(gallery: CharacterGalleryImage[]) {
+  return gallery
+    .map((image, index) => ({
+      ...image,
+      sortOrder: index
+    }))
+    .sort((left, right) => left.sortOrder - right.sortOrder);
 }
 
 function buildOnlineState(session: TableSession, table: TableState, current: OnlineState): OnlineState {
@@ -232,7 +245,7 @@ function buildOnlineState(session: TableSession, table: TableState, current: Onl
     currentSession: table.currentSession,
     sessionAttendances: table.sessionAttendances,
     sessionHistoryPreview: table.sessionHistoryPreview,
-    members: shouldUseSupabaseRuntime ? current.members : table.memberships,
+    members: current.members.length ? current.members : table.memberships,
     snapshots: table.snapshots,
     joinCodes: table.joinCodes,
     pendingCodeJoin: null,
@@ -281,7 +294,7 @@ function syncTableIntoOnlineState(current: OnlineState, table: TableState, statu
     lastSyncAt: table.updatedAt,
     status,
     error: '',
-    members: shouldUseSupabaseRuntime ? current.members : table.memberships
+    members: current.members.length ? current.members : table.memberships
   } satisfies OnlineState;
 }
 
@@ -301,7 +314,6 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
   const { user } = useAuth();
   const [isReady, setIsReady] = useState(false);
   const [state, setState] = useState<WorkspaceState>(createDefaultState());
-  const [legacyState, setLegacyState] = useState<WorkspaceState | null>(null);
   const [lastRoll, setLastRoll] = useState<RollResult | null>(null);
   const [compendiumQuery, setCompendiumQuery] = useState('');
   const [compendiumCategory, setCompendiumCategory] = useState('all');
@@ -352,7 +364,6 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       const nextState = createDefaultState();
       stateRef.current = nextState;
       setState(nextState);
-      setLegacyState(null);
       setOnline(DEFAULT_ONLINE_STATE);
       setTables([]);
       setIsReady(true);
@@ -368,10 +379,9 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
 
     void (async () => {
       try {
-        const [workspace, userTables] = await Promise.all([workspaceBackend.loadWorkspace(user), workspaceBackend.listUserTables(user)]);
+          const [workspace, userTables] = await Promise.all([workspaceBackend.loadWorkspace(user), workspaceBackend.listUserTables(user)]);
         if (!isMounted) return;
         const nextState = normalizeState(workspace);
-        setLegacyState(nextState);
         setTables(userTables);
 
         const storedSession = readStoredSession(user.id);
@@ -454,7 +464,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     const client = supabase;
     const session = online.session;
 
-    if (!shouldUseSupabaseRuntime || !client || !session || !user) {
+    if (!client || !session || !user) {
       return () => undefined;
     }
 
@@ -911,6 +921,11 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           }));
         }
 
+        queueTableLog({
+          session: currentSession,
+          userId: user.id,
+          entry
+        });
         queueTableSync({
           session: currentSession,
           state: nextState,
@@ -932,7 +947,6 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
     () => ({
       isReady,
       state,
-      legacyState,
       activeCharacter,
       lastRoll,
       compendiumQuery,
@@ -1066,6 +1080,89 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
               character.id === characterId ? { ...character, avatar: '', avatarMode: 'none', avatarPath: '' } : character
             ),
           'Remocao de avatar'
+        ),
+      updateCharacterLore: (characterId, lore) =>
+        updateCharacters(
+          (characters) => characters.map((character) => (character.id === characterId ? { ...character, lore } : character)),
+          'Atualizacao de lore'
+        ),
+      addCharacterGalleryImage: (characterId, image) =>
+        updateCharacters(
+          (characters) =>
+            characters.map((character) =>
+              character.id === characterId
+                ? {
+                    ...character,
+                    gallery: normalizeGalleryOrder([...character.gallery, image])
+                  }
+                : character
+            ),
+          'Nova imagem de galeria'
+        ),
+      uploadCharacterGalleryImage: async (characterId, file, caption = '') => {
+        if (!user) throw new Error('Voce precisa estar autenticado para enviar imagens.');
+        const uploaded = await workspaceBackend.uploadCharacterGalleryImage({
+          user,
+          characterId,
+          file,
+          caption,
+          sortOrder: stateRef.current.characters.find((character) => character.id === characterId)?.gallery.length || 0
+        });
+
+        updateCharacters(
+          (characters) =>
+            characters.map((character) =>
+              character.id === characterId
+                ? {
+                    ...character,
+                    gallery: normalizeGalleryOrder([...character.gallery, uploaded.image])
+                  }
+                : character
+            ),
+          'Upload de imagem de galeria'
+        );
+      },
+      updateCharacterGalleryImage: (characterId, imageId, patch) =>
+        updateCharacters(
+          (characters) =>
+            characters.map((character) => {
+              if (character.id !== characterId) return character;
+              return {
+                ...character,
+                gallery: normalizeGalleryOrder(
+                  character.gallery.map((image) => (image.id === imageId ? { ...image, ...patch } : image))
+                )
+              };
+            }),
+          'Atualizacao de imagem de galeria'
+        ),
+      removeCharacterGalleryImage: (characterId, imageId) =>
+        updateCharacters(
+          (characters) =>
+            characters.map((character) =>
+              character.id === characterId
+                ? {
+                    ...character,
+                    gallery: normalizeGalleryOrder(character.gallery.filter((image) => image.id !== imageId))
+                  }
+                : character
+            ),
+          'Remocao de imagem de galeria'
+        ),
+      reorderCharacterGallery: (characterId, orderedIds) =>
+        updateCharacters(
+          (characters) =>
+            characters.map((character) => {
+              if (character.id !== characterId) return character;
+              const imageMap = new Map(character.gallery.map((image) => [image.id, image]));
+              const reordered = orderedIds.map((id) => imageMap.get(id)).filter(Boolean) as CharacterGalleryImage[];
+              const remaining = character.gallery.filter((image) => !orderedIds.includes(image.id));
+              return {
+                ...character,
+                gallery: normalizeGalleryOrder([...reordered, ...remaining])
+              };
+            }),
+          'Reordenacao de galeria'
         ),
       setAttributeValue: (characterId, attributeKey, value) =>
         updateCharacters(
@@ -1706,7 +1803,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           session: currentSession
         });
         writeStoredSession(user.id, null);
-        const fallbackState = legacyState ?? createDefaultState();
+        const fallbackState = createDefaultState();
         stateRef.current = fallbackState;
         setState(fallbackState);
         setOnline(DEFAULT_ONLINE_STATE);
@@ -1729,7 +1826,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           userId: user.id
         });
         writeStoredSession(user.id, null);
-        const fallbackState = legacyState ?? createDefaultState();
+        const fallbackState = createDefaultState();
         stateRef.current = fallbackState;
         setState(fallbackState);
         setOnline(DEFAULT_ONLINE_STATE);
@@ -1742,7 +1839,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           userId: user.id
         });
         writeStoredSession(user.id, null);
-        const fallbackState = legacyState ?? createDefaultState();
+        const fallbackState = createDefaultState();
         stateRef.current = fallbackState;
         setState(fallbackState);
         setOnline(DEFAULT_ONLINE_STATE);
@@ -1754,7 +1851,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         downloadTextFile(`${activeCharacter.name || 'personagem'}.txt`, serializeCharacterToText(activeCharacter));
       }
     }),
-    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, flushPersistence, isReady, lastRoll, legacyState, online, persistState, refreshTables, setLocalActiveCharacter, state, tables, updateCharacters, user, workspaceBackend]
+    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, flushPersistence, isReady, lastRoll, online, persistState, refreshTables, setLocalActiveCharacter, state, tables, updateCharacters, user, workspaceBackend]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

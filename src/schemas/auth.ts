@@ -1,12 +1,32 @@
 import { z } from 'zod';
 
+const emailSchema = z.email('Informe um email valido.');
+const usernameSchema = z
+  .string()
+  .min(3, 'Informe seu username ou email.')
+  .regex(/^[a-z0-9_]+$/i, 'Use um email valido ou apenas letras, numeros e underscore.');
+
 export const loginSchema = z.object({
-  username: z
-    .string()
-    .min(3, 'Informe seu usuario.')
-    .regex(/^[a-z0-9_]+$/i, 'Use apenas letras, numeros e underscore.'),
+  identifier: z.string().min(3, 'Informe seu username ou email.').refine((value) => {
+    const trimmed = value.trim();
+    return emailSchema.safeParse(trimmed).success || usernameSchema.safeParse(trimmed).success;
+  }, 'Use um email valido ou apenas letras, numeros e underscore.'),
   password: z.string().min(6, 'A senha precisa ter ao menos 6 caracteres.')
 });
+
+export function isEmailLogin(value: string) {
+  return emailSchema.safeParse(value.trim()).success;
+}
+
+export function normalizeLoginIdentifier(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export function isUsernameLogin(value: string) {
+  return usernameSchema.safeParse(normalizeLoginIdentifier(value)).success;
+}
+
+export { usernameSchema };
 
 export const registerSchema = z
   .object({

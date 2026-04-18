@@ -45,20 +45,20 @@ describe('LoginForm', () => {
     const submitButton = screen.getByRole('button', { name: 'Entrar no Project Nexus' });
     expect(submitButton).toBeEnabled();
 
-    await user.type(screen.getByLabelText('Usuario'), 'tester');
+    await user.type(screen.getByLabelText('Email ou username'), 'tester');
     await user.type(screen.getByLabelText('Senha'), 'senha123');
     await user.click(submitButton);
 
     await waitFor(() => {
       expect(service.signIn).toHaveBeenCalledWith({
-        username: 'tester',
+        identifier: 'tester',
         password: 'senha123'
       });
     });
     expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a single invalid login message for username auth failures', async () => {
+  it('shows a single invalid login message for username or email auth failures', async () => {
     const user = userEvent.setup();
     const service = createAuthServiceMock({
       signIn: vi.fn().mockRejectedValue(new Error('Usuario ou senha invalidos.'))
@@ -70,7 +70,7 @@ describe('LoginForm', () => {
       </AuthProvider>
     );
 
-    await user.type(screen.getByLabelText('Usuario'), 'mysto');
+    await user.type(screen.getByLabelText('Email ou username'), 'mysto');
     await user.type(screen.getByLabelText('Senha'), 'senhaerrada');
     await user.click(screen.getByRole('button', { name: 'Entrar no Project Nexus' }));
 

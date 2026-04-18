@@ -35,8 +35,8 @@ export function MesaOrderPage() {
     <div className="page-shell pb-8">
       <MesaHero
         eyebrow="Ordem da mesa"
-        title="Painel tatico de combate"
-        description="A fila de iniciativa passa a ter espaco proprio, com destaque claro do turno atual e controles separados do restante da UI."
+        title="Painel tático de combate"
+        description="A fila de iniciativa agora tem leitura clara de round, turno e combatentes, com foco operacional forte no confronto em andamento."
         actions={
           canManage ? (
             <>
@@ -62,7 +62,7 @@ export function MesaOrderPage() {
       <div className="grid gap-6">
         <div className="grid gap-6">
           {canManage ? (
-            <Panel className="rounded-lg p-6">
+            <Panel className="rounded-3xl p-6 sm:p-7">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Entrada de combate</p>
               <h2 className="mt-2 font-display text-4xl leading-none text-white">Adicionar combatente</h2>
               <p className="mt-3 text-sm leading-6 text-soft">Use personagens da mesa para PCs ou cadastre NPCs e inimigos com modificador manual.</p>
@@ -135,7 +135,7 @@ export function MesaOrderPage() {
             </Panel>
           ) : null}
 
-          <Panel className="rounded-lg p-6">
+          <Panel className="rounded-3xl p-6 sm:p-7">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Sequencia tatica</p>
             <h2 className="mt-2 font-display text-4xl leading-none text-white">Fila atual de combate</h2>
 
@@ -146,8 +146,8 @@ export function MesaOrderPage() {
                   return (
                     <div
                       key={entry.id}
-                      className={`rounded-lg border px-4 py-4 transition ${
-                        isActive ? 'border-sky-300/24 bg-sky-500/10' : 'border-white/10 bg-white/[0.03]'
+                      className={`rounded-2xl border px-4 py-4 transition ${
+                        isActive ? 'border-sky-300/24 bg-sky-500/10 shadow-[0_18px_40px_rgba(78,140,255,0.12)]' : 'border-white/10 bg-white/[0.03]'
                       }`}
                     >
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

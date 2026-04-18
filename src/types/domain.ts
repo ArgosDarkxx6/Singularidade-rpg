@@ -88,16 +88,26 @@ export interface Condition {
   note: string;
 }
 
+export interface CharacterGalleryImage {
+  id: string;
+  url: string;
+  path: string;
+  caption: string;
+  sortOrder: number;
+}
+
 export interface Character {
   id: string;
   name: string;
   age: number;
   appearance: string;
+  lore: string;
   clan: string;
   grade: string;
   avatarMode: 'none' | 'url' | 'upload';
   avatar: string;
   avatarPath?: string;
+  gallery: CharacterGalleryImage[];
   identity: CharacterIdentity;
   resources: Record<ResourceKey, ResourceValue>;
   attributes: Record<AttributeKey, CharacterAttribute>;
