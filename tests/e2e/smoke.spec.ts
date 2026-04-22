@@ -223,7 +223,10 @@ async function openInviteModal(page: Page) {
     if (!clickedInviteButton) {
       const clickedNewInviteButton = await tryClickVisibleButton('Novo convite');
       if (!clickedNewInviteButton) {
-        await page.getByRole('button', { name: /Convidar membro|Novo convite/ }).first().click();
+        const slugMatch = page.url().match(/\/mesa\/([^/?#]+)/i);
+        if (slugMatch?.[1]) {
+          await page.goto(`/mesa/${slugMatch[1]}?focus=membros`);
+        }
       }
     }
   }
