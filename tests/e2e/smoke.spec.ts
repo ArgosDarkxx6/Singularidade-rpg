@@ -204,11 +204,27 @@ async function openInviteModal(page: Page) {
   });
 
   if (!(await dialog.first().isVisible().catch(() => false))) {
-    const inviteButton = page.getByRole('button', { name: 'Convidar membro' }).first();
-    if (await inviteButton.isVisible().catch(() => false)) {
-      await inviteButton.click();
-    } else {
-      await page.getByRole('button', { name: 'Novo convite' }).first().click();
+    const tryClickVisibleButton = async (name: string) => {
+      const buttons = page.getByRole('button', { name });
+      const count = await buttons.count();
+
+      for (let index = 0; index < count; index += 1) {
+        const button = buttons.nth(index);
+        if (await button.isVisible().catch(() => false)) {
+          await button.click();
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    const clickedInviteButton = await tryClickVisibleButton('Convidar membro');
+    if (!clickedInviteButton) {
+      const clickedNewInviteButton = await tryClickVisibleButton('Novo convite');
+      if (!clickedNewInviteButton) {
+        await page.getByRole('button', { name: /Convidar membro|Novo convite/ }).first().click();
+      }
     }
   }
 
