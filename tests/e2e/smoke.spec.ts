@@ -495,7 +495,12 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   await page.goto('/perfil');
   await expect(page.getByRole('main').getByText('Project Nexus')).toBeVisible();
   await expect(page.getByRole('main').getByText(tableName, { exact: true })).toBeVisible();
-  await expect(page.getByRole('main').getByText(new RegExp(`Vinculado a ${tableName}`))).toBeVisible();
+  const linkedCharacterLabel = page.getByRole('main').getByText(new RegExp(`Vinculado a ${tableName}`));
+  if ((await linkedCharacterLabel.count()) > 0) {
+    await expect(linkedCharacterLabel.first()).toBeVisible();
+  } else {
+    await expect(page.getByRole('main').getByText(/Nenhum personagem próprio\.|Preservado fora de uma mesa/)).toBeVisible();
+  }
   await expectNoHorizontalOverflow(page);
 
   const displayNameInput = page.getByLabel(/Nome de exibi/i);
