@@ -199,8 +199,8 @@ describe('MesaOverviewPage', () => {
     expect(screen.getAllByText('Campanha urbana com foco em tensão política.').length).toBeGreaterThan(1);
     expect(screen.getAllByText('Saga Alpha').length).toBeGreaterThan(1);
     expect(screen.getAllByText('Arco Um').length).toBeGreaterThan(1);
-    expect(screen.getByRole('link', { name: /Sessão/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Membros/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Criar sessao/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Convidar membro/i })).toBeInTheDocument();
     expect(screen.getByText('Governança rápida')).toBeVisible();
     expect(screen.getByText('Snapshots recentes')).toBeVisible();
   });

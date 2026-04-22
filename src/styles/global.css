@@ -181,12 +181,9 @@
 
   .app-sidebar-shell {
     min-height: 0;
-    border-radius: 8px;
-    border: 1px solid rgba(133, 179, 223, 0.12);
-    background: linear-gradient(180deg, rgba(9, 14, 28, 0.98), rgba(7, 12, 24, 0.98));
-    box-shadow: 0 16px 48px rgba(1, 5, 14, 0.42);
-    backdrop-filter: blur(14px);
-    padding: 0.75rem;
+    position: sticky;
+    top: 0;
+    overflow: visible;
   }
 
   .app-topbar {
@@ -205,6 +202,7 @@
     background: linear-gradient(180deg, rgba(8, 13, 24, 0.82), rgba(7, 10, 18, 0.75));
     box-shadow: 0 14px 54px rgba(1, 6, 13, 0.28);
     backdrop-filter: blur(10px);
+    overflow-y: auto;
   }
 
   .section-label {
@@ -223,12 +221,30 @@
 
   .rail-shell {
     width: 68px;
-    transition: width 220ms ease, border-color 220ms ease;
-    overflow: hidden;
+    min-width: 68px;
+    overflow: visible;
+    isolation: isolate;
   }
 
-  .rail-shell:hover,
-  .rail-shell:focus-within {
+  .rail-shell-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 68px;
+    border-radius: 8px;
+    border: 1px solid rgba(133, 179, 223, 0.12);
+    background: linear-gradient(180deg, rgba(9, 14, 28, 0.98), rgba(7, 12, 24, 0.98));
+    box-shadow: 0 16px 48px rgba(1, 5, 14, 0.42);
+    backdrop-filter: blur(14px);
+    padding: 0.75rem;
+    transition: width 220ms ease, border-color 220ms ease;
+    overflow: hidden;
+    z-index: 20;
+  }
+
+  .rail-shell:hover .rail-shell-content,
+  .rail-shell:focus-within .rail-shell-content {
     width: 286px;
     border-color: rgba(143, 199, 255, 0.22);
   }

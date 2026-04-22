@@ -42,6 +42,10 @@ export const router = createBrowserRouter([
           {
             path: '/perfil',
             lazy: async () => ({ Component: (await import('@routes/profile-page')).ProfilePage })
+          },
+          {
+            path: '/personagens',
+            lazy: async () => ({ Component: (await import('@routes/my-characters-page')).MyCharactersPage })
           }
         ]
       },
@@ -75,7 +79,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'sessao',
-            lazy: async () => ({ Component: (await import('@routes/mesa-session-page')).MesaSessionPage })
+            lazy: async () => ({ Component: (await import('@routes/mesa-legacy-section-redirect')).MesaLegacySessionRedirect })
           },
           {
             path: 'fichas',
@@ -95,7 +99,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'membros',
-            lazy: async () => ({ Component: (await import('@routes/mesa-members-page')).MesaMembersPage })
+            lazy: async () => ({ Component: (await import('@routes/mesa-legacy-section-redirect')).MesaLegacyMembersRedirect })
           },
           {
             path: 'configuracoes',

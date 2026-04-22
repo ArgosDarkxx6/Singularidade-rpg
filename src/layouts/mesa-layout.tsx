@@ -3,12 +3,13 @@ import {
   ArrowLeftRight,
   BookOpenText,
   CalendarClock,
+  Dices,
   LayoutDashboard,
   LoaderCircle,
   Menu,
+  ScrollText,
   Settings,
   Shield,
-  Sparkles,
   Swords,
   TriangleAlert,
   Users
@@ -30,13 +31,13 @@ import { getGameSystem } from '@features/systems/registry';
 import { useWorkspace } from '@features/workspace/use-workspace';
 import { MESA_SECTION_LABELS } from '@lib/domain/constants';
 import { cn } from '@lib/utils';
-import type { AuthUser, MesaSection, PresenceMember, TableSession, TableState } from '@/types/domain';
+import type { AuthUser, InvitePreview, MesaSection, PresenceMember, TableSession, TableState } from '@/types/domain';
 
 const sectionIcons: Record<MesaSection, typeof LayoutDashboard> = {
   overview: LayoutDashboard,
   sessao: CalendarClock,
-  fichas: Sparkles,
-  rolagens: Sparkles,
+  fichas: ScrollText,
+  rolagens: Dices,
   ordem: Swords,
   livro: BookOpenText,
   membros: Users,
@@ -331,10 +332,13 @@ export function MesaLayout() {
   const inviteToken = searchParams.get('token');
   const { user, signOut } = useAuth();
   const { mobileNavOpen, setMobileNavOpen } = useMesaShellStore();
-  const { isReady, online, tables, switchTable, connectToInvite, leaveCurrentTable } = useWorkspace();
+  const { isReady, online, tables, switchTable, connectToInvite, previewInvite, leaveCurrentTable } = useWorkspace();
   const attemptRef = useRef('');
   const [openError, setOpenError] = useState('');
   const [retryNonce, setRetryNonce] = useState(0);
+  const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
+  const [invitePreviewLoading, setInvitePreviewLoading] = useState(false);
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
   const currentSection = getMesaSectionFromPath(location.pathname);
   const accessError = useMemo(() => {
     if (!isReady || !slug) return '';
@@ -353,7 +357,39 @@ export function MesaLayout() {
   useEffect(() => {
     attemptRef.current = '';
     setOpenError('');
+    setInvitePreview(null);
   }, [inviteToken, slug]);
+
+  useEffect(() => {
+    if (!isReady || !inviteToken || online.session?.tableSlug === slug) return;
+    let disposed = false;
+    setInvitePreviewLoading(true);
+    setOpenError('');
+
+    void previewInvite(inviteToken)
+      .then((preview) => {
+        if (disposed) return;
+        if (!preview) {
+          setOpenError('Convite invalido ou expirado.');
+          return;
+        }
+        setInvitePreview(preview);
+      })
+      .catch((error) => {
+        if (!disposed) {
+          setOpenError(error instanceof Error ? error.message : 'Nao foi possivel carregar o convite.');
+        }
+      })
+      .finally(() => {
+        if (!disposed) {
+          setInvitePreviewLoading(false);
+        }
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [inviteToken, isReady, online.session?.tableSlug, previewInvite, slug]);
 
   useEffect(() => {
     if (!isReady || !slug || online.session?.tableSlug === slug || accessError) return;
@@ -365,13 +401,7 @@ export function MesaLayout() {
 
     void (async () => {
       try {
-        if (inviteToken) {
-          const joinedSession = await connectToInvite(window.location.href, user?.displayName || user?.username || 'Feiticeiro');
-          if (!joinedSession) {
-            setOpenError('A mesa não respondeu com uma sessão válida para este convite.');
-          }
-          return;
-        }
+        if (inviteToken) return;
 
         const nextSession = await switchTable(slug);
         if (!nextSession) {
@@ -390,6 +420,7 @@ export function MesaLayout() {
   const currentTableSummary = tables.find((item) => item.slug === slug) || tables.find((item) => item.slug === session?.tableSlug) || null;
   const members = useMemo(() => (online.members.length ? online.members : table?.memberships || []).slice(0, 6), [online.members, table?.memberships]);
   const terminalAccessError = openError || accessError;
+  const shouldShowInvitePreview = Boolean(inviteToken && !session && !terminalAccessError);
 
   const handleLeaveTable = async () => {
     try {
@@ -416,7 +447,25 @@ export function MesaLayout() {
     signOut();
   };
 
-  if (!isReady || (!session && !terminalAccessError)) {
+  const handleAcceptInvite = async () => {
+    if (!inviteToken) return;
+    setAcceptingInvite(true);
+    setOpenError('');
+    try {
+      const joinedSession = await connectToInvite(window.location.href, user?.displayName || user?.username || 'Feiticeiro');
+      if (!joinedSession) {
+        setOpenError('A mesa nao respondeu com uma sessao valida para este convite.');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel aceitar este convite.';
+      setOpenError(message);
+      toast.error(message);
+    } finally {
+      setAcceptingInvite(false);
+    }
+  };
+
+  if (!isReady || (!session && !terminalAccessError && !inviteToken)) {
     return (
       <div className="grid min-h-screen place-items-center px-4 py-10">
         <Panel className="w-full max-w-xl rounded-2xl p-8 text-center">
@@ -424,6 +473,51 @@ export function MesaLayout() {
           <h1 className="mt-5 font-display text-4xl text-white">Carregando a mesa</h1>
           {openError ? <p className="mt-4 text-sm text-rose-200">{openError}</p> : null}
           <p className="mt-3 text-sm leading-6 text-soft">Carregando permissões, membros e estado da campanha.</p>
+        </Panel>
+      </div>
+    );
+  }
+
+  if (shouldShowInvitePreview) {
+    return (
+      <div className="grid min-h-screen place-items-center px-4 py-10">
+        <Panel className="w-full max-w-2xl rounded-2xl p-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Preview do convite</p>
+          {invitePreviewLoading ? (
+            <>
+              <h1 className="mt-3 font-display text-5xl leading-none text-white">Carregando convite</h1>
+              <p className="mt-4 text-sm leading-6 text-soft">Validando token e contexto da mesa...</p>
+            </>
+          ) : invitePreview ? (
+            <>
+              <h1 className="mt-3 font-display text-5xl leading-none text-white">{invitePreview.tableName}</h1>
+              <p className="mt-4 text-sm leading-6 text-soft">
+                {invitePreview.tableDescription || 'Sem descricao publica cadastrada para esta mesa.'}
+              </p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Papel concedido</p>
+                <p className="mt-1 text-base font-semibold text-white">{formatRoleLabel(invitePreview.role)}</p>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Button disabled={acceptingInvite} onClick={() => void handleAcceptInvite()}>
+                  {acceptingInvite ? 'Aceitando...' : 'Aceitar convite'}
+                </Button>
+                <Button variant="secondary" onClick={() => navigate('/mesas')}>
+                  Voltar ao hub
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="mt-3 font-display text-5xl leading-none text-white">Convite indisponivel</h1>
+              <p className="mt-4 text-sm leading-6 text-soft">Este token nao esta mais disponivel para entrada.</p>
+              <div className="mt-6">
+                <Button variant="secondary" onClick={() => navigate('/mesas')}>
+                  Voltar ao hub
+                </Button>
+              </div>
+            </>
+          )}
         </Panel>
       </div>
     );
@@ -468,20 +562,22 @@ export function MesaLayout() {
 
       <div className="relative mx-auto grid min-h-screen max-w-[1840px] grid-cols-1 gap-4 px-3 py-3 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-4 xl:py-4">
         <aside className="app-sidebar-shell rail-shell hidden xl:flex xl:min-h-[calc(100svh-2rem)] xl:flex-col">
-          <MesaSidebarContent
-            table={table}
-            session={session}
-            members={members}
-            slug={slug}
-            user={user}
-            currentTableSummary={currentTableSummary}
-            tables={tables}
-            onSwitchTable={handleSwitchTable}
-            onLeave={() => void handleLeaveTable()}
-            onOpenProfile={() => navigate('/perfil')}
-            onSignOut={handleSignOut}
-            compact
-          />
+          <div className="rail-shell-content">
+            <MesaSidebarContent
+              table={table}
+              session={session}
+              members={members}
+              slug={slug}
+              user={user}
+              currentTableSummary={currentTableSummary}
+              tables={tables}
+              onSwitchTable={handleSwitchTable}
+              onLeave={() => void handleLeaveTable()}
+              onOpenProfile={() => navigate('/perfil')}
+              onSignOut={handleSignOut}
+              compact
+            />
+          </div>
         </aside>
 
         <div className="flex min-h-screen flex-col gap-4 xl:min-h-[calc(100svh-2rem)]">

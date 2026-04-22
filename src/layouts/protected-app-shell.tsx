@@ -1,6 +1,7 @@
 import {
   ChevronRight,
   DoorOpen,
+  IdCard,
   LayoutDashboard,
   Menu,
   RadioTower,
@@ -33,6 +34,12 @@ const PLATFORM_NAV_ITEMS = [
     to: '/perfil',
     icon: UserRound,
     matches: (pathname: string) => pathname.startsWith('/perfil')
+  },
+  {
+    label: 'Meus personagens',
+    to: '/personagens',
+    icon: IdCard,
+    matches: (pathname: string) => pathname.startsWith('/personagens')
   }
 ] as const;
 
@@ -46,10 +53,16 @@ const PAGE_META = {
     eyebrow: 'Conta',
     title: 'Perfil e identidade',
     description: 'Gerencie sua presença na plataforma, personagens vinculados e acesso às mesas em um único lugar.'
+  },
+  '/personagens': {
+    eyebrow: 'Conta',
+    title: 'Meus personagens',
+    description: 'Nucleo autoral dos personagens da sua conta, pronto para vincular em qualquer mesa.'
   }
 } as const;
 
 function getPageMeta(pathname: string) {
+  if (pathname.startsWith('/personagens')) return PAGE_META['/personagens'];
   if (pathname.startsWith('/perfil')) return PAGE_META['/perfil'];
   return PAGE_META['/mesas'];
 }
@@ -207,7 +220,9 @@ export function ProtectedAppShell() {
 
       <div className="relative mx-auto grid min-h-screen max-w-[1820px] grid-cols-1 gap-4 px-3 py-3 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-4 xl:py-4">
         <aside className="app-sidebar-shell rail-shell hidden xl:flex xl:min-h-[calc(100svh-2rem)] xl:flex-col">
-          <PlatformSidebarContent pathname={location.pathname} onSignOut={signOut} compact />
+          <div className="rail-shell-content">
+            <PlatformSidebarContent pathname={location.pathname} onSignOut={signOut} compact />
+          </div>
         </aside>
 
         <div className="flex min-h-screen flex-col gap-4 xl:min-h-[calc(100svh-2rem)]">

@@ -3,12 +3,10 @@ import { MESA_SECTION_LABELS } from '@lib/domain/constants';
 
 export const MESA_NAV_ITEMS: Array<{ section: MesaSection; href: (slug: string) => string; label: string }> = [
   { section: 'overview', href: (slug) => `/mesa/${slug}`, label: MESA_SECTION_LABELS.overview },
-  { section: 'sessao', href: (slug) => `/mesa/${slug}/sessao`, label: MESA_SECTION_LABELS.sessao },
   { section: 'fichas', href: (slug) => `/mesa/${slug}/fichas`, label: MESA_SECTION_LABELS.fichas },
   { section: 'rolagens', href: (slug) => `/mesa/${slug}/rolagens`, label: MESA_SECTION_LABELS.rolagens },
   { section: 'ordem', href: (slug) => `/mesa/${slug}/ordem`, label: MESA_SECTION_LABELS.ordem },
   { section: 'livro', href: (slug) => `/mesa/${slug}/livro`, label: MESA_SECTION_LABELS.livro },
-  { section: 'membros', href: (slug) => `/mesa/${slug}/membros`, label: MESA_SECTION_LABELS.membros },
   { section: 'configuracoes', href: (slug) => `/mesa/${slug}/configuracoes`, label: MESA_SECTION_LABELS.configuracoes }
 ];
 

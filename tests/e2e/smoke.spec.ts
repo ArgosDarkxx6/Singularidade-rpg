@@ -33,7 +33,9 @@ function parseEnvFile(path: string) {
         .filter((line) => line && !line.startsWith('#') && line.includes('='))
         .map((line) => {
           const index = line.indexOf('=');
-          return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
+          const rawValue = line.slice(index + 1).trim();
+          const normalizedValue = rawValue.replace(/^['"]|['"]$/g, '');
+          return [line.slice(0, index).trim(), normalizedValue];
         })
     );
   } catch {
@@ -57,10 +59,14 @@ function envValue(...names: string[]) {
 
 function createAdminClient() {
   const supabaseUrl = envValue('SUPABASE_URL', 'VITE_SUPABASE_URL');
+  const anonKey = envValue('SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY');
   const serviceRoleKey = envValue('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error('E2E requires SUPABASE_URL or VITE_SUPABASE_URL plus SUPABASE_SERVICE_ROLE_KEY.');
+  }
+  if (anonKey && serviceRoleKey === anonKey) {
+    throw new Error('E2E requires SUPABASE_SERVICE_ROLE_KEY with admin privileges (different from SUPABASE_ANON_KEY).');
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {
@@ -192,51 +198,68 @@ async function createTable(page: Page, tableName: string) {
   await expect(page).toHaveURL(new RegExp(`/mesa/${slugify(tableName)}$`), { timeout: 30_000 });
 }
 
-async function createRoleJoinCode(page: Page, role: 'player' | 'viewer', label: string, linkCharacter = false) {
-  const roleSelects = page.getByLabel('Papel concedido');
-  await roleSelects.nth(1).selectOption(role);
+async function openInviteModal(page: Page) {
+  const dialog = page.getByRole('dialog').filter({
+    has: page.getByRole('heading', { name: 'Convidar membro' })
+  });
 
-  if (linkCharacter) {
-    const characterSelects = page.getByLabel('Personagem vinculado');
-    await characterSelects.nth(1).selectOption({ index: 1 });
+  if (!(await dialog.first().isVisible().catch(() => false))) {
+    const inviteButton = page.getByRole('button', { name: 'Convidar membro' }).first();
+    if (await inviteButton.isVisible().catch(() => false)) {
+      await inviteButton.click();
+    } else {
+      await page.getByRole('button', { name: 'Novo convite' }).first().click();
+    }
   }
 
-  const labelInputs = page.getByLabel(/R.*tulo do c.*digo/);
-  await labelInputs.fill(label);
-  await page.getByRole('button', { name: /Gerar c.*digo/ }).click();
+  await expect(dialog.getByRole('heading', { name: 'Convidar membro' })).toBeVisible();
+  return dialog;
+}
 
-  const generatedCodeCard = page.locator(`text=${label}`).first().locator('..');
-  await expect(generatedCodeCard).toBeVisible();
-  const generatedCodeText = await generatedCodeCard.textContent();
-  const codeMatch = generatedCodeText?.match(/\d{3}\s\d{3}/);
-  const joinCode = codeMatch?.[0]?.replace(/\s/g, '') || '';
+async function createRoleJoinCode(page: Page, role: 'player' | 'viewer') {
+  const dialog = await openInviteModal(page);
+  await dialog.getByLabel('Tipo').selectOption('code');
+  await dialog.getByLabel('Papel concedido').selectOption(role);
+  await dialog.getByRole('button', { name: 'Gerar' }).click();
+
+  let joinCode = '';
+  await expect
+    .poll(async () => {
+      const bodyText = await page.locator('body').textContent();
+      joinCode = bodyText?.match(/Codigo\s+(\d{6})\s+criado/i)?.[1] || '';
+      return joinCode;
+    })
+    .not.toBe('');
+
   expect(joinCode).toHaveLength(6);
   return joinCode;
 }
 
-async function createRoleInviteLink(page: Page, role: 'player' | 'viewer', label: string, slug: string, linkCharacter = false) {
-  const roleSelects = page.getByLabel('Papel concedido');
-  await roleSelects.nth(0).selectOption(role);
+async function createRoleInviteLink(page: Page, role: 'player' | 'viewer', slug: string) {
+  const dialog = await openInviteModal(page);
+  await dialog.getByLabel('Tipo').selectOption('link');
+  await dialog.getByLabel('Papel concedido').selectOption(role);
 
-  if (linkCharacter) {
-    const characterSelects = page.getByLabel('Personagem vinculado');
-    await characterSelects.nth(0).selectOption({ index: 1 });
-  }
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await dialog.getByRole('button', { name: 'Gerar' }).click();
 
-  const labelInputs = page.getByLabel(/R.*tulo do convite/);
-  await labelInputs.fill(label);
-  await page.getByRole('button', { name: 'Gerar convite' }).click();
+  let inviteUrl = '';
+  const pattern = new RegExp(`https?://[^\\s]+/mesa/${slug}\\?token=[a-f0-9]+`, 'i');
   await expect
     .poll(async () => {
-      const bodyText = await page.locator('body').textContent();
-      return bodyText?.match(new RegExp(`https?://[^\\s]+/mesa/${slug}\\?token=[a-f0-9]+`))?.[0] || '';
+      inviteUrl = await page.evaluate(async () => {
+        try {
+          return (await navigator.clipboard.readText()) || '';
+        } catch {
+          return '';
+        }
+      });
+      return pattern.test(inviteUrl);
     })
-    .not.toBe('');
+    .toBeTruthy();
 
-  const bodyText = await page.locator('body').textContent();
-  const match = bodyText?.match(new RegExp(`https?://[^\\s]+/mesa/${slug}\\?token=[a-f0-9]+`));
-  expect(match?.[0]).toBeTruthy();
-  return match![0];
+  expect(inviteUrl).toMatch(pattern);
+  return inviteUrl;
 }
 
 async function joinByCode(page: Page, code: string, nickname: string, slug: string) {
@@ -356,23 +379,18 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
   await expectNoHorizontalOverflow(page);
 
   await page.goto(`/mesa/${slug}/membros`);
-  await expect(page.getByRole('heading', { name: 'Acesso, convites e presença' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Gerar convite' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Gerar código' })).toBeVisible();
-  await expect(page.getByLabel('Papel concedido').first()).toBeVisible();
-  await expect(page.getByLabel('Personagem vinculado').first()).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/mesa/${slug}\\?focus=membros$`));
+  const inviteModal = page.getByRole('dialog').filter({
+    has: page.getByRole('heading', { name: 'Convidar membro' })
+  });
+  await expect(inviteModal.getByRole('heading', { name: 'Convidar membro' })).toBeVisible();
+  await expect(inviteModal.getByLabel('Tipo')).toBeVisible();
+  await expect(inviteModal.getByLabel('Papel concedido')).toBeVisible();
+  await expect(inviteModal.getByLabel('Personagem vinculado')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
-  const roleSelects = page.getByLabel('Papel concedido');
-  await roleSelects.nth(1).selectOption('player');
-  const characterSelects = page.getByLabel('Personagem vinculado');
-  await characterSelects.nth(1).selectOption({ index: 1 });
-  const labelInputs = page.getByLabel('Rótulo do código');
-  await labelInputs.fill('Código do player');
-  await page.getByRole('button', { name: 'Gerar código' }).click();
-
-  const generatedCodeCard = page.locator('text=Código do player').first().locator('..');
-  await expect(generatedCodeCard).toBeVisible();
+  const generatedCode = await createRoleJoinCode(page, 'player');
+  expect(generatedCode).toHaveLength(6);
 
   await page.goto(`/mesa/${slug}/fichas`);
   await expect(page.getByRole('heading', { name: 'Workspace de personagens' })).toBeVisible();
@@ -402,7 +420,7 @@ test('viewer joins read-only, legacy livro redirect stays inside the mesa, and m
   const slug = slugify(tableName);
 
   await page.goto(`/mesa/${slug}/membros`);
-  const joinCode = await createRoleJoinCode(page, 'viewer', 'Código do viewer');
+  const joinCode = await createRoleJoinCode(page, 'viewer');
 
   await signOutCurrentUser(page);
   await registerUser(page, 'Viewer Join');
@@ -434,7 +452,7 @@ test('player joins by linked invite URL', async ({ page }) => {
   const slug = slugify(tableName);
 
   await page.goto(`/mesa/${slug}/membros`);
-  const inviteUrl = await createRoleInviteLink(page, 'player', 'Convite player link', slug, true);
+  const inviteUrl = await createRoleInviteLink(page, 'player', slug);
 
   await signOutCurrentUser(page);
   await registerUser(page, 'Player Link');
@@ -449,7 +467,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   const slug = slugify(tableName);
 
   await page.goto(`/mesa/${slug}/membros`);
-  const playerJoinCode = await createRoleJoinCode(page, 'player', 'Codigo transferencia player', true);
+  const playerJoinCode = await createRoleJoinCode(page, 'player');
 
   await signOutCurrentUser(page);
   const player = await registerUser(page, 'Player Admin');
@@ -482,7 +500,8 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
 
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByText('Danger zone')).toBeVisible();
-  await page.getByLabel('Novo administrador').selectOption({ index: 1 });
+  await page.getByLabel('Username de destino').fill(player.safeId);
+  await page.getByLabel('Sua senha atual').fill(TEST_PASSWORD);
   await page.getByRole('button', { name: 'Transferir administracao' }).click();
 
   await signOutCurrentUser(page);

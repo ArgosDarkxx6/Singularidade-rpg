@@ -11,10 +11,11 @@ import { Panel, UtilityPanel } from '@components/ui/panel';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { MesaHero, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { useWorkspace } from '@features/workspace/use-workspace';
-import { snapshotSchema, tableMetaSchema } from '@schemas/mesa';
+import { ownershipTransferSchema, snapshotSchema, tableMetaSchema } from '@schemas/mesa';
 
 type TableMetaValues = import('zod').infer<typeof tableMetaSchema>;
 type SnapshotValues = import('zod').infer<typeof snapshotSchema>;
+type OwnershipTransferValues = import('zod').infer<typeof ownershipTransferSchema>;
 
 function formatDateTime(value: string) {
   if (!value) return 'Sem data';
@@ -35,7 +36,6 @@ export function MesaSettingsPage() {
   const session = online.session;
   const canManage = session?.role === 'gm';
   const isPrimaryOwner = Boolean(user?.id && table?.ownerId === user.id);
-  const [transferTargetId, setTransferTargetId] = useState('');
   const [dangerBusy, setDangerBusy] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
@@ -53,6 +53,15 @@ export function MesaSettingsPage() {
     }
   });
 
+  const transferForm = useForm<OwnershipTransferValues>({
+    resolver: zodResolver(ownershipTransferSchema) as never,
+    mode: 'onBlur',
+    defaultValues: {
+      targetUsername: '',
+      currentPassword: ''
+    }
+  });
+
   useEffect(() => {
     if (table?.meta) {
       metaForm.reset(table.meta);
@@ -62,8 +71,6 @@ export function MesaSettingsPage() {
   if (!table || !session) {
     return <EmptyState title="Mesa offline." body="Abra uma mesa válida para editar configurações e snapshots." />;
   }
-
-  const eligibleTransferTargets = table.memberships.filter((member) => member.userId && member.userId !== table.ownerId);
 
   return (
     <div className="page-shell pb-8">
@@ -201,41 +208,36 @@ export function MesaSettingsPage() {
               <div className="mt-6 grid gap-6 xl:grid-cols-2">
                 <UtilityPanel className="rounded-lg p-5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Transferir administracao</p>
-                  <p className="mt-3 text-sm text-soft">Escolha um membro ativo para assumir a posse principal da mesa.</p>
-                  <Field label="Novo administrador" className="mt-4">
-                    <select
-                      value={transferTargetId}
-                      onChange={(event) => setTransferTargetId(event.target.value)}
-                      className="min-h-12 w-full rounded-lg border border-white/10 bg-slate-950/55 px-4 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/75"
-                    >
-                      <option value="">Selecione um membro</option>
-                      {eligibleTransferTargets.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.nickname} ({member.role})
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Button
-                    className="mt-4"
-                    variant="secondary"
-                    disabled={!transferTargetId || dangerBusy}
-                    onClick={async () => {
+                  <p className="mt-3 text-sm text-soft">Informe username e sua senha atual para confirmar a transferencia.</p>
+                  <form
+                    className="mt-4 grid gap-3"
+                    onSubmit={transferForm.handleSubmit(async (values) => {
                       setDangerBusy(true);
                       try {
-                        await transferTableOwnership(transferTargetId);
-                        setTransferTargetId('');
+                        await transferTableOwnership({
+                          targetUsername: values.targetUsername,
+                          currentPassword: values.currentPassword
+                        });
+                        transferForm.reset();
                         toast.success('Administracao transferida.');
                       } catch (error) {
                         toast.error(error instanceof Error ? error.message : 'Nao foi possivel transferir a administracao.');
                       } finally {
                         setDangerBusy(false);
                       }
-                    }}
+                    })}
                   >
-                    <Crown className="size-4" />
-                    Transferir administracao
-                  </Button>
+                    <Field label="Username de destino" error={transferForm.formState.errors.targetUsername?.message}>
+                      <Input autoComplete="off" placeholder="usuario_destino" {...transferForm.register('targetUsername')} />
+                    </Field>
+                    <Field label="Sua senha atual" error={transferForm.formState.errors.currentPassword?.message}>
+                      <Input type="password" autoComplete="current-password" {...transferForm.register('currentPassword')} />
+                    </Field>
+                    <Button className="mt-1" type="submit" variant="secondary" disabled={dangerBusy || transferForm.formState.isSubmitting}>
+                      <Crown className="size-4" />
+                      Transferir administracao
+                    </Button>
+                  </form>
                 </UtilityPanel>
 
                 <UtilityPanel className="rounded-lg p-5">

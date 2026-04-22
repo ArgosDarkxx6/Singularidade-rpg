@@ -150,6 +150,48 @@ async function getAuthenticatedUserId(config: ReturnType<typeof getAuthConfig> &
   return typeof payload?.id === 'string' ? payload.id : '';
 }
 
+async function getAuthenticatedUser(config: ReturnType<typeof getAuthConfig> & {}, request: WorkerRequest) {
+  const token = authBearerToken(request);
+  if (!token) return null;
+
+  const userResponse = await fetch(new URL('/auth/v1/user', config.supabaseUrl).toString(), {
+    headers: {
+      apikey: config.anonKey,
+      authorization: `Bearer ${token}`,
+      accept: 'application/json'
+    }
+  });
+
+  if (!userResponse.ok) return null;
+  const payload = (await userResponse.json().catch(() => null)) as { id?: string; email?: string } | null;
+  if (!payload?.id || !payload.email) return null;
+  return {
+    id: payload.id,
+    email: payload.email,
+    token
+  };
+}
+
+async function verifyPassword(config: ReturnType<typeof getAuthConfig> & {}, email: string, password: string) {
+  const tokenUrl = new URL('/auth/v1/token', config.supabaseUrl);
+  tokenUrl.searchParams.set('grant_type', 'password');
+
+  const response = await fetch(tokenUrl.toString(), {
+    method: 'POST',
+    headers: {
+      apikey: config.anonKey,
+      'content-type': 'application/json',
+      accept: 'application/json'
+    },
+    body: JSON.stringify({
+      email,
+      password
+    })
+  });
+
+  return response.ok;
+}
+
 async function fetchServiceRows<T>(config: ReturnType<typeof getAuthConfig> & {}, path: string, params: Record<string, string>) {
   const url = new URL(path, config.supabaseUrl);
   for (const [key, value] of Object.entries(params)) {
@@ -162,6 +204,31 @@ async function fetchServiceRows<T>(config: ReturnType<typeof getAuthConfig> & {}
 
   if (!response.ok) return null;
   return (await response.json().catch(() => [])) as T[];
+}
+
+async function callRpcWithUserToken(
+  config: ReturnType<typeof getAuthConfig> & {},
+  token: string,
+  rpcName: string,
+  payload: Record<string, unknown>
+) {
+  const response = await fetch(new URL(`/rest/v1/rpc/${rpcName}`, config.supabaseUrl).toString(), {
+    method: 'POST',
+    headers: {
+      apikey: config.anonKey,
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      accept: 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  return response;
+}
+
+async function fetchServiceSingle<T>(config: ReturnType<typeof getAuthConfig> & {}, path: string, params: Record<string, string>) {
+  const rows = await fetchServiceRows<T>(config, path, params);
+  return rows?.[0] || null;
 }
 
 function normalize(value: string) {
@@ -391,6 +458,205 @@ async function serveEmailAvailability(request: WorkerRequest, env: Env): Promise
   return authJson({ available: profiles.length === 0 }, request);
 }
 
+async function serveInvitePreview(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
+  if (request.method !== 'GET') {
+    return authErrorJson('Metodo nao permitido.', 405, request);
+  }
+
+  const config = getAuthConfig(env);
+  if (!config) {
+    return authErrorJson('Preview de convite indisponivel.', 503, request);
+  }
+
+  const token = new URL(request.url).searchParams.get('token')?.trim() || '';
+  if (!token) {
+    return authErrorJson('Convite invalido.', 400, request);
+  }
+
+  const invite = await fetchServiceSingle<{
+    id?: string;
+    table_id?: string;
+    role?: 'gm' | 'player' | 'viewer';
+    revoked_at?: string | null;
+    expires_at?: string | null;
+    accepted_at?: string | null;
+  }>(config, '/rest/v1/table_invites', {
+    select: 'id,table_id,role,revoked_at,expires_at,accepted_at',
+    token: `eq.${token}`,
+    limit: '1'
+  });
+
+  if (!invite?.table_id || !invite.role) {
+    return authErrorJson('Convite invalido ou expirado.', 404, request);
+  }
+
+  const table = await fetchServiceSingle<{
+    id?: string;
+    slug?: string;
+    name?: string;
+    description?: string | null;
+  }>(config, '/rest/v1/tables', {
+    select: 'id,slug,name,description',
+    id: `eq.${invite.table_id}`,
+    limit: '1'
+  });
+
+  if (!table?.id || !table.slug || !table.name) {
+    return authErrorJson('Mesa do convite nao encontrada.', 404, request);
+  }
+
+  const nowIso = new Date().toISOString();
+  const expired = Boolean(invite.expires_at && invite.expires_at < nowIso);
+  const revoked = Boolean(invite.revoked_at);
+
+  return json({
+    token,
+    tableId: table.id,
+    tableSlug: table.slug,
+    tableName: table.name,
+    tableDescription: table.description || '',
+    role: invite.role,
+    revoked,
+    expired,
+    accepted: Boolean(invite.accepted_at)
+  });
+}
+
+async function resolveProfileIdByUsername(config: ReturnType<typeof getAuthConfig> & {}, username: string) {
+  const normalized = normalize(username);
+  const profile = await fetchServiceSingle<{ id?: string }>(config, '/rest/v1/profiles', {
+    select: 'id',
+    username: `eq.${normalized}`,
+    limit: '1'
+  });
+  return profile?.id || '';
+}
+
+async function serveTableOwnershipTransfer(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: authCorsHeaders(request) }) as unknown as WorkerResponse;
+  }
+  if (request.method !== 'POST') {
+    return authErrorJson('Metodo nao permitido.', 405, request);
+  }
+
+  const config = getAuthConfig(env);
+  if (!config) {
+    return authErrorJson('Transferencia indisponivel.', 503, request);
+  }
+
+  const actor = await getAuthenticatedUser(config, request);
+  if (!actor) {
+    return authErrorJson('Sessao invalida.', 401, request);
+  }
+
+  const body = (await request.json().catch(() => null)) as {
+    tableId?: unknown;
+    targetUsername?: unknown;
+    currentPassword?: unknown;
+  } | null;
+
+  const tableId = typeof body?.tableId === 'string' ? body.tableId : '';
+  const targetUsername = typeof body?.targetUsername === 'string' ? body.targetUsername : '';
+  const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword : '';
+
+  if (!UUID_PATTERN.test(tableId) || !USERNAME_PATTERN.test(targetUsername) || currentPassword.length < 6) {
+    return authErrorJson('Dados de transferencia invalidos.', 400, request);
+  }
+
+  const passwordOk = await verifyPassword(config, actor.email, currentPassword);
+  if (!passwordOk) {
+    return authErrorJson('Senha atual invalida.', 401, request);
+  }
+
+  const targetUserId = await resolveProfileIdByUsername(config, targetUsername);
+  if (!targetUserId) {
+    return authErrorJson('Username de destino nao encontrado.', 404, request);
+  }
+  if (targetUserId === actor.id) {
+    return authErrorJson('Nao e permitido transferir para a propria conta.', 409, request);
+  }
+
+  const targetMembership = await fetchServiceSingle<{ id?: string }>(config, '/rest/v1/table_memberships', {
+    select: 'id',
+    table_id: `eq.${tableId}`,
+    user_id: `eq.${targetUserId}`,
+    active: 'eq.true',
+    limit: '1'
+  });
+  if (!targetMembership?.id) {
+    return authErrorJson('O destino precisa ser membro ativo da mesa.', 409, request);
+  }
+
+  const rpcResponse = await callRpcWithUserToken(config, actor.token, 'transfer_table_ownership', {
+    p_table_id: tableId,
+    p_target_membership_id: targetMembership.id
+  });
+  if (!rpcResponse.ok) {
+    const payload = (await rpcResponse.json().catch(() => null)) as { message?: string; error?: string } | null;
+    return authErrorJson(payload?.message || payload?.error || 'Nao foi possivel transferir a mesa.', 409, request);
+  }
+
+  return authJson({ ok: true }, request);
+}
+
+async function serveCharacterOwnershipTransfer(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: authCorsHeaders(request) }) as unknown as WorkerResponse;
+  }
+  if (request.method !== 'POST') {
+    return authErrorJson('Metodo nao permitido.', 405, request);
+  }
+
+  const config = getAuthConfig(env);
+  if (!config) {
+    return authErrorJson('Transferencia indisponivel.', 503, request);
+  }
+
+  const actor = await getAuthenticatedUser(config, request);
+  if (!actor) {
+    return authErrorJson('Sessao invalida.', 401, request);
+  }
+
+  const body = (await request.json().catch(() => null)) as {
+    coreId?: unknown;
+    targetUsername?: unknown;
+    currentPassword?: unknown;
+  } | null;
+
+  const coreId = typeof body?.coreId === 'string' ? body.coreId : '';
+  const targetUsername = typeof body?.targetUsername === 'string' ? body.targetUsername : '';
+  const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword : '';
+
+  if (!UUID_PATTERN.test(coreId) || !USERNAME_PATTERN.test(targetUsername) || currentPassword.length < 6) {
+    return authErrorJson('Dados de transferencia invalidos.', 400, request);
+  }
+
+  const passwordOk = await verifyPassword(config, actor.email, currentPassword);
+  if (!passwordOk) {
+    return authErrorJson('Senha atual invalida.', 401, request);
+  }
+
+  const targetUserId = await resolveProfileIdByUsername(config, targetUsername);
+  if (!targetUserId) {
+    return authErrorJson('Username de destino nao encontrado.', 404, request);
+  }
+  if (targetUserId === actor.id) {
+    return authErrorJson('Nao e permitido transferir para a propria conta.', 409, request);
+  }
+
+  const rpcResponse = await callRpcWithUserToken(config, actor.token, 'transfer_character_core_ownership', {
+    p_core_id: coreId,
+    p_target_user_id: targetUserId
+  });
+  if (!rpcResponse.ok) {
+    const payload = (await rpcResponse.json().catch(() => null)) as { message?: string; error?: string } | null;
+    return authErrorJson(payload?.message || payload?.error || 'Nao foi possivel transferir este personagem.', 409, request);
+  }
+
+  return authJson({ ok: true }, request);
+}
+
 async function serveCharacterOwnershipClaim(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: authCorsHeaders(request) }) as unknown as WorkerResponse;
@@ -520,6 +786,18 @@ export default {
 
     if (url.pathname === '/api/auth/email-availability') {
       return serveEmailAvailability(request, env);
+    }
+
+    if (url.pathname === '/api/invites/preview') {
+      return serveInvitePreview(request, env);
+    }
+
+    if (url.pathname === '/api/tables/transfer-ownership') {
+      return serveTableOwnershipTransfer(request, env);
+    }
+
+    if (url.pathname === '/api/characters/transfer-ownership') {
+      return serveCharacterOwnershipTransfer(request, env);
     }
 
     if (url.pathname === '/api/characters/claim-ownership') {

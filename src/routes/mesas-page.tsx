@@ -54,8 +54,6 @@ export function MesasPage() {
     createTableSession,
     connectToInvite,
     connectToJoinCode,
-    completeJoinCode,
-    clearPendingJoinCode,
     switchTable
   } = useWorkspace();
   const [createOpen, setCreateOpen] = useState(false);
@@ -455,40 +453,6 @@ export function MesasPage() {
                 </div>
               </form>
 
-              {online.pendingCodeJoin ? (
-                <Panel className="mt-5 rounded-2xl border-sky-300/18 bg-sky-500/10 p-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Seleção obrigatória</p>
-                  <h3 className="mt-3 font-display text-3xl leading-none text-white">Escolha o personagem vinculado ao acesso.</h3>
-                  <div className="mt-5 grid gap-3">
-                    {online.pendingCodeJoin.characters.map((character) => (
-                      <button
-                        key={character.id}
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const session = await completeJoinCode(character.id);
-                            if (!session) return;
-                            setJoinOpen(false);
-                            toast.success('Entrada concluída.');
-                            navigate(`/mesa/${session.tableSlug}`);
-                          } catch (error) {
-                            toast.error(error instanceof Error ? error.message : 'Não foi possível concluir a entrada.');
-                          }
-                        }}
-                        className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-300/24 hover:bg-white/[0.05]"
-                      >
-                        <p className="text-base font-semibold text-white">{character.name}</p>
-                        <p className="mt-1 text-sm text-soft">
-                          {character.grade || 'Sem grau'} {character.clan ? `· ${character.clan}` : ''}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                  <Button type="button" variant="ghost" className="mt-4" onClick={clearPendingJoinCode}>
-                    Cancelar seleção
-                  </Button>
-                </Panel>
-              ) : null}
             </TabsContent>
 
             <TabsContent value="convite" className="mt-5">

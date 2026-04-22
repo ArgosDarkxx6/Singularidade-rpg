@@ -18,8 +18,7 @@ import {
   rollDice,
   sortOrderEntries
 } from '@lib/domain/rules';
-import { parseCharacterSheetsText, serializeCharacterToText } from '@lib/domain/parsers';
-import { copyText, downloadTextFile, readFileAsText } from '@lib/domain/utils';
+import { downloadTextFile, readFileAsText } from '@lib/domain/utils';
 import { workspaceStateSchema } from '@schemas/domain';
 import { DEFAULT_GAME_SYSTEM_KEY, ONLINE_SESSION_STORAGE_KEY } from '@lib/domain/constants';
 import { useAuth } from '@features/auth/hooks/use-auth';
@@ -30,10 +29,12 @@ import { runtimeWorkspaceBackend } from '@features/workspace/runtime-backend';
 import type {
   AuthUser,
   Character,
+  CharacterCoreSummary,
   CharacterGalleryImage,
   Condition,
   CustomRollInput,
   GuidedRollInput,
+  InvitePreview,
   LogEntry,
   OnlineState,
   OrderEntry,
@@ -68,6 +69,12 @@ interface WorkspaceContextValue {
   online: OnlineState;
   tables: TableListItem[];
   listUserCharacters: () => Promise<UserCharacterSummary[]>;
+  listCharacterCores: () => Promise<CharacterCoreSummary[]>;
+  createCharacterCore: (payload: Pick<Character, 'name' | 'age' | 'appearance' | 'lore' | 'clan' | 'grade'>) => Promise<CharacterCoreSummary | null>;
+  importCharacterCoreFromJson: (payload: Character) => Promise<CharacterCoreSummary | null>;
+  createTableCharacterFromCore: (coreId: string) => Promise<Character | null>;
+  transferCharacterCoreOwnership: (payload: { coreId: string; targetUsername: string; currentPassword: string }) => Promise<void>;
+  previewInvite: (token: string) => Promise<InvitePreview | null>;
   setActiveCharacter: (characterId: string) => void;
   setCompendiumQuery: (query: string) => void;
   setCompendiumCategory: (category: string) => void;
@@ -108,7 +115,6 @@ interface WorkspaceContextValue {
   goToNextTurn: (step?: number) => void;
   resetOrder: () => void;
   adjustCriticalFailures: (step: number) => void;
-  importCharactersFromText: (text: string) => void;
   importStateFromText: (text: string) => void;
   importStateFromFile: (file: File) => Promise<void>;
   exportState: () => void;
@@ -125,14 +131,11 @@ interface WorkspaceContextValue {
   connectToInvite: (inviteUrl: string, nickname: string) => Promise<TableSession | null>;
   connectToJoinCode: (
     code: string,
-    nickname: string,
-    characterId?: string
-  ) => Promise<{ connected: boolean; pending: boolean; session: TableSession | null }>;
-  completeJoinCode: (characterId: string) => Promise<TableSession | null>;
-  clearPendingJoinCode: () => void;
+    nickname: string
+  ) => Promise<{ connected: boolean; session: TableSession | null }>;
   flushPersistence: () => Promise<void>;
-  createInviteLink: (payload: { role: TableSession['role']; characterId: string; label: string }) => Promise<string | null>;
-  createJoinCode: (payload: { role: TableSession['role']; label: string; characterId?: string }) => Promise<TableJoinCode | null>;
+  createInviteLink: (payload: { role: TableSession['role'] }) => Promise<string | null>;
+  createJoinCode: (payload: { role: TableSession['role'] }) => Promise<TableJoinCode | null>;
   revokeJoinCode: (joinCodeId: string) => Promise<TableState | null>;
   createCloudSnapshot: (label: string) => Promise<TableState | null>;
   restoreCloudSnapshot: (snapshotId: string) => Promise<TableState | null>;
@@ -155,12 +158,11 @@ interface WorkspaceContextValue {
     status: SessionAttendanceStatus;
   }) => Promise<TableState | null>;
   clearSessionAttendance: (payload?: { sessionId?: string }) => Promise<TableState | null>;
-  transferTableOwnership: (targetMembershipId: string) => Promise<TableState | null>;
+  transferTableOwnership: (payload: { targetUsername: string; currentPassword: string }) => Promise<TableState | null>;
   deleteCurrentTable: () => Promise<void>;
   leaveCurrentTable: () => Promise<void>;
   disconnectOnline: () => Promise<void>;
-  copyActiveCharacterText: () => Promise<void>;
-  downloadActiveCharacterText: () => void;
+  exportActiveCharacterJson: () => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -175,7 +177,6 @@ const DEFAULT_ONLINE_STATE: OnlineState = {
   members: [],
   snapshots: [],
   joinCodes: [],
-  pendingCodeJoin: null,
   lastInvite: null,
   references: [],
   referencesLoading: false,
@@ -248,7 +249,6 @@ function buildOnlineState(session: TableSession, table: TableState, current: Onl
     members: current.members.length ? current.members : table.memberships,
     snapshots: table.snapshots,
     joinCodes: table.joinCodes,
-    pendingCodeJoin: null,
     lastInvite: current.lastInvite,
     lastSyncAt: table.updatedAt
   };
@@ -277,7 +277,6 @@ function toConnectionFailureState(current: OnlineState, error: unknown, fallback
   return {
     ...current,
     status: current.session ? 'connected' : 'error',
-    pendingCodeJoin: null,
     error: getWorkspaceErrorMessage(error, fallback)
   };
 }
@@ -960,6 +959,52 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       listUserCharacters: async () => {
         if (!user) return [];
         return workspaceBackend.listUserCharacters(user);
+      },
+      listCharacterCores: async () => {
+        if (!user) return [];
+        return workspaceBackend.listCharacterCores(user);
+      },
+      createCharacterCore: async (payload) => {
+        if (!user) return null;
+        return workspaceBackend.createCharacterCore({
+          user,
+          core: payload
+        });
+      },
+      importCharacterCoreFromJson: async (payload) => {
+        if (!user) return null;
+        return workspaceBackend.importCharacterCore({
+          user,
+          core: payload
+        });
+      },
+      createTableCharacterFromCore: async (coreId) => {
+        if (!user) return null;
+        const currentSession = onlineRef.current.session;
+        if (!currentSession) return null;
+
+        const created = await workspaceBackend.createTableCharacterFromCore({
+          session: currentSession,
+          user,
+          coreId
+        });
+
+        const table = await workspaceBackend.getTable(currentSession);
+        await applyRemoteTable(table, currentSession);
+        setLocalActiveCharacter(created.id);
+        return created;
+      },
+      transferCharacterCoreOwnership: async ({ coreId, targetUsername, currentPassword }) => {
+        if (!user) return;
+        await workspaceBackend.transferCharacterCoreOwnership({
+          user,
+          coreId,
+          targetUsername,
+          currentPassword
+        });
+      },
+      previewInvite: async (token) => {
+        return workspaceBackend.previewInvite(token);
       },
       setActiveCharacter: (characterId) => {
         const currentSession = onlineRef.current.session;
@@ -1668,17 +1713,6 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           },
           'Ajuste do caos'
         ),
-      importCharactersFromText: (text) => {
-        const imported = parseCharacterSheetsText(text);
-        if (!imported.length) return;
-        persistState(
-          {
-            ...stateRef.current,
-            characters: [...stateRef.current.characters, ...imported]
-          },
-          'Importacao de personagens'
-        );
-      },
       importStateFromText: (text) => {
         const parsed = workspaceStateSchema.safeParse(JSON.parse(text));
         if (!parsed.success) throw new Error('O arquivo JSON nao corresponde ao formato esperado do remake.');
@@ -1757,87 +1791,32 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
           throw error;
         }
       },
-      connectToJoinCode: async (code, nickname, characterId) => {
-        if (!user) return { connected: false, pending: false, session: null };
+      connectToJoinCode: async (code, nickname) => {
+        if (!user) return { connected: false, session: null };
         setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
         try {
           const result = await workspaceBackend.joinByCode({
             user,
             code,
-            nickname,
-            characterId
+            nickname
           });
-
-          if ('requiresCharacter' in result && result.requiresCharacter) {
-            setOnline((current) => ({
-              ...current,
-              status: 'connected',
-              pendingCodeJoin: {
-                code,
-                nickname,
-                role: result.role,
-                table: result.table,
-                characters: result.characters
-              }
-            }));
-            return { connected: false, pending: true, session: null };
-          }
 
           writeStoredSession(user.id, result.session);
           await applyRemoteTable(result.table, result.session);
           await refreshTables();
-          return { connected: true, pending: false, session: result.session };
+          return { connected: true, session: result.session };
         } catch (error) {
           setOnline((current) => toConnectionFailureState(current, error, 'Nao foi possivel entrar com este codigo.'));
           throw error;
         }
       },
-      completeJoinCode: async (characterId) => {
-        const pending = onlineRef.current.pendingCodeJoin;
-        if (!pending || !user) return null;
-        setOnline((current) => ({ ...current, status: 'connecting', error: '' }));
-        try {
-          const result = await workspaceBackend.joinByCode({
-            user,
-            code: pending.code,
-            nickname: pending.nickname,
-            characterId
-          });
-
-          if ('requiresCharacter' in result && result.requiresCharacter) {
-            setOnline((current) => ({
-              ...current,
-              status: 'connected',
-              pendingCodeJoin: {
-                code: pending.code,
-                nickname: pending.nickname,
-                role: result.role,
-                table: result.table,
-                characters: result.characters
-              }
-            }));
-            return null;
-          }
-
-          writeStoredSession(user.id, result.session);
-          await applyRemoteTable(result.table, result.session);
-          await refreshTables();
-          return result.session;
-        } catch (error) {
-          setOnline((current) => toConnectionFailureState(current, error, 'Nao foi possivel concluir a entrada nesta mesa.'));
-          throw error;
-        }
-      },
-      clearPendingJoinCode: () => setOnline((current) => ({ ...current, pendingCodeJoin: null })),
       flushPersistence,
-      createInviteLink: async ({ role, characterId, label }) => {
+      createInviteLink: async ({ role }) => {
         const currentSession = onlineRef.current.session;
         if (!currentSession) return null;
         const invite = await workspaceBackend.createInvite({
           session: currentSession,
           role,
-          characterId,
-          label,
           origin: window.location.origin
         });
         setOnline((current) =>
@@ -1857,14 +1836,12 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         );
         return invite.url;
       },
-      createJoinCode: async ({ role, label, characterId }) => {
+      createJoinCode: async ({ role }) => {
         const currentSession = onlineRef.current.session;
         if (!currentSession) return null;
         const joinCode = await workspaceBackend.createJoinCode({
           session: currentSession,
-          role,
-          label,
-          characterId
+          role
         });
         setOnline((current) =>
           current.table
@@ -1962,12 +1939,14 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         setOnline((current) => syncTableIntoOnlineState(current, table));
         return table;
       },
-      transferTableOwnership: async (targetMembershipId) => {
+      transferTableOwnership: async ({ targetUsername, currentPassword }) => {
         const currentSession = onlineRef.current.session;
-        if (!currentSession) return null;
+        if (!currentSession || !user) return null;
         const table = await workspaceBackend.transferTableOwnership({
+          user,
           session: currentSession,
-          targetMembershipId
+          targetUsername,
+          currentPassword
         });
         setOnline((current) => syncTableIntoOnlineState(current, table));
         await refreshTables();
@@ -2026,11 +2005,12 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         setState(fallbackState);
         setOnline(DEFAULT_ONLINE_STATE);
       },
-      copyActiveCharacterText: async () => {
-        await copyText(serializeCharacterToText(activeCharacter));
-      },
-      downloadActiveCharacterText: () => {
-        downloadTextFile(`${activeCharacter.name || 'personagem'}.txt`, serializeCharacterToText(activeCharacter));
+      exportActiveCharacterJson: () => {
+        downloadTextFile(
+          `${activeCharacter.name || 'personagem'}.json`,
+          JSON.stringify(activeCharacter, null, 2),
+          'application/json;charset=utf-8'
+        );
       }
     }),
     [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, flushPersistence, isReady, lastRoll, online, persistState, refreshTables, setLocalActiveCharacter, state, tables, updateCharacters, user, workspaceBackend]

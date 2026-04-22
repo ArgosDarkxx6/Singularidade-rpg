@@ -96,6 +96,31 @@ export interface CharacterGalleryImage {
   sortOrder: number;
 }
 
+export interface CharacterCore {
+  id: string;
+  ownerId: string;
+  name: string;
+  age: number;
+  appearance: string;
+  lore: string;
+  clan: string;
+  grade: string;
+  avatarMode: 'none' | 'url' | 'upload';
+  avatar: string;
+  avatarPath?: string;
+  gallery: CharacterGalleryImage[];
+  identity: CharacterIdentity;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TableCharacter {
+  id: string;
+  tableId: string;
+  coreId: string;
+  ownerId: string | null;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -253,22 +278,38 @@ export interface PresenceMember {
 
 export interface TableInvite {
   id: string;
+  kind: 'link';
   role: TableRole;
-  characterId: string;
-  label: string;
+  code: string;
+  tableSlug: string;
+  tableName?: string;
+  tableDescription?: string;
+  acceptedAt?: string | null;
   url: string;
 }
 
 export interface TableJoinCode {
   id: string;
+  kind: 'code';
   tableSlug: string;
   role: TableRole;
   code: string;
-  label: string;
   active: boolean;
-  characterId?: string;
+  acceptedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface InvitePreview {
+  token: string;
+  tableId: string;
+  tableSlug: string;
+  tableName: string;
+  tableDescription: string;
+  role: TableRole;
+  revoked: boolean;
+  expired: boolean;
+  accepted: boolean;
 }
 
 export type TableSession = TableAccessSession;
@@ -329,6 +370,7 @@ export interface TableState {
 
 export interface UserCharacterSummary {
   id: string;
+  coreId?: string;
   name: string;
   clan: string;
   grade: string;
@@ -336,6 +378,20 @@ export interface UserCharacterSummary {
   tableId: string | null;
   tableName: string;
   updatedAt: string;
+}
+
+export interface CharacterCoreSummary {
+  id: string;
+  ownerId: string;
+  name: string;
+  clan: string;
+  grade: string;
+  lore: string;
+  avatarUrl: string;
+  avatarPath?: string;
+  gallery: CharacterGalleryImage[];
+  updatedAt: string;
+  createdAt: string;
 }
 
 export interface OnlineState {
@@ -349,13 +405,6 @@ export interface OnlineState {
   members: PresenceMember[];
   snapshots: TableSnapshot[];
   joinCodes: TableJoinCode[];
-  pendingCodeJoin: {
-    code: string;
-    nickname: string;
-    role: TableRole;
-    table: Pick<TableState, 'id' | 'slug' | 'name' | 'meta' | 'systemKey'>;
-    characters: Pick<Character, 'id' | 'name' | 'grade' | 'clan'>[];
-  } | null;
   lastInvite: string | null;
   references: ExternalReferenceCard[];
   referencesLoading: boolean;

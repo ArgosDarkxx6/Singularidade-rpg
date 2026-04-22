@@ -93,6 +93,59 @@ export type Database = {
           },
         ]
       }
+      character_cores: {
+        Row: {
+          age: number
+          appearance: string
+          avatar_path: string
+          avatar_url: string
+          clan: string
+          created_at: string
+          grade: string
+          id: string
+          lore: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          age?: number
+          appearance?: string
+          avatar_path?: string
+          avatar_url?: string
+          clan?: string
+          created_at?: string
+          grade?: string
+          id?: string
+          lore?: string
+          name?: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          age?: number
+          appearance?: string
+          avatar_path?: string
+          avatar_url?: string
+          clan?: string
+          created_at?: string
+          grade?: string
+          id?: string
+          lore?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_cores_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       character_gallery_images: {
         Row: {
           caption: string
@@ -404,6 +457,7 @@ export type Database = {
           avatar_url: string
           clan: string
           created_at: string
+          core_id: string | null
           grade: string
           id: string
           identity_anchor: string
@@ -425,6 +479,7 @@ export type Database = {
           avatar_url?: string
           clan?: string
           created_at?: string
+          core_id?: string | null
           grade?: string
           id?: string
           identity_anchor?: string
@@ -446,6 +501,7 @@ export type Database = {
           avatar_url?: string
           clan?: string
           created_at?: string
+          core_id?: string | null
           grade?: string
           id?: string
           identity_anchor?: string
@@ -460,6 +516,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "characters_core_id_fkey"
+            columns: ["core_id"]
+            isOneToOne: false
+            referencedRelation: "character_cores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "characters_owner_id_fkey"
             columns: ["owner_id"]
@@ -580,6 +643,7 @@ export type Database = {
           created_by: string | null
           expires_at: string | null
           id: string
+          kind: string
           label: string
           revoked_at: string | null
           role: string
@@ -594,6 +658,7 @@ export type Database = {
           created_by?: string | null
           expires_at?: string | null
           id?: string
+          kind?: string
           label?: string
           revoked_at?: string | null
           role?: string
@@ -608,6 +673,7 @@ export type Database = {
           created_by?: string | null
           expires_at?: string | null
           id?: string
+          kind?: string
           label?: string
           revoked_at?: string | null
           role?: string
@@ -648,6 +714,7 @@ export type Database = {
           created_by: string | null
           expires_at: string | null
           id: string
+          kind: string
           label: string
           last_used_at: string | null
           role: string
@@ -662,6 +729,7 @@ export type Database = {
           created_by?: string | null
           expires_at?: string | null
           id?: string
+          kind?: string
           label?: string
           last_used_at?: string | null
           role?: string
@@ -676,6 +744,7 @@ export type Database = {
           created_by?: string | null
           expires_at?: string | null
           id?: string
+          kind?: string
           label?: string
           last_used_at?: string | null
           role?: string
@@ -699,6 +768,65 @@ export type Database = {
           },
           {
             foreignKeyName: "table_join_codes_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_characters: {
+        Row: {
+          character_id: string
+          core_id: string
+          created_at: string
+          id: string
+          owner_id: string | null
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          character_id: string
+          core_id: string
+          created_at?: string
+          id?: string
+          owner_id?: string | null
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          character_id?: string
+          core_id?: string
+          created_at?: string
+          id?: string
+          owner_id?: string | null
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_characters_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: true
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_characters_core_id_fkey"
+            columns: ["core_id"]
+            isOneToOne: false
+            referencedRelation: "character_cores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_characters_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_characters_table_id_fkey"
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"

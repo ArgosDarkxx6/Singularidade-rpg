@@ -2,9 +2,11 @@ import type { PostgrestError, RealtimeChannel } from '@supabase/supabase-js';
 import type {
   AuthUser,
   Character,
+  CharacterCoreSummary,
   CharacterGalleryImage,
   GameSession,
   GameSystemKey,
+  InvitePreview,
   LogEntry,
   PresenceMember,
   SessionAttendance,
@@ -25,7 +27,12 @@ import { createDefaultState, makeCharacter, normalizeLogEntry, normalizeState } 
 import { deepClone, parseTags, sanitizeJoinCode, slugify, uid } from '@lib/domain/utils';
 import { workspaceStateSchema } from '@schemas/domain';
 import { supabase } from '@integrations/supabase/client';
-import { characterOwnershipApiUrl } from '@integrations/supabase/env';
+import {
+  characterCoreOwnershipTransferApiUrl,
+  characterOwnershipApiUrl,
+  invitePreviewApiUrl,
+  tableOwnershipTransferApiUrl
+} from '@integrations/supabase/env';
 import type { Json } from '@integrations/supabase/database.types';
 import type { JoinCodeBackendResult, UploadAvatarResult, WorkspaceBackend } from './backend';
 import { toWorkspaceError } from './invite-rules';
@@ -53,17 +60,6 @@ function isMissingFunctionError(error: { code?: string; message?: string } | nul
   if (!error) return false;
   const message = String(error.message || '').toLowerCase();
   return error.code === 'PGRST202' || message.includes('could not find the function') || message.includes('function public.');
-}
-
-function shouldFallbackToLegacyClaim(error: { code?: string; message?: string; details?: string } | null | undefined) {
-  if (!error) return false;
-  const message = String(error.message || '').toLowerCase();
-  const details = String(error.details || '').toLowerCase();
-
-  return (
-    isMissingFunctionError(error) ||
-    (error.code === '42702' && message.includes('table_id') && details.includes('table column'))
-  );
 }
 
 function isMissingColumnError(error: { code?: string; message?: string } | null | undefined, column?: string) {
@@ -110,6 +106,8 @@ let supportsTableSessions = true;
 let supportsSessionAttendances = true;
 let supportsCharacterLore = true;
 let supportsCharacterGallery = true;
+let supportsCharacterCores = true;
+let supportsCharacterCoreColumn = true;
 
 function serializeStateForStorage(state: WorkspaceState): WorkspaceState {
   const nextState = deepClone(state);
@@ -209,6 +207,7 @@ type CharacterRow = {
   id: string;
   table_id: string | null;
   owner_id: string | null;
+  core_id?: string | null;
   name: string;
   age: number;
   clan: string;
@@ -223,6 +222,21 @@ type CharacterRow = {
   money: number;
   archived: boolean;
   sort_order: number;
+};
+
+type CharacterCoreRow = {
+  id: string;
+  owner_id: string;
+  name: string;
+  age: number;
+  clan: string;
+  grade: string;
+  appearance: string;
+  lore: string;
+  avatar_url: string;
+  avatar_path: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type CharacterGalleryImageRow = {
@@ -417,12 +431,14 @@ function buildCharacterRow(
   character: Character,
   sortOrder: number,
   fallbackOwnerId: string,
-  existingOwnerId?: string | null
+  existingOwnerId?: string | null,
+  existingCoreId?: string | null
 ) {
   return {
     id: character.id,
     table_id: tableId,
     owner_id: existingOwnerId ?? fallbackOwnerId,
+    core_id: existingCoreId || null,
     name: character.name || 'Personagem',
     age: character.age,
     clan: character.clan || '',
@@ -444,6 +460,9 @@ function prepareCharacterRowForWrite(row: ReturnType<typeof buildCharacterRow>) 
   const payload = { ...row };
   if (!supportsCharacterLore) {
     delete (payload as Partial<typeof payload>).lore;
+  }
+  if (!supportsCharacterCoreColumn) {
+    delete (payload as Partial<typeof payload>).core_id;
   }
 
   return payload;
@@ -571,11 +590,41 @@ function buildConditionRowsForWrite(character: Character) {
   return buildConditionRows(character).map(omitLocalId);
 }
 
-async function fetchExistingCharacterOwnership(tableId: string) {
+async function fetchExistingCharacterMeta(tableId: string) {
   const client = assertClient();
-  const { data, error } = await client.from('characters').select('id, owner_id').eq('table_id', tableId);
-  if (error) throw error;
-  return new Map((data || []).map((row) => [row.id, row.owner_id]));
+  type CharacterMetaRow = { id: string; owner_id: string | null; core_id?: string | null };
+  let data: CharacterMetaRow[] | null = null;
+
+  if (supportsCharacterCoreColumn) {
+    const response = await client.from('characters').select('id, owner_id, core_id').eq('table_id', tableId);
+    if (isMissingColumnError(response.error, 'core_id')) {
+      supportsCharacterCoreColumn = false;
+    } else if (response.error) {
+      throw response.error;
+    } else {
+      data = (response.data as CharacterMetaRow[] | null) || [];
+    }
+  }
+
+  if (!data) {
+    const response = await client.from('characters').select('id, owner_id').eq('table_id', tableId);
+    if (response.error) throw response.error;
+    data = ((response.data as Array<{ id: string; owner_id: string | null }> | null) || []).map((row) => ({
+      id: row.id,
+      owner_id: row.owner_id,
+      core_id: null
+    }));
+  }
+
+  return new Map(
+    (data || []).map((row) => [
+      row.id,
+      {
+        ownerId: row.owner_id as string | null,
+        coreId: (row as { core_id?: string | null }).core_id || null
+      }
+    ])
+  );
 }
 
 async function replaceCharacterChildren(character: Character) {
@@ -651,10 +700,19 @@ async function replaceCharacterChildren(character: Character) {
 
 async function syncCharacterRows(tableId: string, ownerId: string, state: WorkspaceState) {
   const client = assertClient();
-  const ownershipMap = await fetchExistingCharacterOwnership(tableId);
+  const characterMetaMap = await fetchExistingCharacterMeta(tableId);
   const buildRows = () =>
     state.characters.map((character, sortOrder) =>
-      prepareCharacterRowForWrite(buildCharacterRow(tableId, character, sortOrder, ownerId, ownershipMap.get(character.id)))
+      prepareCharacterRowForWrite(
+        buildCharacterRow(
+          tableId,
+          character,
+          sortOrder,
+          ownerId,
+          characterMetaMap.get(character.id)?.ownerId || null,
+          characterMetaMap.get(character.id)?.coreId || null
+        )
+      )
     );
   let rows = buildRows();
 
@@ -670,11 +728,19 @@ async function syncCharacterRows(tableId: string, ownerId: string, state: Worksp
       });
       error = retry.error;
     }
+    if (isMissingColumnError(error, 'core_id')) {
+      supportsCharacterCoreColumn = false;
+      rows = buildRows();
+      const retry = await client.from('characters').upsert(rows, {
+        onConflict: 'id'
+      });
+      error = retry.error;
+    }
     if (error) throw error;
   }
 
   const activeIds = rows.map((row) => row.id);
-  const archivedIds = [...ownershipMap.keys()].filter((id) => !activeIds.includes(id));
+  const archivedIds = [...characterMetaMap.keys()].filter((id) => !activeIds.includes(id));
   if (archivedIds.length) {
     const { error } = await client.from('characters').update({ archived: true }).in('id', archivedIds);
     if (error) throw error;
@@ -687,23 +753,64 @@ async function syncCharacterRows(tableId: string, ownerId: string, state: Worksp
 
 async function saveCharacterGraph(tableId: string, userId: string, character: Character) {
   const client = assertClient();
-  const { data: existingRows, error: existingError } = await client
-    .from('characters')
-    .select('sort_order, owner_id')
-    .eq('table_id', tableId)
-    .eq('id', character.id)
-    .maybeSingle();
-  if (existingError) throw existingError;
+  let existingRows: { sort_order: number; owner_id: string | null; core_id?: string | null } | null = null;
+
+  if (supportsCharacterCoreColumn) {
+    const response = await client
+      .from('characters')
+      .select('sort_order, owner_id, core_id')
+      .eq('table_id', tableId)
+      .eq('id', character.id)
+      .maybeSingle();
+    if (isMissingColumnError(response.error, 'core_id')) {
+      supportsCharacterCoreColumn = false;
+    } else if (response.error) {
+      throw response.error;
+    } else {
+      existingRows = (response.data as { sort_order: number; owner_id: string | null; core_id?: string | null } | null) || null;
+    }
+  }
+
+  if (!existingRows) {
+    const response = await client
+      .from('characters')
+      .select('sort_order, owner_id')
+      .eq('table_id', tableId)
+      .eq('id', character.id)
+      .maybeSingle();
+    if (response.error) throw response.error;
+    existingRows = response.data
+      ? {
+          sort_order: response.data.sort_order,
+          owner_id: response.data.owner_id,
+          core_id: null
+        }
+      : null;
+  }
 
   const buildRow = () =>
     prepareCharacterRowForWrite(
-      buildCharacterRow(tableId, character, existingRows?.sort_order ?? 0, userId, existingRows?.owner_id ?? null)
+      buildCharacterRow(
+        tableId,
+        character,
+        existingRows?.sort_order ?? 0,
+        userId,
+        existingRows?.owner_id ?? null,
+        (existingRows as { core_id?: string | null } | null)?.core_id || null
+      )
     );
   let { error } = await client.from('characters').upsert(buildRow(), {
     onConflict: 'id'
   });
   if (isMissingColumnError(error, 'lore')) {
     supportsCharacterLore = false;
+    const retry = await client.from('characters').upsert(buildRow(), {
+      onConflict: 'id'
+    });
+    error = retry.error;
+  }
+  if (isMissingColumnError(error, 'core_id')) {
+    supportsCharacterCoreColumn = false;
     const retry = await client.from('characters').upsert(buildRow(), {
       onConflict: 'id'
     });
@@ -780,7 +887,7 @@ async function fetchJoinCodes(tableId: string, tableSlug: string): Promise<Table
   const client = assertClient();
   const { data, error } = await client
     .from('table_join_codes')
-    .select('id, code, role, label, active, created_at, updated_at, character_id')
+    .select('id, code, role, active, created_at, updated_at')
     .eq('table_id', tableId)
     .eq('active', true)
     .order('created_at', { ascending: false });
@@ -790,12 +897,12 @@ async function fetchJoinCodes(tableId: string, tableSlug: string): Promise<Table
 
   return (data || []).map((joinCode) => ({
     id: joinCode.id,
+    kind: 'code',
     tableSlug,
     role: joinCode.role as TableJoinCode['role'],
     code: joinCode.code,
-    label: joinCode.label,
     active: joinCode.active,
-    characterId: joinCode.character_id || '',
+    acceptedAt: null,
     createdAt: joinCode.created_at,
     updatedAt: joinCode.updated_at
   }));
@@ -805,7 +912,7 @@ async function fetchInvites(tableId: string, tableSlug: string): Promise<TableIn
   const client = assertClient();
   const { data, error } = await client
     .from('table_invites')
-    .select('id, role, character_id, label, token')
+    .select('id, role, token, accepted_at')
     .eq('table_id', tableId)
     .is('revoked_at', null)
     .order('created_at', { ascending: false });
@@ -815,9 +922,11 @@ async function fetchInvites(tableId: string, tableSlug: string): Promise<TableIn
 
   return (data || []).map((invite) => ({
     id: invite.id,
+    kind: 'link',
     role: invite.role as TableInvite['role'],
-    characterId: invite.character_id || '',
-    label: invite.label,
+    code: invite.token,
+    tableSlug,
+    acceptedAt: invite.accepted_at || null,
     url: `/mesa/${tableSlug}?token=${invite.token}`
   }));
 }
@@ -1489,6 +1598,79 @@ async function listUserTableSummaries(user: AuthUser): Promise<TableListItem[]> 
 
 async function listUserOwnedCharacters(user: AuthUser): Promise<UserCharacterSummary[]> {
   const client = assertClient();
+  if (supportsCharacterCores) {
+    const { data: coreData, error: coreError } = await client
+      .from('character_cores')
+      .select('id, owner_id, name, clan, grade, lore, avatar_url, avatar_path, created_at, updated_at')
+      .eq('owner_id', user.id)
+      .order('updated_at', { ascending: false });
+
+    if (isMissingRelationError(coreError, 'character_cores')) {
+      supportsCharacterCores = false;
+    } else if (coreError) {
+      throw coreError;
+    } else if (coreData) {
+      const { data: linkedRows } = await client
+        .from('characters')
+        .select(
+          `
+          id,
+          core_id,
+          table_id,
+          updated_at,
+          tables (
+            name
+          )
+        `
+        )
+        .eq('owner_id', user.id)
+        .eq('archived', false)
+        .not('table_id', 'is', null)
+        .order('updated_at', { ascending: false });
+
+      const linkedByCore = new Map<
+        string,
+        {
+          id: string;
+          tableId: string | null;
+          tableName: string;
+          updatedAt: string;
+        }
+      >();
+
+      for (const linkedRow of linkedRows || []) {
+        const coreId = (linkedRow as { core_id?: string | null }).core_id;
+        if (!coreId || linkedByCore.has(coreId)) continue;
+        const table = Array.isArray(linkedRow.tables) ? linkedRow.tables[0] : linkedRow.tables;
+        linkedByCore.set(coreId, {
+          id: linkedRow.id,
+          tableId: linkedRow.table_id,
+          tableName: table?.name || '',
+          updatedAt: linkedRow.updated_at
+        });
+      }
+
+      return Promise.all(
+        (coreData as CharacterCoreRow[]).map(async (coreRow) => {
+          const linked = linkedByCore.get(coreRow.id);
+          const avatarUrl = coreRow.avatar_path ? await createSignedAvatarUrl(coreRow.avatar_path) : coreRow.avatar_url || '';
+
+          return {
+            id: linked?.id || coreRow.id,
+            coreId: coreRow.id,
+            name: coreRow.name,
+            clan: coreRow.clan || '',
+            grade: coreRow.grade || '',
+            avatarUrl,
+            tableId: linked?.tableId || null,
+            tableName: linked?.tableName || '',
+            updatedAt: linked?.updatedAt || coreRow.updated_at
+          } satisfies UserCharacterSummary;
+        })
+      );
+    }
+  }
+
   const { data, error } = await client
     .from('characters')
     .select(
@@ -1519,6 +1701,7 @@ async function listUserOwnedCharacters(user: AuthUser): Promise<UserCharacterSum
 
       return {
         id: row.id,
+        coreId: (row as { core_id?: string | null }).core_id || undefined,
         name: row.name,
         clan: row.clan || '',
         grade: row.grade || '',
@@ -1529,6 +1712,258 @@ async function listUserOwnedCharacters(user: AuthUser): Promise<UserCharacterSum
       } satisfies UserCharacterSummary;
     })
   );
+}
+
+async function listCharacterCoreSummaries(user: AuthUser): Promise<CharacterCoreSummary[]> {
+  const client = assertClient();
+
+  if (supportsCharacterCores) {
+    const { data, error } = await client
+      .from('character_cores')
+      .select('id, owner_id, name, clan, grade, lore, avatar_url, avatar_path, created_at, updated_at')
+      .eq('owner_id', user.id)
+      .order('updated_at', { ascending: false });
+
+    if (isMissingRelationError(error, 'character_cores')) {
+      supportsCharacterCores = false;
+    } else if (error) {
+      throw error;
+    } else {
+      return Promise.all(
+        ((data || []) as CharacterCoreRow[]).map(async (row) => {
+          const avatarUrl = row.avatar_path ? await createSignedAvatarUrl(row.avatar_path) : row.avatar_url || '';
+          return {
+            ...toCharacterCoreSummary(row),
+            avatarUrl
+          } satisfies CharacterCoreSummary;
+        })
+      );
+    }
+  }
+
+  const { data, error } = await client
+    .from('characters')
+    .select('id, owner_id, name, clan, grade, lore, avatar_url, avatar_path, created_at, updated_at')
+    .eq('owner_id', user.id)
+    .is('table_id', null)
+    .eq('archived', false)
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+
+  return Promise.all(
+    (data || []).map(async (row) => {
+      const avatarUrl = row.avatar_path ? await createSignedAvatarUrl(row.avatar_path) : row.avatar_url || '';
+      return {
+        id: row.id,
+        ownerId: row.owner_id || user.id,
+        name: row.name,
+        clan: row.clan || '',
+        grade: row.grade || '',
+        lore: (row as { lore?: string | null }).lore || '',
+        avatarUrl,
+        avatarPath: row.avatar_path || '',
+        gallery: [],
+        updatedAt: row.updated_at,
+        createdAt: row.created_at
+      } satisfies CharacterCoreSummary;
+    })
+  );
+}
+
+async function createCharacterCoreRecord(
+  user: AuthUser,
+  core: Pick<Character, 'name' | 'age' | 'appearance' | 'lore' | 'clan' | 'grade'>
+): Promise<CharacterCoreSummary> {
+  const client = assertClient();
+
+  if (supportsCharacterCores) {
+    const { data, error } = await client
+      .from('character_cores')
+      .insert({
+        owner_id: user.id,
+        name: core.name || 'Novo personagem',
+        age: core.age || 0,
+        appearance: core.appearance || '',
+        lore: core.lore || '',
+        clan: core.clan || '',
+        grade: core.grade || '',
+        avatar_url: '',
+        avatar_path: ''
+      })
+      .select('id, owner_id, name, age, clan, grade, appearance, lore, avatar_url, avatar_path, created_at, updated_at')
+      .single();
+
+    if (isMissingRelationError(error, 'character_cores')) {
+      supportsCharacterCores = false;
+    } else if (error) {
+      throw error;
+    } else if (data) {
+      return toCharacterCoreSummary(data as CharacterCoreRow);
+    }
+  }
+
+  const { data, error } = await client
+    .from('characters')
+    .insert({
+      table_id: null,
+      owner_id: user.id,
+      name: core.name || 'Novo personagem',
+      age: core.age || 0,
+      appearance: core.appearance || '',
+      lore: core.lore || '',
+      clan: core.clan || '',
+      grade: core.grade || '',
+      avatar_url: '',
+      avatar_path: '',
+      identity_scar: '',
+      identity_anchor: '',
+      identity_trigger: '',
+      money: 0,
+      archived: false,
+      sort_order: 0
+    })
+    .select('id, owner_id, name, clan, grade, lore, avatar_url, avatar_path, created_at, updated_at')
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    ownerId: data.owner_id || user.id,
+    name: data.name,
+    clan: data.clan || '',
+    grade: data.grade || '',
+    lore: (data as { lore?: string | null }).lore || '',
+    avatarUrl: data.avatar_url || '',
+    avatarPath: data.avatar_path || '',
+    gallery: [],
+    updatedAt: data.updated_at,
+    createdAt: data.created_at
+  };
+}
+
+async function importCharacterCoreRecord(user: AuthUser, character: Character): Promise<CharacterCoreSummary> {
+  return createCharacterCoreRecord(user, {
+    name: character.name,
+    age: character.age,
+    appearance: character.appearance,
+    lore: character.lore,
+    clan: character.clan,
+    grade: character.grade
+  });
+}
+
+async function bindMembershipCharacter(session: TableSession, userId: string, characterId: string) {
+  const client = assertClient();
+  const { error } = await client
+    .from('table_memberships')
+    .update({ character_id: characterId })
+    .eq('table_id', session.tableId)
+    .eq('user_id', userId)
+    .eq('active', true);
+  if (error) throw error;
+}
+
+async function upsertTableCharacterLink(input: {
+  tableId: string;
+  coreId: string;
+  characterId: string;
+  ownerId: string;
+}) {
+  if (!supportsCharacterCores) return;
+  const client = assertClient();
+  const { error } = await client.from('table_characters').upsert(
+    {
+      table_id: input.tableId,
+      core_id: input.coreId,
+      character_id: input.characterId,
+      owner_id: input.ownerId
+    },
+    { onConflict: 'character_id' }
+  );
+
+  if (isMissingRelationError(error, 'table_characters')) {
+    return;
+  }
+  if (error) throw error;
+}
+
+async function createTableCharacterFromCoreRecord(session: TableSession, user: AuthUser, coreId: string): Promise<Character> {
+  const client = assertClient();
+
+  if (supportsCharacterCores) {
+    const { data, error } = await client
+      .from('character_cores')
+      .select('id, owner_id, name, age, clan, grade, appearance, lore, avatar_url, avatar_path')
+      .eq('id', coreId)
+      .eq('owner_id', user.id)
+      .maybeSingle();
+
+    if (isMissingRelationError(error, 'character_cores')) {
+      supportsCharacterCores = false;
+    } else if (error) {
+      throw error;
+    } else if (data) {
+      const nextCharacter = makeCharacter({
+        id: crypto.randomUUID(),
+        name: data.name || 'Personagem',
+        age: data.age || 0,
+        clan: data.clan || '',
+        grade: data.grade || '',
+        appearance: data.appearance || '',
+        lore: data.lore || '',
+        avatarMode: data.avatar_path ? 'upload' : data.avatar_url ? 'url' : 'none',
+        avatar: data.avatar_url || '',
+        avatarPath: data.avatar_path || ''
+      });
+
+      await saveCharacterGraph(session.tableId, user.id, nextCharacter);
+      if (supportsCharacterCoreColumn) {
+        const { error: coreLinkError } = await client.from('characters').update({ core_id: coreId }).eq('id', nextCharacter.id);
+        if (isMissingColumnError(coreLinkError, 'core_id')) {
+          supportsCharacterCoreColumn = false;
+        } else if (coreLinkError) {
+          throw coreLinkError;
+        }
+      }
+
+      await upsertTableCharacterLink({
+        tableId: session.tableId,
+        coreId,
+        characterId: nextCharacter.id,
+        ownerId: user.id
+      });
+      await bindMembershipCharacter(session, user.id, nextCharacter.id);
+      return nextCharacter;
+    }
+  }
+
+  const { data: fallbackRow, error: fallbackError } = await client
+    .from('characters')
+    .select('id, owner_id, name, age, clan, grade, appearance, lore, avatar_url, avatar_path')
+    .eq('id', coreId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (fallbackError) throw fallbackError;
+  if (!fallbackRow) throw new Error('Personagem base nao encontrado.');
+
+  const nextCharacter = makeCharacter({
+    id: crypto.randomUUID(),
+    name: fallbackRow.name || 'Personagem',
+    age: fallbackRow.age || 0,
+    clan: fallbackRow.clan || '',
+    grade: fallbackRow.grade || '',
+    appearance: fallbackRow.appearance || '',
+    lore: (fallbackRow as { lore?: string | null }).lore || '',
+    avatarMode: fallbackRow.avatar_path ? 'upload' : fallbackRow.avatar_url ? 'url' : 'none',
+    avatar: fallbackRow.avatar_url || '',
+    avatarPath: fallbackRow.avatar_path || ''
+  });
+
+  await saveCharacterGraph(session.tableId, user.id, nextCharacter);
+  await bindMembershipCharacter(session, user.id, nextCharacter.id);
+  return nextCharacter;
 }
 
 async function ensureDraftTable(user: AuthUser): Promise<string> {
@@ -1593,44 +2028,16 @@ async function claimInvite(input: { inviteToken: string; nickname: string }) {
     session_nickname: input.nickname
   });
 
-  if (shouldFallbackToLegacyClaim(error)) {
-    const fallback = await client.rpc('claim_table_invite', {
-      invite_token: input.inviteToken
-    });
-    if (fallback.error) throw toWorkspaceError(fallback.error, 'Nao foi possivel aceitar este convite.');
-    return fallback.data?.[0];
-  }
-
   if (error) throw toWorkspaceError(error, 'Nao foi possivel aceitar este convite.');
   return data?.[0];
 }
 
-async function resolveJoinCode(code: string) {
-  const client = assertClient();
-  const { data, error } = await client.rpc('resolve_join_code', {
-    join_code: code
-  });
-
-  if (isMissingFunctionError(error)) throw toWorkspaceError(error, 'Nao foi possivel validar este codigo.');
-  if (error) throw toWorkspaceError(error, 'Nao foi possivel validar este codigo.');
-  return data?.[0] || null;
-}
-
-async function claimJoinCode(input: { code: string; nickname: string; characterId?: string }) {
+async function claimJoinCode(input: { code: string; nickname: string }) {
   const client = assertClient();
   const { data, error } = await client.rpc('claim_join_code_v2', {
     join_code: input.code,
-    session_nickname: input.nickname,
-    selected_character_id: input.characterId || undefined
+    session_nickname: input.nickname
   });
-
-  if (shouldFallbackToLegacyClaim(error)) {
-    const fallback = await client.rpc('claim_join_code', {
-      join_code: input.code
-    });
-    if (fallback.error) throw toWorkspaceError(fallback.error, 'Nao foi possivel entrar com este codigo.');
-    return fallback.data?.[0];
-  }
 
   if (error) throw toWorkspaceError(error, 'Nao foi possivel entrar com este codigo.');
   return data?.[0];
@@ -1666,6 +2073,53 @@ function toInviteUrl(origin: string, tableSlug: string, token: string) {
   return `${origin}/mesa/${tableSlug}?token=${token}`;
 }
 
+async function getCurrentAccessToken() {
+  const client = assertClient();
+  const { data } = await client.auth.getSession();
+  return data.session?.access_token || '';
+}
+
+async function postWorkerWithSession<TResponse>(
+  url: string,
+  payload: Record<string, unknown>,
+  fallbackMessage: string
+): Promise<TResponse> {
+  const token = await getCurrentAccessToken();
+  if (!token) throw new Error('Sessao invalida.');
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const body = (await response.json().catch(() => null)) as { error?: string } | TResponse | null;
+  if (!response.ok) {
+    throw new Error((body as { error?: string } | null)?.error || fallbackMessage);
+  }
+
+  return body as TResponse;
+}
+
+function toCharacterCoreSummary(row: CharacterCoreRow): CharacterCoreSummary {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    name: row.name,
+    clan: row.clan || '',
+    grade: row.grade || '',
+    lore: row.lore || '',
+    avatarUrl: row.avatar_url || '',
+    avatarPath: row.avatar_path || '',
+    gallery: [],
+    updatedAt: row.updated_at,
+    createdAt: row.created_at
+  };
+}
+
 export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
   return {
     async loadWorkspace(user) {
@@ -1695,6 +2149,30 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     },
     async listUserCharacters(user) {
       return listUserOwnedCharacters(user);
+    },
+    async listCharacterCores(user) {
+      return listCharacterCoreSummaries(user);
+    },
+    async createCharacterCore({ user, core }) {
+      return createCharacterCoreRecord(user, core);
+    },
+    async importCharacterCore({ user, core }) {
+      return importCharacterCoreRecord(user, core);
+    },
+    async createTableCharacterFromCore({ session, user, coreId }) {
+      return createTableCharacterFromCoreRecord(session, user, coreId);
+    },
+    async transferCharacterCoreOwnership({ user, coreId, targetUsername, currentPassword }) {
+      await postWorkerWithSession(
+        characterCoreOwnershipTransferApiUrl,
+        {
+          userId: user.id,
+          coreId,
+          targetUsername,
+          currentPassword
+        },
+        'Nao foi possivel transferir o personagem.'
+      );
     },
     async getTable(session) {
       return fetchTableState(session.tableId);
@@ -1998,6 +2476,21 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       return fetchTableState(session.tableId);
     },
+    async previewInvite(token) {
+      const normalizedToken = String(token || '').trim();
+      if (!normalizedToken) return null;
+
+      const response = await fetch(`${invitePreviewApiUrl}?token=${encodeURIComponent(normalizedToken)}`, {
+        headers: {
+          accept: 'application/json'
+        }
+      });
+      if (!response.ok) return null;
+
+      const payload = (await response.json().catch(() => null)) as InvitePreview | null;
+      if (!payload?.tableId || !payload.tableSlug) return null;
+      return payload;
+    },
     async joinByInvite({ inviteUrl, nickname }) {
       const url = new URL(inviteUrl);
       const inviteToken = url.searchParams.get('token');
@@ -2032,33 +2525,13 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         })
       };
     },
-    async joinByCode({ code, nickname, characterId }) {
+    async joinByCode({ code, nickname }) {
       const normalizedCode = sanitizeJoinCode(code);
       if (!normalizedCode) throw new Error('Codigo invalido.');
 
-      const resolved = await resolveJoinCode(normalizedCode);
-
-      if (resolved?.requires_character && !characterId) {
-        return {
-          requiresCharacter: true,
-          role: resolved.role as TableSession['role'],
-          table: {
-            id: resolved.table_id,
-            slug: resolved.table_slug,
-            name: resolved.table_name,
-            systemKey: resolveGameSystemKey(resolved.system_key),
-            meta: DEFAULT_TABLE_META
-          },
-          characters: Array.isArray(resolved.characters)
-            ? (resolved.characters as Array<Pick<Character, 'id' | 'name' | 'grade' | 'clan'>>)
-            : []
-        };
-      }
-
       const claimed = await claimJoinCode({
         code: normalizedCode,
-        nickname,
-        characterId
+        nickname
       });
 
       if (!claimed) throw new Error('Codigo invalido ou revogado.');
@@ -2085,7 +2558,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         table
       } satisfies JoinCodeBackendResult;
     },
-    async createInvite({ session, role, characterId, label, origin }) {
+    async createInvite({ session, role, origin }) {
       if (session.role !== 'gm') {
         throw new Error('Apenas GMs podem criar convites.');
       }
@@ -2094,21 +2567,21 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const { error } = await client.from('table_invites').insert({
         table_id: session.tableId,
         token,
-        role,
-        character_id: characterId || null,
-        label
+        role
       });
 
       if (error) throw error;
       return {
         id: uid('invite'),
+        kind: 'link',
         role,
-        characterId,
-        label,
+        code: token,
+        tableSlug: session.tableSlug,
+        acceptedAt: null,
         url: toInviteUrl(origin, session.tableSlug, token)
       };
     },
-    async createJoinCode({ session, role, label, characterId }) {
+    async createJoinCode({ session, role }) {
       if (session.role !== 'gm') {
         throw new Error('Apenas GMs podem criar codigos.');
       }
@@ -2122,11 +2595,9 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
             table_id: session.tableId,
             code,
             role,
-            character_id: characterId || null,
-            label,
             active: true
           })
-          .select('id, code, role, label, active, created_at, updated_at, character_id')
+          .select('id, code, role, active, created_at, updated_at')
           .single();
 
         if (error?.code === '23505') continue;
@@ -2134,12 +2605,12 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
         return {
           id: data.id,
+          kind: 'code',
           tableSlug: session.tableSlug,
           role: data.role as TableJoinCode['role'],
           code: data.code,
-          label: data.label,
           active: data.active,
-          characterId: data.character_id || '',
+          acceptedAt: null,
           createdAt: data.created_at,
           updatedAt: data.updated_at
         };
@@ -2646,13 +3117,17 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const { error } = await client.from('table_logs').delete().eq('table_id', session.tableId);
       if (error) throw error;
     },
-    async transferTableOwnership({ session, targetMembershipId }) {
-      const client = assertClient();
-      const { error } = await client.rpc('transfer_table_ownership', {
-        p_table_id: session.tableId,
-        p_target_membership_id: targetMembershipId
-      });
-      if (error) throw error;
+    async transferTableOwnership({ session, user, targetUsername, currentPassword }) {
+      await postWorkerWithSession(
+        tableOwnershipTransferApiUrl,
+        {
+          userId: user.id,
+          tableId: session.tableId,
+          targetUsername,
+          currentPassword
+        },
+        'Nao foi possivel transferir a administracao da mesa.'
+      );
       return fetchTableState(session.tableId);
     },
     async deleteTable({ session }) {

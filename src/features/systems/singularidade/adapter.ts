@@ -84,7 +84,7 @@ export const SINGULARIDADE_DEFAULT_TABLE_META: TableMeta = {
   ...SINGULARIDADE_DEFAULT_MESA_META
 };
 
-export const SINGULARIDADE_MODULES: MesaSection[] = ['overview', 'sessao', 'fichas', 'rolagens', 'ordem', 'livro', 'membros', 'configuracoes'];
+export const SINGULARIDADE_MODULES: MesaSection[] = ['overview', 'fichas', 'rolagens', 'ordem', 'livro', 'configuracoes'];
 
 export const SINGULARIDADE_SYSTEM_ADAPTER = {
   key: SINGULARIDADE_SYSTEM_KEY,

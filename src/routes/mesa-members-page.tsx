@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
-import { Field, Input, Select } from '@components/ui/field';
+import { Field, Select } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { MesaHero, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { useWorkspace } from '@features/workspace/use-workspace';
@@ -21,7 +21,7 @@ function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
 }
 
 export function MesaMembersPage() {
-  const { state, online, createInviteLink, createJoinCode, revokeJoinCode } = useWorkspace();
+  const { online, createInviteLink, createJoinCode, revokeJoinCode } = useWorkspace();
   const table = online.table;
   const session = online.session;
   const members = online.members.length ? online.members : table?.memberships || [];
@@ -31,9 +31,7 @@ export function MesaMembersPage() {
     resolver: zodResolver(inviteLinkSchema) as never,
     mode: 'onBlur',
     defaultValues: {
-      role: 'player',
-      characterId: '',
-      label: 'Convite de mesa'
+      role: 'player'
     }
   });
 
@@ -41,9 +39,7 @@ export function MesaMembersPage() {
     resolver: zodResolver(joinCodeCreateSchema) as never,
     mode: 'onBlur',
     defaultValues: {
-      role: 'viewer',
-      characterId: '',
-      label: 'Código rápido'
+      role: 'viewer'
     }
   });
 
@@ -130,19 +126,6 @@ export function MesaMembersPage() {
                       <option value="gm">GM</option>
                     </Select>
                   </Field>
-                  <Field label="Personagem vinculado">
-                    <Select {...inviteForm.register('characterId')}>
-                      <option value="">Sem vínculo</option>
-                      {state.characters.map((character) => (
-                        <option key={character.id} value={character.id}>
-                          {character.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label="Rótulo do convite">
-                    <Input {...inviteForm.register('label')} />
-                  </Field>
                   <Button type="submit" disabled={inviteForm.formState.isSubmitting}>
                     <Link2 className="size-4" />
                     Gerar convite
@@ -177,19 +160,6 @@ export function MesaMembersPage() {
                       <option value="gm">GM</option>
                     </Select>
                   </Field>
-                  <Field label="Personagem vinculado">
-                    <Select {...codeForm.register('characterId')}>
-                      <option value="">Escolher depois</option>
-                      {state.characters.map((character) => (
-                        <option key={character.id} value={character.id}>
-                          {character.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label="Rótulo do código">
-                    <Input {...codeForm.register('label')} />
-                  </Field>
                   <Button type="submit" disabled={codeForm.formState.isSubmitting}>
                     <Plus className="size-4" />
                     Gerar código
@@ -216,7 +186,7 @@ export function MesaMembersPage() {
                   <UtilityPanel key={joinCode.id} className="rounded-lg p-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{joinCode.label}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Codigo ativo</p>
                         <p className="mt-2 text-3xl font-semibold text-white">{formatJoinCodeDisplay(joinCode.code)}</p>
                         <p className="mt-2 text-xs uppercase tracking-[0.18em] text-soft">{formatRoleLabel(joinCode.role)}</p>
                       </div>
@@ -271,7 +241,7 @@ export function MesaMembersPage() {
             </UtilityPanel>
             <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Personagens disponíveis</p>
-              <p className="mt-2 text-sm font-semibold text-white">{state.characters.length}</p>
+              <p className="mt-2 text-sm font-semibold text-white">Convites sem vínculo direto de ficha</p>
             </UtilityPanel>
           </MesaRailCard>
         </div>

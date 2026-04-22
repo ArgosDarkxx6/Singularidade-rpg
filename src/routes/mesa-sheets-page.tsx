@@ -1,5 +1,6 @@
-import { Download, FileJson, FileText, PencilLine, Sparkles } from 'lucide-react';
+import { FileJson, PencilLine, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { Avatar } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
@@ -105,12 +106,17 @@ export function MesaSheetsPage() {
     activeCharacter,
     online,
     setActiveCharacter,
-    copyActiveCharacterText,
-    downloadActiveCharacterText,
-    exportState
+    exportState,
+    exportActiveCharacterJson,
+    listCharacterCores,
+    createCharacterCore,
+    createTableCharacterFromCore
   } = useWorkspace();
   const session = online.session;
   const [editMode, setEditMode] = useState(false);
+  const [coreOptions, setCoreOptions] = useState<Array<{ id: string; name: string; clan: string; grade: string }>>([]);
+  const [coreLoading, setCoreLoading] = useState(false);
+  const [coreBusy, setCoreBusy] = useState(false);
   const canManageRoster = !session || session.role === 'gm';
   const canEditActiveCharacter = !session || session.role === 'gm' || (session.role === 'player' && session.characterId === activeCharacter.id);
   const effectiveEditable = canEditActiveCharacter && editMode;
@@ -124,12 +130,129 @@ export function MesaSheetsPage() {
     [session?.characterId, session?.role, state.characters]
   );
 
+  const hasVisibleCharacters = visibleCharacters.length > 0;
+
+  useEffect(() => {
+    let disposed = false;
+    if (!session || session.role !== 'player' || hasVisibleCharacters) {
+      setCoreOptions([]);
+      setCoreLoading(false);
+      return;
+    }
+
+    setCoreLoading(true);
+    void listCharacterCores()
+      .then((cores) => {
+        if (disposed) return;
+        setCoreOptions(
+          cores.map((core) => ({
+            id: core.id,
+            name: core.name,
+            clan: core.clan,
+            grade: core.grade
+          }))
+        );
+      })
+      .catch((error) => {
+        if (!disposed) {
+          toast.error(error instanceof Error ? error.message : 'Nao foi possivel carregar seus personagens.');
+        }
+      })
+      .finally(() => {
+        if (!disposed) {
+          setCoreLoading(false);
+        }
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [hasVisibleCharacters, listCharacterCores, session]);
+
   useEffect(() => {
     setEditMode(false);
   }, [activeCharacter.id, session?.characterId, session?.role]);
 
   if (!state.characters.length) {
     return <EmptyState title="Nenhuma ficha carregada." body="Crie personagens para começar a mesa." />;
+  }
+
+  if (session?.role === 'player' && !hasVisibleCharacters) {
+    return (
+      <div className="page-shell pb-8">
+        <Panel className="rounded-3xl p-6 sm:p-7">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Fichas da mesa</p>
+          <h2 className="mt-3 font-display text-5xl leading-none text-white">Voce ainda nao tem ficha nesta mesa</h2>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-soft">
+            Crie uma ficha nova aqui dentro da mesa ou reutilize um personagem da sua conta para vincular rapidamente.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button
+              disabled={coreBusy}
+              onClick={async () => {
+                setCoreBusy(true);
+                try {
+                  const core = await createCharacterCore({
+                    name: `Personagem de ${session.nickname}`,
+                    age: 0,
+                    appearance: '',
+                    lore: '',
+                    clan: '',
+                    grade: ''
+                  });
+                  if (!core) return;
+                  await createTableCharacterFromCore(core.id);
+                  toast.success('Ficha criada e vinculada a esta mesa.');
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Nao foi possivel criar sua ficha nesta mesa.');
+                } finally {
+                  setCoreBusy(false);
+                }
+              }}
+            >
+              Criar personagem na mesa
+            </Button>
+          </div>
+
+          <div className="mt-6 grid gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Usar personagem de Meus personagens</p>
+            {coreLoading ? (
+              <UtilityPanel className="rounded-lg p-4">
+                <p className="text-sm text-soft">Carregando seus personagens...</p>
+              </UtilityPanel>
+            ) : coreOptions.length ? (
+              coreOptions.map((core) => (
+                <button
+                  key={core.id}
+                  type="button"
+                  disabled={coreBusy}
+                  onClick={async () => {
+                    setCoreBusy(true);
+                    try {
+                      await createTableCharacterFromCore(core.id);
+                      toast.success('Personagem vinculado a mesa.');
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Nao foi possivel usar este personagem.');
+                    } finally {
+                      setCoreBusy(false);
+                    }
+                  }}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-300/24 hover:bg-white/[0.05]"
+                >
+                  <p className="text-base font-semibold text-white">{core.name}</p>
+                  <p className="mt-1 text-sm text-soft">
+                    {core.clan || 'Sem cla'} · {core.grade || 'Sem grau'}
+                  </p>
+                </button>
+              ))
+            ) : (
+              <EmptyState title="Nenhum personagem salvo na conta." body="Crie um personagem novo e depois vincule nesta mesa." />
+            )}
+          </div>
+        </Panel>
+      </div>
+    );
   }
 
   return (
@@ -146,13 +269,9 @@ export function MesaSheetsPage() {
                 {editMode ? 'Concluir edição' : 'Editar ficha'}
               </Button>
             ) : null}
-            <Button variant="secondary" onClick={() => void copyActiveCharacterText()}>
-              <FileText className="size-4" />
-              Copiar TXT
-            </Button>
-            <Button variant="secondary" onClick={downloadActiveCharacterText}>
-              <Download className="size-4" />
-              Baixar TXT
+            <Button variant="secondary" onClick={exportActiveCharacterJson}>
+              <FileJson className="size-4" />
+              Exportar personagem JSON
             </Button>
             {canManageRoster ? (
               <Button variant="ghost" onClick={exportState}>

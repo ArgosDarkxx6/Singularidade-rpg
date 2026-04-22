@@ -2,9 +2,11 @@ import type {
   AuthUser,
   AttributeKey,
   Character,
+  CharacterCoreSummary,
   CharacterGalleryImage,
   GameSession,
   GameSystemKey,
+  InvitePreview,
   LogEntry,
   TableInvite,
   TableJoinCode,
@@ -18,20 +20,12 @@ import type {
   WorkspaceState
 } from '@/types/domain';
 
-export interface JoinCodePendingResult {
-  requiresCharacter: true;
-  role: TableRole;
-  table: Pick<TableState, 'id' | 'slug' | 'name' | 'meta' | 'systemKey'>;
-  characters: Pick<Character, 'id' | 'name' | 'grade' | 'clan'>[];
-}
-
 export interface JoinCodeConnectedResult {
-  requiresCharacter?: false;
   session: TableSession;
   table: TableState;
 }
 
-export type JoinCodeBackendResult = JoinCodePendingResult | JoinCodeConnectedResult;
+export type JoinCodeBackendResult = JoinCodeConnectedResult;
 
 export interface UploadAvatarResult {
   url: string;
@@ -54,6 +48,11 @@ export interface WorkspaceBackend {
   saveWorkspace: (user: AuthUser, state: WorkspaceState) => Promise<void>;
   listUserTables: (user: AuthUser) => Promise<TableListItem[]>;
   listUserCharacters: (user: AuthUser) => Promise<UserCharacterSummary[]>;
+  listCharacterCores: (user: AuthUser) => Promise<CharacterCoreSummary[]>;
+  createCharacterCore: (input: { user: AuthUser; core: Pick<Character, 'name' | 'age' | 'appearance' | 'lore' | 'clan' | 'grade'> }) => Promise<CharacterCoreSummary>;
+  importCharacterCore: (input: { user: AuthUser; core: Character }) => Promise<CharacterCoreSummary>;
+  createTableCharacterFromCore: (input: { session: TableSession; user: AuthUser; coreId: string }) => Promise<Character>;
+  transferCharacterCoreOwnership: (input: { user: AuthUser; coreId: string; targetUsername: string; currentPassword: string }) => Promise<void>;
   getTable: (session: TableSession) => Promise<TableState>;
   switchTable: (input: { user: AuthUser; tableSlug: string }) => Promise<{ table: TableState; session: TableSession }>;
   subscribeToTable: (session: TableSession, callback: (table: TableState) => void) => Promise<() => void> | (() => void);
@@ -66,15 +65,14 @@ export interface WorkspaceBackend {
   }) => Promise<{ table: TableState; session: TableSession }>;
   updateTableMeta: (input: { session: TableSession; meta: TableMeta }) => Promise<TableState>;
   joinByInvite: (input: { user: AuthUser; inviteUrl: string; nickname: string }) => Promise<{ table: TableState; session: TableSession }>;
-  joinByCode: (input: { user: AuthUser; code: string; nickname: string; characterId?: string }) => Promise<JoinCodeBackendResult>;
+  previewInvite: (token: string) => Promise<InvitePreview | null>;
+  joinByCode: (input: { user: AuthUser; code: string; nickname: string }) => Promise<JoinCodeBackendResult>;
   createInvite: (input: {
     session: TableSession;
     role: TableRole;
-    characterId: string;
-    label: string;
     origin: string;
   }) => Promise<TableInvite>;
-  createJoinCode: (input: { session: TableSession; role: TableRole; label: string; characterId?: string }) => Promise<TableJoinCode>;
+  createJoinCode: (input: { session: TableSession; role: TableRole }) => Promise<TableJoinCode>;
   revokeJoinCode: (session: TableSession, joinCodeId: string) => Promise<TableState>;
   createSnapshot: (input: { session: TableSession; label: string; actor: string; state: WorkspaceState }) => Promise<TableState>;
   restoreSnapshot: (input: { session: TableSession; snapshotId: string }) => Promise<TableState>;
@@ -126,7 +124,12 @@ export interface WorkspaceBackend {
   saveCharacter: (input: { session: TableSession; userId: string; character: Character }) => Promise<void>;
   appendTableLog: (input: { session: TableSession; userId: string; entry: LogEntry }) => Promise<void>;
   clearTableLogs: (input: { session: TableSession; userId: string }) => Promise<void>;
-  transferTableOwnership: (input: { session: TableSession; targetMembershipId: string }) => Promise<TableState>;
+  transferTableOwnership: (input: {
+    user: AuthUser;
+    session: TableSession;
+    targetUsername: string;
+    currentPassword: string;
+  }) => Promise<TableState>;
   deleteTable: (input: { session: TableSession }) => Promise<void>;
   leaveTable: (input: { session: TableSession; userId: string }) => Promise<void>;
   disconnectSession: (input: { session: TableSession; userId: string }) => Promise<void>;

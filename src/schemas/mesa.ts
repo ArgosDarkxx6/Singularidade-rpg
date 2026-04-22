@@ -59,17 +59,18 @@ export const joinCodeSchema = z.object({
 });
 
 export const inviteLinkSchema = z.object({
-  role: z.enum(['gm', 'player', 'viewer']),
-  characterId: z.string().default(''),
-  label: z.string().min(2, 'Descreva o convite.')
+  role: z.enum(['gm', 'player', 'viewer'])
 });
 
 export const joinCodeCreateSchema = z.object({
-  role: z.enum(['gm', 'player', 'viewer']),
-  characterId: z.string().default(''),
-  label: z.string().min(2, 'Descreva o código.')
+  role: z.enum(['gm', 'player', 'viewer'])
 });
 
 export const snapshotSchema = z.object({
   label: z.string().min(2, 'Informe o nome do snapshot.')
+});
+
+export const ownershipTransferSchema = z.object({
+  targetUsername: z.string().trim().min(3, 'Informe o username de destino.').max(24, 'Username inválido.'),
+  currentPassword: z.string().min(6, 'Confirme sua senha atual.')
 });

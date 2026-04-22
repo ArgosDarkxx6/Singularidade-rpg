@@ -144,7 +144,7 @@ describe('MesaLayout', () => {
         <Routes>
           <Route path="/mesa/:slug" element={<MesaLayout />}>
             <Route index element={<div>Overview content</div>} />
-            <Route path="membros" element={<div>Membros content</div>} />
+            <Route path="fichas" element={<div>Fichas content</div>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -153,8 +153,9 @@ describe('MesaLayout', () => {
     expect(screen.getByRole('heading', { name: 'Geral' })).toBeVisible();
     expect(screen.getByText('Overview content')).toBeInTheDocument();
     expect(screen.getAllByText('Mesa Alpha')[0]).toBeVisible();
-    expect(screen.getAllByRole('link', { name: /Sessão/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: /Membros/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /Fichas/i }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('link', { name: /Sessão/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Membros/i })).not.toBeInTheDocument();
   });
 
   it('switches module routes inside the mesa shell', async () => {
@@ -165,16 +166,16 @@ describe('MesaLayout', () => {
         <Routes>
           <Route path="/mesa/:slug" element={<MesaLayout />}>
             <Route index element={<div>Overview content</div>} />
-            <Route path="membros" element={<div>Membros content</div>} />
+            <Route path="fichas" element={<div>Fichas content</div>} />
           </Route>
         </Routes>
       </MemoryRouter>
     );
 
-    await user.click(screen.getAllByRole('link', { name: /Membros/i })[0]);
+    await user.click(screen.getAllByRole('link', { name: /Fichas/i })[0]);
 
-    expect(screen.getByText('Membros content')).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Membros' })).toBeVisible();
+    expect(screen.getByText('Fichas content')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Fichas' })).toBeVisible();
   });
 
   it('renders the mobile bottom navigation with four primary mesa tabs', async () => {

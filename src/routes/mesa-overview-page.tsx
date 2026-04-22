@@ -1,11 +1,18 @@
-import { ArrowRight, CalendarClock, Settings, Sparkles, Swords, Users } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Avatar } from '@components/ui/avatar';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowRight, CalendarClock, Plus, Settings, Sparkles, Swords, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
+import { Field, Input, Select, Textarea } from '@components/ui/field';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Avatar } from '@components/ui/avatar';
 import { EmptyState } from '@components/ui/empty-state';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { MesaDataRow, MesaHero, MesaMetricTile, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { useWorkspace } from '@features/workspace/use-workspace';
+import { gameSessionFormSchema } from '@schemas/mesa';
 
 function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
   if (role === 'gm') return 'GM';
@@ -23,13 +30,9 @@ function formatDateTime(value: string) {
   });
 }
 
+type GameSessionValues = import('zod').infer<typeof gameSessionFormSchema>;
+
 const QUICK_ACTIONS = [
-  {
-    label: 'Sessão',
-    description: 'Entrar no controle profundo de episódio, presença e andamento.',
-    icon: CalendarClock,
-    section: 'sessao'
-  },
   {
     label: 'Fichas',
     description: 'Abrir o workspace de personagens e continuar a operação da mesa.',
@@ -49,12 +52,6 @@ const QUICK_ACTIONS = [
     section: 'ordem'
   },
   {
-    label: 'Membros',
-    description: 'Revisar pessoas, presença, convites e acesso aprofundado.',
-    icon: Users,
-    section: 'membros'
-  },
-  {
     label: 'Configurações',
     description: 'Abrir metadados, snapshots e administração da campanha.',
     icon: Settings,
@@ -63,14 +60,51 @@ const QUICK_ACTIONS = [
 ] as const;
 
 export function MesaOverviewPage() {
-  const navigate = useNavigate();
-  const { state, activeCharacter, online } = useWorkspace();
+  const { state, activeCharacter, online, createInviteLink, createJoinCode, createGameSession } = useWorkspace();
+  const [searchParams] = useSearchParams();
   const table = online.table;
   const session = online.session;
+  const [sessionModalOpen, setSessionModalOpen] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const currentSession = table?.currentSession;
   const members = online.members.length ? online.members : table?.memberships || [];
   const visibleMembers = members.slice(0, 6);
   const owner = table?.memberships.find((member) => member.isOwner) || members.find((member) => member.isOwner) || null;
+  const canManage = session?.role === 'gm';
+
+  const sessionForm = useForm<GameSessionValues>({
+    resolver: zodResolver(gameSessionFormSchema) as never,
+    mode: 'onBlur',
+    defaultValues: {
+      episodeNumber: '',
+      episodeTitle: '',
+      sessionDate: '',
+      location: '',
+      status: currentSession?.status || 'Planejamento',
+      recap: '',
+      objective: '',
+      notes: '',
+      isActive: false
+    }
+  });
+
+  const inviteForm = useForm<{ role: 'gm' | 'player' | 'viewer'; kind: 'link' | 'code' }>({
+    mode: 'onBlur',
+    defaultValues: {
+      role: 'player',
+      kind: 'link'
+    }
+  });
+
+  useEffect(() => {
+    const focus = searchParams.get('focus');
+    if (focus === 'sessao' && canManage) {
+      setSessionModalOpen(true);
+    }
+    if (focus === 'membros' && canManage) {
+      setInviteModalOpen(true);
+    }
+  }, [canManage, searchParams]);
 
   if (!table || !session) {
     return <EmptyState title="Mesa offline." body="Abra uma mesa pelo hub para continuar." />;
@@ -89,14 +123,18 @@ export function MesaOverviewPage() {
         }
         actions={
           <>
-            <Button variant="secondary" onClick={() => navigate(`/mesa/${table.slug}/sessao`)}>
-              <CalendarClock className="size-4" />
-              Abrir sessão
-            </Button>
-            <Button onClick={() => navigate(`/mesa/${table.slug}/membros`)}>
-              <Users className="size-4" />
-              Ver membros
-            </Button>
+            {canManage ? (
+              <Button variant="secondary" onClick={() => setSessionModalOpen(true)}>
+                <CalendarClock className="size-4" />
+                Criar sessao
+              </Button>
+            ) : null}
+            {canManage ? (
+              <Button onClick={() => setInviteModalOpen(true)}>
+                <Users className="size-4" />
+                Convidar membro
+              </Button>
+            ) : null}
           </>
         }
       />
@@ -208,7 +246,7 @@ export function MesaOverviewPage() {
           <MesaRailCard
             eyebrow="Presença"
             title="Membros em foco"
-            description="Leitura social e operacional resumida, sem substituir a página profunda de membros."
+            description="Leitura social e operacional resumida com gestao consolidada em Geral."
           >
             {visibleMembers.length ? (
               visibleMembers.map((member) => (
@@ -228,6 +266,18 @@ export function MesaOverviewPage() {
             ) : (
               <EmptyState title="Sem membros visíveis." body="A presença da mesa aparece aqui conforme a leitura operacional é carregada." />
             )}
+            {canManage ? (
+              <div className="mt-3 grid gap-2">
+                <Button variant="secondary" onClick={() => setInviteModalOpen(true)}>
+                  <Plus className="size-4" />
+                  Novo convite
+                </Button>
+                <UtilityPanel className="rounded-lg p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Codigos ativos</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{table.joinCodes.length}</p>
+                </UtilityPanel>
+              </div>
+            ) : null}
           </MesaRailCard>
 
           <MesaRailCard
@@ -281,6 +331,113 @@ export function MesaOverviewPage() {
           </MesaRailCard>
         </div>
       </section>
+
+      <Dialog open={sessionModalOpen} onOpenChange={setSessionModalOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto">
+          <DialogTitle className="font-display text-4xl text-white">Criar sessao</DialogTitle>
+          <DialogDescription className="mt-2 text-sm leading-6 text-soft">Sessao e presenca agora ficam consolidadas em Geral.</DialogDescription>
+          <form
+            className="mt-6 grid gap-4"
+            onSubmit={sessionForm.handleSubmit(async (values) => {
+              if (!session) return;
+              try {
+                await createGameSession({
+                  gameSession: {
+                    ...values,
+                    createdBy: session.nickname
+                  }
+                });
+                setSessionModalOpen(false);
+                sessionForm.reset();
+                toast.success('Sessao criada.');
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Nao foi possivel criar a sessao.');
+              }
+            })}
+          >
+            <Field label="Numero do episodio">
+              <Input {...sessionForm.register('episodeNumber')} />
+            </Field>
+            <Field label="Nome do episodio">
+              <Input {...sessionForm.register('episodeTitle')} />
+            </Field>
+            <Field label="Status">
+              <Select {...sessionForm.register('status')}>
+                <option value="Planejamento">Planejamento</option>
+                <option value="Em sessão">Em sessao</option>
+                <option value="Intervalo">Intervalo</option>
+                <option value="Finalizada">Finalizada</option>
+              </Select>
+            </Field>
+            <Field label="Local">
+              <Input {...sessionForm.register('location')} />
+            </Field>
+            <Field label="Recap">
+              <Textarea {...sessionForm.register('recap')} />
+            </Field>
+            <Field label="Objetivo">
+              <Textarea {...sessionForm.register('objective')} />
+            </Field>
+            <div className="flex gap-2">
+              <Button type="submit">Criar sessao</Button>
+              <Button type="button" variant="ghost" onClick={() => setSessionModalOpen(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto">
+          <DialogTitle className="font-display text-4xl text-white">Convidar membro</DialogTitle>
+          <DialogDescription className="mt-2 text-sm leading-6 text-soft">Escolha papel e formato de convite.</DialogDescription>
+          <form
+            className="mt-6 grid gap-4"
+            onSubmit={inviteForm.handleSubmit(async (values) => {
+              try {
+                if (values.kind === 'code') {
+                  const code = await createJoinCode({ role: values.role });
+                  if (code) {
+                    toast.success(`Codigo ${code.code} criado.`);
+                  }
+                } else {
+                  const url = await createInviteLink({ role: values.role });
+                  if (url) {
+                    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(url).catch(() => null);
+                    }
+                    toast.success('Link de convite criado.');
+                  }
+                }
+                setInviteModalOpen(false);
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Nao foi possivel gerar o convite.');
+              }
+            })}
+          >
+            <Field label="Tipo">
+              <Select {...inviteForm.register('kind')}>
+                <option value="link">Link</option>
+                <option value="code">Codigo</option>
+              </Select>
+            </Field>
+            <Field label="Papel concedido">
+              <Select {...inviteForm.register('role')}>
+                <option value="player">Player</option>
+                <option value="viewer">Viewer</option>
+                <option value="gm">GM</option>
+              </Select>
+            </Field>
+            <div className="flex gap-2">
+              <Button type="submit">Gerar</Button>
+              <Button type="button" variant="ghost" onClick={() => setInviteModalOpen(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
