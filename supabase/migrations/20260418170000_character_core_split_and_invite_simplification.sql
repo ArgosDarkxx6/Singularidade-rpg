@@ -21,6 +21,11 @@ create index if not exists idx_character_cores_updated_at on public.character_co
 
 alter table public.character_cores enable row level security;
 
+alter table public.characters
+  add column if not exists core_id uuid references public.character_cores(id) on delete set null;
+
+create index if not exists idx_characters_core_id on public.characters(core_id);
+
 drop trigger if exists character_cores_touch_updated_at on public.character_cores;
 create trigger character_cores_touch_updated_at
 before update on public.character_cores
@@ -63,11 +68,6 @@ on public.character_cores
 for delete
 to authenticated
 using (owner_id = auth.uid());
-
-alter table public.characters
-  add column if not exists core_id uuid references public.character_cores(id) on delete set null;
-
-create index if not exists idx_characters_core_id on public.characters(core_id);
 
 insert into public.character_cores (
   id,
