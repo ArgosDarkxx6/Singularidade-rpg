@@ -8,6 +8,10 @@ const signOutMock = vi.fn();
 const switchTableMock = vi.fn();
 const connectToInviteMock = vi.fn();
 const leaveCurrentTableMock = vi.fn();
+const previewInviteMock = vi.fn();
+const setActiveCharacterMock = vi.fn();
+const addCharacterMock = vi.fn();
+const removeCharacterMock = vi.fn();
 
 const authState = {
   user: {
@@ -21,6 +25,51 @@ const authState = {
   signOut: signOutMock
 };
 
+function makeCharacter(id: string, name: string) {
+  return {
+    id,
+    name,
+    age: 18,
+    appearance: 'Visual operativo.',
+    lore: `${name} segue em patrulha.`,
+    clan: 'Kashimo',
+    grade: 'Grau 3',
+    avatarMode: 'none' as const,
+    avatar: '',
+    avatarPath: '',
+    gallery: [],
+    identity: {
+      scar: '',
+      anchor: '',
+      trigger: ''
+    },
+    resources: {
+      hp: { current: 20, max: 20 },
+      energy: { current: 10, max: 10 },
+      sanity: { current: 50, max: 50 }
+    },
+    attributes: {
+      strength: { value: 3, rank: 'A' as const },
+      resistance: { value: 3, rank: 'A' as const },
+      dexterity: { value: 2, rank: 'B' as const },
+      speed: { value: 4, rank: 'S' as const },
+      fight: { value: 2, rank: 'B' as const },
+      precision: { value: 3, rank: 'A' as const },
+      intelligence: { value: 2, rank: 'B' as const },
+      charisma: { value: 1, rank: 'C' as const }
+    },
+    weapons: [],
+    techniques: [],
+    passives: [],
+    vows: [],
+    inventory: {
+      money: 100,
+      items: []
+    },
+    conditions: []
+  };
+}
+
 const workspaceState = {
   isReady: true,
   online: {
@@ -30,7 +79,7 @@ const workspaceState = {
       tableSlug: 'mesa-alpha',
       tableName: 'Mesa Alpha',
       systemKey: 'singularidade',
-      role: 'gm' as const,
+      role: 'gm' as 'gm' | 'player' | 'viewer',
       nickname: 'Tester',
       characterId: '',
       lastJoinedAt: ''
@@ -70,7 +119,7 @@ const workspaceState = {
           id: 'member-1',
           userId: 'user-1',
           nickname: 'Tester',
-          role: 'gm' as const,
+          role: 'gm' as 'gm' | 'player' | 'viewer',
           characterId: '',
           characterName: '',
           isOwner: true
@@ -87,7 +136,7 @@ const workspaceState = {
         id: 'member-1',
         userId: 'user-1',
         nickname: 'Tester',
-        role: 'gm' as const,
+        role: 'gm' as 'gm' | 'player' | 'viewer',
         characterId: '',
         characterName: '',
         isOwner: true
@@ -95,13 +144,17 @@ const workspaceState = {
     ],
     error: ''
   },
+  state: {
+    characters: [makeCharacter('char-1', 'Mysto'), makeCharacter('char-2', 'Kaori')]
+  },
+  activeCharacter: makeCharacter('char-1', 'Mysto'),
   tables: [
     {
       id: 'table-1',
       slug: 'mesa-alpha',
       name: 'Mesa Alpha',
       systemKey: 'singularidade',
-      role: 'gm' as const,
+      role: 'gm' as 'gm' | 'player' | 'viewer',
       status: 'Em sessão'
     },
     {
@@ -109,13 +162,17 @@ const workspaceState = {
       slug: 'mesa-beta',
       name: 'Mesa Beta',
       systemKey: 'singularidade',
-      role: 'player' as const,
+      role: 'player' as 'gm' | 'player' | 'viewer',
       status: 'Planejamento'
     }
   ],
   switchTable: switchTableMock,
   connectToInvite: connectToInviteMock,
-  leaveCurrentTable: leaveCurrentTableMock
+  leaveCurrentTable: leaveCurrentTableMock,
+  previewInvite: previewInviteMock,
+  setActiveCharacter: setActiveCharacterMock,
+  addCharacter: addCharacterMock,
+  removeCharacter: removeCharacterMock
 };
 
 vi.mock('@features/auth/hooks/use-auth', () => ({
@@ -130,25 +187,66 @@ vi.mock('@components/shared/logo-lockup', () => ({
   LogoLockup: () => <div>System Logo</div>
 }));
 
+function renderMesaLayout(initialEntry = '/mesa/mesa-alpha') {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <Routes>
+        <Route path="/mesa/:slug" element={<MesaLayout />}>
+          <Route index element={<div>Overview content</div>} />
+          <Route path="fichas" element={<div>Fichas content</div>} />
+          <Route path="rolagens" element={<div>Rolagens content</div>} />
+          <Route path="ordem" element={<div>Ordem content</div>} />
+        </Route>
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
 describe('MesaLayout', () => {
   beforeEach(() => {
     signOutMock.mockReset();
     switchTableMock.mockReset();
     connectToInviteMock.mockReset();
     leaveCurrentTableMock.mockReset();
+    previewInviteMock.mockReset();
+    setActiveCharacterMock.mockReset();
+    addCharacterMock.mockReset();
+    removeCharacterMock.mockReset();
+
+    workspaceState.online.session = {
+      tableId: 'table-1',
+      membershipId: 'member-1',
+      tableSlug: 'mesa-alpha',
+      tableName: 'Mesa Alpha',
+      systemKey: 'singularidade',
+      role: 'gm',
+      nickname: 'Tester',
+      characterId: '',
+      lastJoinedAt: ''
+    };
+    workspaceState.tables[0] = {
+      id: 'table-1',
+      slug: 'mesa-alpha',
+      name: 'Mesa Alpha',
+      systemKey: 'singularidade',
+      role: 'gm',
+      status: 'Em sessão'
+    };
+    workspaceState.online.members = [
+      {
+        id: 'member-1',
+        userId: 'user-1',
+        nickname: 'Tester',
+        role: 'gm',
+        characterId: '',
+        characterName: '',
+        isOwner: true
+      }
+    ];
   });
 
-  it('renders the mesa shell with persistent module navigation', () => {
-    render(
-      <MemoryRouter initialEntries={['/mesa/mesa-alpha']}>
-        <Routes>
-          <Route path="/mesa/:slug" element={<MesaLayout />}>
-            <Route index element={<div>Overview content</div>} />
-            <Route path="fichas" element={<div>Fichas content</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    );
+  it('renders the mesa shell with persistent module navigation and layered shell containers', () => {
+    renderMesaLayout();
 
     expect(screen.getByRole('heading', { name: 'Geral' })).toBeVisible();
     expect(screen.getByText('Overview content')).toBeInTheDocument();
@@ -156,56 +254,49 @@ describe('MesaLayout', () => {
     expect(screen.getAllByRole('link', { name: /Fichas/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('link', { name: /Sessão/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Membros/i })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-shell-layer="rail"]')).toBeTruthy();
+    expect(document.querySelector('[data-shell-layer="header"]')).toBeTruthy();
+    expect(document.querySelector('[data-shell-layer="content"]')).toBeTruthy();
   });
 
-  it('switches module routes inside the mesa shell', async () => {
+  it('renders the GM roster in the mesa sidebar instead of the page body', async () => {
     const user = userEvent.setup();
 
-    render(
-      <MemoryRouter initialEntries={['/mesa/mesa-alpha']}>
-        <Routes>
-          <Route path="/mesa/:slug" element={<MesaLayout />}>
-            <Route index element={<div>Overview content</div>} />
-            <Route path="fichas" element={<div>Fichas content</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    );
+    renderMesaLayout('/mesa/mesa-alpha/fichas');
 
-    await user.click(screen.getAllByRole('link', { name: /Fichas/i })[0]);
+    expect(screen.getByText('Elenco da mesa')).toBeVisible();
+    expect(screen.queryByText(/Ficha em foco/i)).not.toBeInTheDocument();
 
-    expect(screen.getByText('Fichas content')).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Fichas' })).toBeVisible();
+    await user.click(screen.getAllByRole('button', { name: 'Abrir' })[0]);
+    expect(setActiveCharacterMock).toHaveBeenCalledWith('char-1');
   });
 
-  it('renders the mobile bottom navigation with four primary mesa tabs', async () => {
-    const user = userEvent.setup();
+  it('hides the sheets module from viewer navigation and mobile tabs', () => {
+    workspaceState.online.session = {
+      ...workspaceState.online.session,
+      role: 'viewer'
+    };
+    workspaceState.tables[0] = {
+      ...workspaceState.tables[0],
+      role: 'viewer'
+    };
+    workspaceState.online.members = [
+      {
+        id: 'member-1',
+        userId: 'user-1',
+        nickname: 'Tester',
+        role: 'viewer',
+        characterId: '',
+        characterName: '',
+        isOwner: false
+      }
+    ];
 
-    render(
-      <MemoryRouter initialEntries={['/mesa/mesa-alpha']}>
-        <Routes>
-          <Route path="/mesa/:slug" element={<MesaLayout />}>
-            <Route index element={<div>Overview content</div>} />
-            <Route path="fichas" element={<div>Fichas content</div>} />
-            <Route path="rolagens" element={<div>Rolagens content</div>} />
-            <Route path="ordem" element={<div>Ordem content</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    );
+    renderMesaLayout();
 
-    const geralLinks = screen.getAllByRole('link', { name: 'Geral' });
-    const fichasLinks = screen.getAllByRole('link', { name: 'Fichas' });
-    const rolagensLinks = screen.getAllByRole('link', { name: 'Rolagens' });
-    const ordemLinks = screen.getAllByRole('link', { name: 'Ordem' });
-
-    expect(geralLinks.length).toBeGreaterThan(0);
-    expect(fichasLinks.length).toBeGreaterThan(0);
-    expect(rolagensLinks.length).toBeGreaterThan(0);
-    expect(ordemLinks.length).toBeGreaterThan(0);
-    expect(geralLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
-
-    await user.click(fichasLinks[0]);
-    expect(screen.getByText('Fichas content')).toBeVisible();
+    expect(screen.queryByRole('link', { name: /Fichas/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Geral' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Rolagens' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Ordem' }).length).toBeGreaterThan(0);
   });
 });

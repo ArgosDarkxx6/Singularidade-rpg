@@ -140,7 +140,7 @@ function PlatformSidebarContent({
                   <RadioTower className="mt-1 size-4 shrink-0 text-sky-200" />
                 </div>
                 <div className="mt-4 grid gap-1.5">
-                  {MESA_NAV_ITEMS.map((item) => (
+                  {MESA_NAV_ITEMS.filter((item) => activeTable.role !== 'viewer' || item.section !== 'fichas').map((item) => (
                     <Link
                       key={item.section}
                       to={item.href(activeTable.slug)}
@@ -215,19 +215,23 @@ export function ProtectedAppShell() {
   const activeTable = tables.find((table) => table.slug === online.session?.tableSlug) || null;
 
   return (
-    <div className="platform-shell relative min-h-screen overflow-hidden">
+    <div className="platform-shell app-shell-root relative">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(87,187,255,0.12),transparent_22%),radial-gradient(circle_at_top_right,rgba(120,164,255,0.09),transparent_18%),linear-gradient(180deg,rgba(6,10,18,0.96),rgba(4,7,14,0.98))]" />
 
-      <div className="relative mx-auto grid min-h-screen max-w-[1820px] grid-cols-1 gap-4 px-3 py-3 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-4 xl:py-4">
-        <aside className="app-sidebar-shell rail-shell hidden xl:flex xl:min-h-[calc(100svh-2rem)] xl:flex-col">
+      <div className="app-shell-grid relative mx-auto grid h-full max-w-[1820px] grid-cols-1 gap-3 px-3 py-3 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-4 xl:py-4">
+        <aside
+          className="app-sidebar-shell rail-shell hidden xl:flex xl:flex-col"
+          data-shell-layer="rail"
+          aria-label="Navegação lateral"
+        >
           <div className="rail-shell-content">
             <PlatformSidebarContent pathname={location.pathname} onSignOut={signOut} compact />
           </div>
         </aside>
 
-        <div className="flex min-h-screen flex-col gap-4 xl:min-h-[calc(100svh-2rem)]">
-          <header className="app-topbar sticky top-3 z-30">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="app-main-column flex h-full min-h-0 flex-col gap-3">
+          <header className="app-topbar" data-shell-layer="header">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex items-start gap-3">
                 <Sheet>
                   <SheetTrigger asChild>
@@ -243,28 +247,28 @@ export function ProtectedAppShell() {
 
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{meta.eyebrow}</p>
-                  <h1 className="mt-1 text-balance text-xl font-semibold leading-tight text-white sm:text-2xl">{meta.title}</h1>
-                  <p className="mt-1 text-sm text-soft">{meta.description}</p>
+                  <h1 className="mt-1 text-balance text-lg font-semibold leading-tight text-white sm:text-xl">{meta.title}</h1>
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-soft sm:text-sm">{meta.description}</p>
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                <UtilityPanel className="rounded-lg px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <UtilityPanel className="rounded-lg px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Mesas</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{tables.length} disponíveis</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{tables.length}</p>
                 </UtilityPanel>
-                <UtilityPanel className="rounded-lg px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Mesa conectada</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{activeTable?.name || 'Nenhuma ativa'}</p>
+                <UtilityPanel className="max-w-[220px] rounded-lg px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Mesa ativa</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-white">{activeTable?.name || 'Nenhuma ativa'}</p>
                 </UtilityPanel>
-                <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-1">
+                <div className="flex flex-wrap gap-2">
                   {activeTable ? (
-                    <Button className="flex-1 xl:min-w-[170px]" onClick={() => navigate(`/mesa/${activeTable.slug}`)}>
+                    <Button onClick={() => navigate(`/mesa/${activeTable.slug}`)}>
                       <Users className="size-4" />
                       Abrir mesa ativa
                     </Button>
                   ) : (
-                    <Button className="flex-1 xl:min-w-[170px]" onClick={() => navigate('/mesas')}>
+                    <Button onClick={() => navigate('/mesas')}>
                       <Users className="size-4" />
                       Ir para mesas
                     </Button>
@@ -278,7 +282,7 @@ export function ProtectedAppShell() {
             </div>
           </header>
 
-          <main className="app-content-shell min-h-0 flex-1 px-3 py-3 sm:px-4 xl:px-5">
+          <main className="app-content-shell px-3 py-3 sm:px-4 xl:px-5" data-shell-layer="content" data-scroll-region="content">
             <div className="page-grid pb-8">
               <Outlet />
             </div>

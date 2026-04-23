@@ -27,6 +27,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@components/ui/sheet';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { MESA_NAV_ITEMS, buildMesaSectionPath, getMesaSectionFromPath } from '@features/mesa/lib/mesa-routing';
 import { useMesaShellStore } from '@features/mesa/store/use-mesa-shell-store';
+import { CharacterRosterPanel } from '@features/sheets/components/character-roster-panel';
 import { getGameSystem } from '@features/systems/registry';
 import { useWorkspace } from '@features/workspace/use-workspace';
 import { MESA_SECTION_LABELS } from '@lib/domain/constants';
@@ -74,16 +75,18 @@ function formatRelativeDate(value: string) {
 
 function MesaNavigation({
   slug,
+  role,
   compact = false,
   onNavigate
 }: {
   slug: string;
+  role: 'gm' | 'player' | 'viewer';
   compact?: boolean;
   onNavigate?: () => void;
 }) {
   return (
     <nav className="grid gap-1.5">
-      {MESA_NAV_ITEMS.map((item) => {
+      {MESA_NAV_ITEMS.filter((item) => role !== 'viewer' || item.section !== 'fichas').map((item) => {
         const Icon = sectionIcons[item.section];
         return (
           <NavLink
@@ -109,11 +112,20 @@ function MesaNavigation({
 
 const MOBILE_PRIMARY_SECTIONS: MesaSection[] = ['overview', 'fichas', 'rolagens', 'ordem'];
 
-function MesaMobileBottomNav({ slug, currentSection }: { slug: string; currentSection: MesaSection }) {
+function MesaMobileBottomNav({
+  slug,
+  currentSection,
+  role
+}: {
+  slug: string;
+  currentSection: MesaSection;
+  role: 'gm' | 'player' | 'viewer';
+}) {
+  const sections = MOBILE_PRIMARY_SECTIONS.filter((section) => role !== 'viewer' || section !== 'fichas');
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/12 bg-[rgba(7,12,24,0.94)] px-2 pb-[max(env(safe-area-inset-bottom),0.45rem)] pt-2 backdrop-blur sm:hidden">
-      <ul className="mx-auto grid max-w-[560px] grid-cols-4 gap-1.5">
-        {MOBILE_PRIMARY_SECTIONS.map((section) => {
+      <ul className={cn('mx-auto grid max-w-[560px] gap-1.5', sections.length === 4 ? 'grid-cols-4' : 'grid-cols-3')}>
+        {sections.map((section) => {
           const navItem = MESA_NAV_ITEMS.find((item) => item.section === section);
           if (!navItem) return null;
           const Icon = sectionIcons[section];
@@ -149,6 +161,7 @@ function MesaSidebarContent({
   user,
   currentTableSummary,
   tables,
+  currentSection,
   onSwitchTable,
   onLeave,
   onOpenProfile,
@@ -163,6 +176,7 @@ function MesaSidebarContent({
   user: AuthUser | null;
   currentTableSummary: { status?: string } | null;
   tables: Array<{ id: string; slug: string; name: string; systemKey: string; role: 'gm' | 'player' | 'viewer'; status?: string }>;
+  currentSection: MesaSection;
   onSwitchTable: (nextSlug: string) => void;
   onLeave: () => void;
   onOpenProfile: () => void;
@@ -212,7 +226,7 @@ function MesaSidebarContent({
 
           <section className="grid gap-2">
             <p className={cn('section-label', compact && 'rail-expanded-block')}>Módulos</p>
-            <MesaNavigation slug={slug} compact={compact} onNavigate={onNavigate} />
+            <MesaNavigation slug={slug} role={session.role} compact={compact} onNavigate={onNavigate} />
           </section>
 
           <section className={cn('grid gap-3', compact && 'rail-expanded-block')}>
@@ -296,6 +310,12 @@ function MesaSidebarContent({
               )}
             </div>
           </section>
+
+          {session.role === 'gm' && currentSection === 'fichas' ? (
+            <section className={cn('grid gap-3', compact && 'rail-expanded-block')}>
+              <CharacterRosterPanel variant="rail" onNavigate={onNavigate} />
+            </section>
+          ) : null}
         </div>
       </ScrollArea>
 
@@ -557,11 +577,15 @@ export function MesaLayout() {
   const activeSystem = getGameSystem(table.systemKey);
 
   return (
-    <div className={cn('relative min-h-screen overflow-hidden', activeSystem.themeClassName)}>
+    <div className={cn('app-shell-root relative overflow-hidden', activeSystem.themeClassName)}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(87,187,255,0.12),transparent_21%),radial-gradient(circle_at_top_right,rgba(143,228,255,0.08),transparent_14%),linear-gradient(180deg,rgba(4,8,16,0.74),rgba(4,8,15,0.94))]" />
 
-      <div className="relative mx-auto grid min-h-screen max-w-[1840px] grid-cols-1 gap-4 px-3 py-3 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-4 xl:py-4">
-        <aside className="app-sidebar-shell rail-shell hidden xl:flex xl:min-h-[calc(100svh-2rem)] xl:flex-col">
+      <div className="app-shell-grid relative mx-auto grid h-full max-w-[1840px] grid-cols-1 gap-3 px-3 py-3 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-4 xl:py-4">
+        <aside
+          className="app-sidebar-shell rail-shell hidden xl:flex xl:flex-col"
+          data-shell-layer="rail"
+          aria-label="Navegação lateral da mesa"
+        >
           <div className="rail-shell-content">
             <MesaSidebarContent
               table={table}
@@ -571,6 +595,7 @@ export function MesaLayout() {
               user={user}
               currentTableSummary={currentTableSummary}
               tables={tables}
+              currentSection={currentSection}
               onSwitchTable={handleSwitchTable}
               onLeave={() => void handleLeaveTable()}
               onOpenProfile={() => navigate('/perfil')}
@@ -580,9 +605,9 @@ export function MesaLayout() {
           </div>
         </aside>
 
-        <div className="flex min-h-screen flex-col gap-4 xl:min-h-[calc(100svh-2rem)]">
-          <header className="app-topbar sticky top-3 z-30">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="app-main-column flex h-full min-h-0 flex-col gap-3">
+          <header className="app-topbar" data-shell-layer="header">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex items-start gap-3">
                 <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                   <SheetTrigger asChild>
@@ -600,6 +625,7 @@ export function MesaLayout() {
                       user={user}
                       currentTableSummary={currentTableSummary}
                       tables={tables}
+                      currentSection={currentSection}
                       onSwitchTable={handleSwitchTable}
                       onLeave={() => void handleLeaveTable()}
                       onOpenProfile={() => {
@@ -618,25 +644,25 @@ export function MesaLayout() {
 
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{activeSystem.name}</p>
-                  <h1 className="mt-1 text-balance text-xl font-semibold leading-tight text-white sm:text-2xl">
+                  <h1 className="mt-1 text-balance text-lg font-semibold leading-tight text-white sm:text-xl">
                     {MESA_SECTION_LABELS[currentSection]}
                   </h1>
-                  <p className="mt-1 max-w-3xl text-sm text-soft">{sectionDescriptions[currentSection]}</p>
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-soft sm:text-sm">{sectionDescriptions[currentSection]}</p>
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                <UtilityPanel className="rounded-lg px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <UtilityPanel className="rounded-lg px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Mesa</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{table.name}</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{table.name}</p>
                 </UtilityPanel>
-                <UtilityPanel className="rounded-lg px-3 py-2.5">
+                <UtilityPanel className="rounded-lg px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{currentTableSummary?.status || table.currentSession?.status || 'Sem sessão'}</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{currentTableSummary?.status || table.currentSession?.status || 'Sem sessão'}</p>
                 </UtilityPanel>
-                <UtilityPanel className="rounded-lg px-3 py-2.5">
+                <UtilityPanel className="rounded-lg px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Presença</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{members.length} visíveis</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{members.length} visíveis</p>
                 </UtilityPanel>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" onClick={() => navigate('/mesas')}>
@@ -650,7 +676,7 @@ export function MesaLayout() {
             </div>
           </header>
 
-          <div className="app-content-shell min-h-0 flex-1 px-3 py-3 sm:px-4 xl:px-5">
+          <div className="app-content-shell px-3 py-3 sm:px-4 xl:px-5" data-shell-layer="content" data-scroll-region="content">
             <AnimatePresence mode="wait">
               <motion.main
                 key={location.pathname + location.search}
@@ -666,7 +692,7 @@ export function MesaLayout() {
           </div>
         </div>
       </div>
-      <MesaMobileBottomNav slug={slug} currentSection={currentSection} />
+      <MesaMobileBottomNav slug={slug} currentSection={currentSection} role={session.role} />
     </div>
   );
 }

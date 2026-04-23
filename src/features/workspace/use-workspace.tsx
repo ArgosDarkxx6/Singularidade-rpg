@@ -68,6 +68,11 @@ interface WorkspaceContextValue {
   compendiumCategory: string;
   online: OnlineState;
   tables: TableListItem[];
+  hasBoundSheet: boolean;
+  canAccessSheetsModule: boolean;
+  canManageRoster: boolean;
+  hasPendingBoundSheet: boolean;
+  boundSheetCharacterId: string;
   listUserCharacters: () => Promise<UserCharacterSummary[]>;
   listCharacterCores: () => Promise<CharacterCoreSummary[]>;
   createCharacterCore: (payload: Pick<Character, 'name' | 'age' | 'appearance' | 'lore' | 'clan' | 'grade'>) => Promise<CharacterCoreSummary | null>;
@@ -308,6 +313,24 @@ function alignStateToSession(state: WorkspaceState, session: TableSession | null
   });
 }
 
+function getSheetsAccessState(session: TableSession | null, state: WorkspaceState) {
+  const isPlayer = session?.role === 'player';
+  const boundSheetCharacterId = isPlayer ? session?.characterId || '' : '';
+  const hasBoundSheet = Boolean(boundSheetCharacterId);
+
+  return {
+    hasBoundSheet,
+    canAccessSheetsModule: !session || session.role === 'gm' || session.role === 'player',
+    canManageRoster: !session || session.role === 'gm',
+    hasPendingBoundSheet: Boolean(
+      isPlayer &&
+        hasBoundSheet &&
+        !state.characters.some((character) => character.id === boundSheetCharacterId)
+    ),
+    boundSheetCharacterId
+  };
+}
+
 export function WorkspaceProvider({ children, backend }: { children: ReactNode; backend?: WorkspaceBackend }) {
   const workspaceBackend = useMemo(() => backend ?? runtimeWorkspaceBackend, [backend]);
   const { user } = useAuth();
@@ -516,7 +539,10 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
   }, [online.session, user]);
 
   const activeCharacter =
-    state.characters.find((character) => character.id === state.activeCharacterId) || state.characters[0] || createDefaultState().characters[0];
+    online.session?.role === 'player' && !online.session.characterId
+      ? createDefaultState().characters[0]
+      : state.characters.find((character) => character.id === state.activeCharacterId) || state.characters[0] || createDefaultState().characters[0];
+  const sheetsAccess = useMemo(() => getSheetsAccessState(online.session, state), [online.session, state]);
 
   const flushWorkspaceSave = useCallback(() => {
     if (workspaceSaveRunningRef.current || !workspaceSaveRef.current) return;
@@ -956,6 +982,11 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       compendiumCategory,
       online,
       tables,
+      hasBoundSheet: sheetsAccess.hasBoundSheet,
+      canAccessSheetsModule: sheetsAccess.canAccessSheetsModule,
+      canManageRoster: sheetsAccess.canManageRoster,
+      hasPendingBoundSheet: sheetsAccess.hasPendingBoundSheet,
+      boundSheetCharacterId: sheetsAccess.boundSheetCharacterId,
       listUserCharacters: async () => {
         if (!user) return [];
         return workspaceBackend.listUserCharacters(user);
@@ -1009,11 +1040,13 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
       setActiveCharacter: (characterId) => {
         const currentSession = onlineRef.current.session;
 
-        if (currentSession?.role === 'player' && currentSession.characterId && currentSession.characterId !== characterId) {
+        if (currentSession?.role === 'player' && (!currentSession.characterId || currentSession.characterId !== characterId)) {
           setOnline((current) => ({
             ...current,
             status: 'error',
-            error: 'Players só podem acessar a própria ficha vinculada.'
+            error: currentSession.characterId
+              ? 'Players só podem acessar a própria ficha vinculada.'
+              : 'Sua membership ainda não possui uma ficha vinculada.'
           }));
           return;
         }
@@ -2013,7 +2046,30 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         );
       }
     }),
-    [activeCharacter, appendLog, applyRemoteTable, compendiumCategory, compendiumQuery, flushPersistence, isReady, lastRoll, online, persistState, refreshTables, setLocalActiveCharacter, state, tables, updateCharacters, user, workspaceBackend]
+    [
+      activeCharacter,
+      appendLog,
+      applyRemoteTable,
+      compendiumCategory,
+      compendiumQuery,
+      flushPersistence,
+      isReady,
+      lastRoll,
+      online,
+      persistState,
+      refreshTables,
+      setLocalActiveCharacter,
+      sheetsAccess.boundSheetCharacterId,
+      sheetsAccess.canAccessSheetsModule,
+      sheetsAccess.canManageRoster,
+      sheetsAccess.hasBoundSheet,
+      sheetsAccess.hasPendingBoundSheet,
+      state,
+      tables,
+      updateCharacters,
+      user,
+      workspaceBackend
+    ]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

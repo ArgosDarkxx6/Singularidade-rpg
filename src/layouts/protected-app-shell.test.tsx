@@ -95,6 +95,9 @@ describe('ProtectedAppShell', () => {
     expect(screen.getByText('Hub de mesas')).toBeVisible();
     expect(screen.getByText('Perfil')).toBeVisible();
     expect(screen.getByRole('button', { name: /Abrir mesa ativa/i })).toBeVisible();
+    expect(document.querySelector('[data-shell-layer="rail"]')).toBeTruthy();
+    expect(document.querySelector('[data-shell-layer="header"]')).toBeTruthy();
+    expect(document.querySelector('[data-shell-layer="content"]')).toBeTruthy();
   });
 
   it('navigates between platform routes through the persistent shell', async () => {

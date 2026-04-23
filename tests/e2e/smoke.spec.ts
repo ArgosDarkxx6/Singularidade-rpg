@@ -321,16 +321,70 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-test('registers, creates a mesa, and keeps legacy routes inside the mesa shell', async ({ page }) => {
+test('registers, creates a mesa, and keeps legacy routes inside the mesa shell', async ({ page }, testInfo) => {
   await registerUser(page, 'GM Alpha');
   await expectNoHorizontalOverflow(page);
   const tableName = uniqueLabel('Mesa Alpha');
   await createTable(page, tableName);
   const slug = slugify(tableName);
+  const isMobileProject = testInfo.project.name === 'mobile-chrome';
+
+  const rail = page.locator('[data-shell-layer="rail"]');
+  const railContent = page.locator('.rail-shell-content');
+  const header = page.locator('[data-shell-layer="header"]');
+  const contentShell = page.locator('[data-scroll-region="content"]');
+
+  await expect(header).toBeVisible();
+  await expect(contentShell).toBeVisible();
 
   await expect(page.getByRole('banner').getByText('Singularidade')).toBeVisible();
   await expect(page.getByRole('heading', { name: new RegExp(tableName) }).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
+
+  const headerBoxBefore = await header.boundingBox();
+  const contentBoxBefore = await contentShell.boundingBox();
+  let railBoxBefore = null;
+
+  if (isMobileProject) {
+    await expect(page.getByRole('button', { name: /Abrir navega/i })).toBeVisible();
+    await page.getByRole('button', { name: /Abrir navega/i }).click();
+    await expect(page.getByRole('dialog').getByText('Membros visíveis')).toBeVisible();
+  } else {
+    await expect(rail).toBeVisible();
+    const railWidthBefore = (await railContent.boundingBox())?.width || 0;
+    railBoxBefore = await rail.boundingBox();
+
+    await rail.hover();
+    await page.waitForTimeout(260);
+
+    const expandedRailBox = await railContent.boundingBox();
+    const contentBoxAfterHover = await contentShell.boundingBox();
+    expect(expandedRailBox).not.toBeNull();
+    expect(contentBoxAfterHover).not.toBeNull();
+    expect((expandedRailBox?.width || 0) - railWidthBefore).toBeGreaterThan(120);
+    expect(Math.abs((contentBoxAfterHover?.x || 0) - (contentBoxBefore?.x || 0))).toBeLessThanOrEqual(1);
+
+    const overlayDominates = await page.evaluate(({ x, y }) => {
+      const element = document.elementFromPoint(x, y);
+      return Boolean(element?.closest('.rail-shell-content'));
+    }, {
+      x: Math.floor((expandedRailBox?.x || 0) + (expandedRailBox?.width || 0) - 12),
+      y: Math.floor((expandedRailBox?.y || 0) + 44)
+    });
+    expect(overlayDominates).toBeTruthy();
+  }
+
+  await contentShell.evaluate((node) => {
+    node.scrollTop = 640;
+  });
+  await page.waitForTimeout(120);
+
+  const headerBoxAfterScroll = await header.boundingBox();
+  expect(Math.abs((headerBoxAfterScroll?.y || 0) - (headerBoxBefore?.y || 0))).toBeLessThanOrEqual(1);
+  if (!isMobileProject) {
+    const railBoxAfterScroll = await rail.boundingBox();
+    expect(Math.abs((railBoxAfterScroll?.y || 0) - (railBoxBefore?.y || 0))).toBeLessThanOrEqual(1);
+  }
 
   await page.goto('/mesa');
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}$`));
@@ -445,11 +499,14 @@ test('viewer joins read-only, legacy livro redirect stays inside the mesa, and m
   await registerUser(page, 'Viewer Join');
   await joinByCode(page, joinCode, 'Viewer Join', slug);
 
+  await page.goto(`/mesa/${slug}`);
+  await expect(page.getByRole('link', { name: 'Fichas' })).toHaveCount(0);
+
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByText(/Seu papel atual é de leitura./)).toBeVisible();
 
   await page.goto(`/mesa/${slug}/fichas`);
-  await expect(page.getByRole('heading', { name: 'Leitura protegida' })).toBeVisible();
+  await expect(page.getByText('Fichas indisponíveis para este papel.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Salvar ficha principal' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Adicionar arma' })).toHaveCount(0);
 
@@ -477,6 +534,37 @@ test('player joins by linked invite URL', async ({ page }) => {
   await registerUser(page, 'Player Link');
   await joinByInviteLink(page, inviteUrl, 'Player Link', slug);
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}$`));
+
+  await page.goto(`/mesa/${slug}/fichas`);
+  await expect(page.getByText('Voce ainda nao tem ficha nesta mesa')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Criar personagem na mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Importar .json' })).toBeVisible();
+  await expect(page.getByText('Usar personagem de Meus personagens')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Editar ficha' })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
+test('my characters keeps primary actions accessible on mobile', async ({ page }) => {
+  await registerUser(page, 'Mobile Cores');
+  const coreName = uniqueLabel('Nucleo Mobile');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/personagens');
+
+  await expect(page.getByRole('button', { name: 'Criar nucleo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Importar JSON' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Atualizar' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.getByRole('button', { name: 'Criar nucleo' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Nome').fill(coreName);
+  await dialog.getByRole('button', { name: 'Criar nucleo' }).click();
+
+  await expect(page.getByText(coreName)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Transferir posse' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
 
 test('profile account, ownership transfer, and table deletion preserve owned characters', async ({ page }) => {
@@ -527,6 +615,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   await page.getByLabel('Username de destino').fill(player.safeId);
   await page.getByLabel('Sua senha atual').fill(TEST_PASSWORD);
   await page.getByRole('button', { name: 'Transferir administracao' }).click();
+  await expect(page.getByText('Administracao transferida.')).toBeVisible({ timeout: 15_000 });
 
   await signOutCurrentUser(page);
   await signInUser(page, player.safeId);
