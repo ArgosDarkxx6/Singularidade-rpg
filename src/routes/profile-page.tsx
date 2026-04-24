@@ -11,8 +11,8 @@ import { Field, Input } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { MesaHero, MesaMetricTile } from '@features/mesa/components/mesa-section-primitives';
 import { useAuth } from '@features/auth/hooks/use-auth';
+import { useAccountCharacters, usePlatformTables } from '@features/workspace/hooks/use-workspace-segments';
 import { getGameSystem } from '@features/systems/registry';
-import { useWorkspace } from '@features/workspace/use-workspace';
 import { profileUpdateSchema } from '@schemas/auth';
 import type { UserCharacterSummary } from '@/types/domain';
 
@@ -30,7 +30,8 @@ function formatDate(value: string) {
 
 export function ProfilePage() {
   const { user, profile, updateProfile, uploadProfileAvatar, clearProfileAvatar } = useAuth();
-  const { tables, listUserCharacters } = useWorkspace();
+  const { tables } = usePlatformTables();
+  const { listUserCharacters } = useAccountCharacters();
   const [characters, setCharacters] = useState<UserCharacterSummary[]>([]);
   const [charactersLoading, setCharactersLoading] = useState(true);
   const [avatarBusy, setAvatarBusy] = useState(false);

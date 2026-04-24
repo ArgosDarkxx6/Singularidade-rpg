@@ -109,7 +109,7 @@ let supportsCharacterGallery = true;
 let supportsCharacterCores = true;
 let supportsCharacterCoreColumn = true;
 
-function serializeStateForStorage(state: WorkspaceState): WorkspaceState {
+function serializeStateForSnapshot(state: WorkspaceState): WorkspaceState {
   const nextState = deepClone(state);
   nextState.characters = nextState.characters.map((character) =>
     character.avatarMode === 'upload' && character.avatarPath
@@ -121,6 +121,16 @@ function serializeStateForStorage(state: WorkspaceState): WorkspaceState {
   );
 
   return nextState;
+}
+
+function serializeStateForTableStorage(state: WorkspaceState): WorkspaceState {
+  const nextState = serializeStateForSnapshot(state);
+  return {
+    ...nextState,
+    characters: [],
+    activeCharacterId: '',
+    log: []
+  };
 }
 
 async function createSignedAvatarUrl(path: string): Promise<string> {
@@ -195,7 +205,7 @@ function toTableInsert(
       ...(kind ? { kind } : {})
     },
     system_key: normalizedSystemKey,
-    state: serializeStateForStorage(state) as unknown as Json,
+    state: serializeStateForTableStorage(state) as unknown as Json,
     owner_id: ownerId,
     current_round: state.order.round,
     current_turn_index: state.order.turn,
@@ -861,7 +871,8 @@ async function fetchTableRowById(tableId: string) {
   return data as TableRow;
 }
 
-async function fetchSnapshots(tableId: string): Promise<TableSnapshot[]> {
+async function fetchSnapshots(tableId: string, accessSession?: TableSession | null): Promise<TableSnapshot[]> {
+  if (!accessSession || accessSession.role !== 'gm') return [];
   const client = assertClient();
   const { data, error } = await client
     .from('table_snapshots')
@@ -869,6 +880,7 @@ async function fetchSnapshots(tableId: string): Promise<TableSnapshot[]> {
     .eq('table_id', tableId)
     .order('created_at', { ascending: false });
 
+  if (isPermissionError(error)) return [];
   if (error) throw error;
 
   const snapshotRows: Array<{ id: string; label: string; state: Json; created_at: string; created_by: string | null }> = data || [];
@@ -931,18 +943,25 @@ async function fetchInvites(tableId: string, tableSlug: string): Promise<TableIn
   }));
 }
 
-function mapMemberships(records: TableMembershipRow[], state: WorkspaceState, ownerId: string | null): PresenceMember[] {
+function mapMemberships(
+  records: TableMembershipRow[],
+  state: WorkspaceState,
+  ownerId: string | null,
+  accessSession?: TableSession | null
+): PresenceMember[] {
   return records
     .filter((membership) => membership.active)
     .map((membership) => {
       const character = state.characters.find((entry) => entry.id === membership.character_id);
+      const canSeeCharacterName =
+        accessSession?.role === 'gm' || (accessSession?.role === 'player' && membership.id === accessSession.membershipId);
       return {
         id: membership.id,
         userId: membership.user_id,
         nickname: membership.nickname,
         role: membership.role as PresenceMember['role'],
         characterId: membership.character_id || '',
-        characterName: character?.name || '',
+        characterName: canSeeCharacterName ? character?.name || '' : '',
         isOwner: membership.user_id === ownerId
       };
     });
@@ -1089,7 +1108,13 @@ async function fetchSessionAttendances(sessionId: string, memberships: TableMemb
     });
 }
 
-async function fetchRelationalCharacters(tableId: string, fallbackState: WorkspaceState): Promise<Character[]> {
+async function fetchRelationalCharacters(
+  tableId: string,
+  fallbackState: WorkspaceState,
+  accessSession?: TableSession | null
+): Promise<Character[]> {
+  if (accessSession?.role === 'viewer') return [];
+  if (accessSession?.role === 'player' && !accessSession.characterId) return [];
   const client = assertClient();
   const characterColumns = () =>
     [
@@ -1113,13 +1138,20 @@ async function fetchRelationalCharacters(tableId: string, fallbackState: Workspa
     ]
       .filter(Boolean)
       .join(', ');
-  const fetchCharacterRows = () =>
-    client
+  const fetchCharacterRows = () => {
+    let query = client
       .from('characters')
       .select(characterColumns())
       .eq('table_id', tableId)
       .eq('archived', false)
       .order('sort_order', { ascending: true });
+
+    if (accessSession?.role === 'player' && accessSession.characterId) {
+      query = query.eq('id', accessSession.characterId);
+    }
+
+    return query;
+  };
   let characterRowsResult = await fetchCharacterRows();
 
   if (isMissingColumnError(characterRowsResult.error, 'lore')) {
@@ -1438,14 +1470,27 @@ async function fetchTableLogs(tableId: string, fallbackLogs: LogEntry[]): Promis
   return [...mapped, ...fallbackLogs.filter((entry) => !remoteIds.has(entry.id))];
 }
 
-async function fetchTableState(tableId: string): Promise<TableState> {
+function sanitizeFallbackStateForAccess(fallbackState: WorkspaceState, accessSession?: TableSession | null): WorkspaceState {
+  if (!accessSession || accessSession.role === 'gm') {
+    return fallbackState;
+  }
+
+  return normalizeState({
+    ...fallbackState,
+    characters: [],
+    activeCharacterId: '',
+    log: fallbackState.log
+  });
+}
+
+async function fetchTableState(tableId: string, accessSession?: TableSession | null): Promise<TableState> {
   const row = await fetchTableRowById(tableId);
   const systemKey = resolveGameSystemKey(row.system_key);
-  const fallbackState = parseWorkspaceState(row.state);
+  const fallbackState = sanitizeFallbackStateForAccess(parseWorkspaceState(row.state), accessSession);
   const [characters, logs, snapshots, joinCodes, invites, membershipRows, currentSession, sessionHistoryPreview] = await Promise.all([
-    fetchRelationalCharacters(row.id, fallbackState),
+    fetchRelationalCharacters(row.id, fallbackState, accessSession),
     fetchTableLogs(row.id, fallbackState.log),
-    fetchSnapshots(row.id),
+    fetchSnapshots(row.id, accessSession),
     fetchJoinCodes(row.id, row.slug),
     fetchInvites(row.id, row.slug),
     fetchMembershipRows(row.id),
@@ -1457,7 +1502,7 @@ async function fetchTableState(tableId: string): Promise<TableState> {
     characters,
     log: logs
   });
-  const memberships = mapMemberships(membershipRows, state, row.owner_id);
+  const memberships = mapMemberships(membershipRows, state, row.owner_id, accessSession);
   const sessionAttendances = currentSession ? await fetchSessionAttendances(currentSession.id, membershipRows) : [];
   const preview = sessionHistoryPreview.length ? sessionHistoryPreview : currentSession ? [currentSession] : [];
 
@@ -2135,7 +2180,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const { error } = await client
         .from('tables')
         .update({
-          state: serializeStateForStorage(state) as unknown as Json,
+          state: serializeStateForSnapshot(state) as unknown as Json,
           current_round: state.order.round,
           current_turn_index: state.order.turn,
           last_editor: user.displayName
@@ -2175,7 +2220,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       );
     },
     async getTable(session) {
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async switchTable({ user, tableSlug }) {
       const client = assertClient();
@@ -2190,7 +2235,8 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           tables!inner (
             id,
             slug,
-            name
+            name,
+            system_key
           )
         `
         )
@@ -2204,20 +2250,24 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const table = Array.isArray(data.tables) ? data.tables[0] : data.tables;
       if (!table) throw new Error('Mesa nao encontrada.');
 
-      const tableState = await fetchTableState(table.id);
+      const nextSession = buildTableSession({
+        tableId: table.id,
+        tableSlug: table.slug,
+        tableName: table.name,
+        systemKey: table.system_key,
+        membershipId: data.id,
+        role: data.role as TableSession['role'],
+        nickname: data.nickname,
+        characterId: data.character_id
+      });
+      const tableState = await fetchTableState(table.id, nextSession);
 
       return {
         table: tableState,
-        session: buildTableSession({
-          tableId: table.id,
-          tableSlug: table.slug,
-          tableName: table.name,
-          systemKey: tableState.systemKey,
-          membershipId: data.id,
-          role: data.role as TableSession['role'],
-          nickname: data.nickname,
-          characterId: data.character_id
-        })
+        session: {
+          ...nextSession,
+          systemKey: tableState.systemKey
+        }
       };
     },
     async subscribeToTable(session, callback) {
@@ -2229,7 +2279,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         if (disposed) return;
 
         try {
-          const table = await fetchTableState(session.tableId);
+          const table = await fetchTableState(session.tableId, session);
           if (disposed) return;
           callback(table);
         } catch (error) {
@@ -2427,23 +2477,27 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           table_id: createdTable.id,
           created_by: user.id,
           label: 'Snapshot inicial',
-          state: serializeStateForStorage(state) as unknown as Json
+          state: serializeStateForSnapshot(state) as unknown as Json
         });
 
         if (snapshotError) throw snapshotError;
 
-        const table = await fetchTableState(createdTable.id);
+        const nextSession = buildTableSession({
+          tableId: createdTable.id,
+          membershipId: membership.id,
+          tableSlug: createdTable.slug,
+          tableName: createdTable.name,
+          systemKey,
+          role: 'gm',
+          nickname
+        });
+        const table = await fetchTableState(createdTable.id, nextSession);
         return {
           table,
-          session: buildTableSession({
-            tableId: createdTable.id,
-            membershipId: membership.id,
-            tableSlug: createdTable.slug,
-            tableName: createdTable.name,
-            systemKey: table.systemKey,
-            role: 'gm',
-            nickname
-          })
+          session: {
+            ...nextSession,
+            systemKey: table.systemKey
+          }
         };
       } catch (error) {
         if (insertedTable?.id) {
@@ -2474,7 +2528,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
 
       if (error) throw error;
 
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async previewInvite(token) {
       const normalizedToken = String(token || '').trim();
@@ -2510,19 +2564,23 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         });
       }
 
-      const table = await fetchTableState(claimed.table_id);
+      const nextSession = buildTableSession({
+        tableId: claimed.table_id,
+        membershipId: claimed.membership_id,
+        tableSlug: claimed.table_slug,
+        tableName: claimed.table_name,
+        systemKey: claimed.system_key,
+        role: claimed.role as TableSession['role'],
+        nickname,
+        characterId: claimed.character_id
+      });
+      const table = await fetchTableState(claimed.table_id, nextSession);
       return {
         table,
-        session: buildTableSession({
-          tableId: claimed.table_id,
-          membershipId: claimed.membership_id,
-          tableSlug: claimed.table_slug,
-          tableName: claimed.table_name,
-          systemKey: table.systemKey,
-          role: claimed.role as TableSession['role'],
-          nickname,
-          characterId: claimed.character_id
-        })
+        session: {
+          ...nextSession,
+          systemKey: table.systemKey
+        }
       };
     },
     async joinByCode({ code, nickname }) {
@@ -2543,18 +2601,22 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         });
       }
 
-      const table = await fetchTableState(claimed.table_id);
+      const nextSession = buildTableSession({
+        tableId: claimed.table_id,
+        membershipId: claimed.membership_id,
+        tableSlug: claimed.table_slug,
+        tableName: claimed.table_name,
+        systemKey: claimed.system_key,
+        role: claimed.role as TableSession['role'],
+        nickname,
+        characterId: claimed.character_id
+      });
+      const table = await fetchTableState(claimed.table_id, nextSession);
       return {
-        session: buildTableSession({
-          tableId: claimed.table_id,
-          membershipId: claimed.membership_id,
-          tableSlug: claimed.table_slug,
-          tableName: claimed.table_name,
-          systemKey: table.systemKey,
-          role: claimed.role as TableSession['role'],
-          nickname,
-          characterId: claimed.character_id
-        }),
+        session: {
+          ...nextSession,
+          systemKey: table.systemKey
+        },
         table
       } satisfies JoinCodeBackendResult;
     },
@@ -2631,7 +2693,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         .eq('id', joinCodeId)
         .eq('table_id', session.tableId);
       if (error) throw error;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async createSnapshot({ session, label, actor, state }) {
       if (session.role !== 'gm') {
@@ -2644,7 +2706,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         table_id: session.tableId,
         created_by: authUser.user?.id || null,
         label: label.trim() || 'Snapshot manual',
-        state: serializeStateForStorage(state) as unknown as Json
+        state: serializeStateForSnapshot(state) as unknown as Json
       });
 
       if (error) throw error;
@@ -2657,7 +2719,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         .eq('id', session.tableId);
 
       if (tableError) throw tableError;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async restoreSnapshot({ session, snapshotId }) {
       const client = assertClient();
@@ -2677,7 +2739,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const { error: updateError } = await client
         .from('tables')
         .update({
-          state: serializeStateForStorage(nextState) as unknown as Json,
+          state: serializeStateForTableStorage(nextState) as unknown as Json,
           current_round: nextState.order.round,
           current_turn_index: nextState.order.turn,
           last_editor: session.nickname
@@ -2688,7 +2750,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       if (authState.user?.id) {
         await syncCharacterRows(session.tableId, authState.user.id, nextState);
       }
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async syncTableState({ session, state, actor }) {
       if (session.role !== 'gm') {
@@ -2704,7 +2766,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const { error } = await client
         .from('tables')
         .update({
-          state: serializeStateForStorage(state) as unknown as Json,
+          state: serializeStateForTableStorage(state) as unknown as Json,
           current_round: state.order.round,
           current_turn_index: state.order.turn,
           last_editor: actor
@@ -2712,7 +2774,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         .eq('id', session.tableId);
 
       if (error) throw error;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async createGameSession({ session, gameSession }) {
       if (session.role !== 'gm') throw new Error('Apenas GMs podem criar sessoes.');
@@ -2771,7 +2833,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         status: 'pending'
       });
       if (attendanceError) throw attendanceError;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async updateGameSession({ session, sessionId, patch }) {
       if (session.role !== 'gm') throw new Error('Apenas GMs podem editar sessoes.');
@@ -2811,7 +2873,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         if (mirrorError) throw mirrorError;
       }
       if (error) throw error;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async startGameSession({ session, sessionId }) {
       if (session.role !== 'gm') throw new Error('Apenas GMs podem iniciar sessoes.');
@@ -2844,12 +2906,12 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         last_editor: session.nickname
       }).eq('id', session.tableId);
       if (tableError) throw tableError;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async endGameSession({ session, sessionId }) {
       if (session.role !== 'gm') throw new Error('Apenas GMs podem encerrar sessoes.');
       const client = assertClient();
-      const targetSessionId = sessionId || (await fetchTableState(session.tableId)).currentSession?.id;
+      const targetSessionId = sessionId || (await fetchTableState(session.tableId, session)).currentSession?.id;
       if (!targetSessionId) throw new Error('Sessao nao encontrada.');
       const { data, error } = await client
         .from('table_sessions')
@@ -2875,7 +2937,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         })
         .eq('id', session.tableId);
       if (tableError) throw tableError;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async markSessionAttendance({ session, sessionId, membershipId, status }) {
       if (session.role !== 'gm' && session.membershipId !== membershipId) {
@@ -2894,19 +2956,19 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
           { onConflict: 'session_id,membership_id' }
         );
       if (error) throw error;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async clearSessionAttendance({ session, sessionId }) {
       const client = assertClient();
-      const targetSessionId = sessionId || (await fetchTableState(session.tableId)).currentSession?.id;
-      if (!targetSessionId) return fetchTableState(session.tableId);
+      const targetSessionId = sessionId || (await fetchTableState(session.tableId, session)).currentSession?.id;
+      if (!targetSessionId) return fetchTableState(session.tableId, session);
       const query = client.from('table_session_attendances').delete().eq('session_id', targetSessionId);
       if (session.role !== 'gm') {
         query.eq('membership_id', session.membershipId);
       }
       const { error } = await query;
       if (error) throw error;
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async adjustCharacterResource({ session, characterId, resourceKey, delta }) {
       if (session.role === 'viewer') {
@@ -3128,7 +3190,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         },
         'Nao foi possivel transferir a administracao da mesa.'
       );
-      return fetchTableState(session.tableId);
+      return fetchTableState(session.tableId, session);
     },
     async deleteTable({ session }) {
       const client = assertClient();

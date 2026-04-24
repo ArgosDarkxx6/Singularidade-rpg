@@ -83,17 +83,17 @@ describe('ProtectedAppShell', () => {
         <Routes>
           <Route element={<ProtectedAppShell />}>
             <Route path="/mesas" element={<div>Portal content</div>} />
-            <Route path="/perfil" element={<div>Profile content</div>} />
+            <Route path="/conta" element={<div>Profile content</div>} />
           </Route>
         </Routes>
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Hub operacional')).toBeVisible();
+    expect(screen.getAllByText('Mesas')[0]).toBeVisible();
     expect(screen.getByText('Portal content')).toBeVisible();
     expect(screen.getAllByText('Mesa Alpha')[0]).toBeVisible();
-    expect(screen.getByText('Hub de mesas')).toBeVisible();
-    expect(screen.getByText('Perfil')).toBeVisible();
+    expect(screen.getByRole('link', { name: /Hub/i })).toBeVisible();
+    expect(screen.getByRole('link', { name: /Conta/i })).toBeVisible();
     expect(screen.getByRole('button', { name: /Abrir mesa ativa/i })).toBeVisible();
     expect(document.querySelector('[data-shell-layer="rail"]')).toBeTruthy();
     expect(document.querySelector('[data-shell-layer="header"]')).toBeTruthy();
@@ -108,15 +108,15 @@ describe('ProtectedAppShell', () => {
         <Routes>
           <Route element={<ProtectedAppShell />}>
             <Route path="/mesas" element={<div>Portal content</div>} />
-            <Route path="/perfil" element={<div>Profile content</div>} />
+            <Route path="/conta" element={<div>Profile content</div>} />
           </Route>
         </Routes>
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole('link', { name: /Perfil/i }));
+    await user.click(screen.getByRole('link', { name: /Conta/i }));
 
     expect(screen.getByText('Profile content')).toBeVisible();
-    expect(screen.getByText('Perfil e identidade')).toBeVisible();
+    expect(screen.getAllByText('Conta')[0]).toBeVisible();
   });
 });

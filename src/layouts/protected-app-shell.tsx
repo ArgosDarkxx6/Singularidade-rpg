@@ -1,12 +1,12 @@
 import {
   ChevronRight,
   DoorOpen,
+  House,
   IdCard,
-  LayoutDashboard,
+  Inbox,
   Menu,
   RadioTower,
   Shield,
-  UserRound,
   Users
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -19,51 +19,75 @@ import { Sheet, SheetContent, SheetTrigger } from '@components/ui/sheet';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { MESA_NAV_ITEMS } from '@features/mesa/lib/mesa-routing';
 import { getGameSystem } from '@features/systems/registry';
-import { useWorkspace } from '@features/workspace/use-workspace';
+import { usePlatformTables } from '@features/workspace/hooks/use-workspace-segments';
 import { cn } from '@lib/utils';
 
 const PLATFORM_NAV_ITEMS = [
   {
-    label: 'Hub de mesas',
+    label: 'Hub',
+    to: '/hub',
+    icon: House,
+    matches: (pathname: string) => pathname.startsWith('/hub')
+  },
+  {
+    label: 'Mesas',
     to: '/mesas',
-    icon: LayoutDashboard,
+    icon: Users,
     matches: (pathname: string) => pathname.startsWith('/mesas')
   },
   {
-    label: 'Perfil',
-    to: '/perfil',
-    icon: UserRound,
-    matches: (pathname: string) => pathname.startsWith('/perfil')
-  },
-  {
-    label: 'Meus personagens',
+    label: 'Personagens',
     to: '/personagens',
     icon: IdCard,
     matches: (pathname: string) => pathname.startsWith('/personagens')
+  },
+  {
+    label: 'Convites',
+    to: '/convites',
+    icon: Inbox,
+    matches: (pathname: string) => pathname.startsWith('/convites')
+  },
+  {
+    label: 'Conta',
+    to: '/conta',
+    icon: Shield,
+    matches: (pathname: string) => pathname.startsWith('/conta') || pathname.startsWith('/perfil')
   }
 ] as const;
 
 const PAGE_META = {
+  '/hub': {
+    eyebrow: 'Plataforma',
+    title: 'Hub',
+    description: 'Atividade pessoal, retomada rápida de mesas e acesso direto ao que está vivo no seu Nexus.'
+  },
   '/mesas': {
     eyebrow: 'Plataforma',
-    title: 'Hub operacional',
-    description: 'Acesse campanhas, retome mesas e mova-se pela plataforma sem depender de telas soltas.'
+    title: 'Mesas',
+    description: 'Crie, entre, retome e administre mesas sem misturar isso com perfil, conta ou fluxo de ficha.'
   },
-  '/perfil': {
+  '/convites': {
+    eyebrow: 'Plataforma',
+    title: 'Convites',
+    description: 'Aceite links ou códigos com contexto claro e entre na mesa certa sem fricção.'
+  },
+  '/conta': {
     eyebrow: 'Conta',
-    title: 'Perfil e identidade',
-    description: 'Gerencie sua presença na plataforma, personagens vinculados e acesso às mesas em um único lugar.'
+    title: 'Conta',
+    description: 'Identidade da conta, perfil autenticado e visão geral dos vínculos que pertencem ao seu usuário.'
   },
   '/personagens': {
     eyebrow: 'Conta',
-    title: 'Meus personagens',
-    description: 'Nucleo autoral dos personagens da sua conta, pronto para vincular em qualquer mesa.'
+    title: 'Personagens',
+    description: 'Biblioteca pessoal de núcleos autorais, pronta para criar, importar, transferir e vincular em mesas.'
   }
 } as const;
 
 function getPageMeta(pathname: string) {
   if (pathname.startsWith('/personagens')) return PAGE_META['/personagens'];
-  if (pathname.startsWith('/perfil')) return PAGE_META['/perfil'];
+  if (pathname.startsWith('/convites')) return PAGE_META['/convites'];
+  if (pathname.startsWith('/conta') || pathname.startsWith('/perfil')) return PAGE_META['/conta'];
+  if (pathname.startsWith('/hub')) return PAGE_META['/hub'];
   return PAGE_META['/mesas'];
 }
 
@@ -86,7 +110,7 @@ function PlatformSidebarContent({
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { online, tables } = useWorkspace();
+  const { online, tables } = usePlatformTables();
   const activeTable = tables.find((table) => table.slug === online.session?.tableSlug) || tables[0] || null;
   const activeSystem = activeTable ? getGameSystem(activeTable.systemKey) : null;
 
@@ -210,7 +234,7 @@ export function ProtectedAppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { tables, online } = useWorkspace();
+  const { tables, online } = usePlatformTables();
   const meta = getPageMeta(location.pathname);
   const activeTable = tables.find((table) => table.slug === online.session?.tableSlug) || null;
 
@@ -273,7 +297,7 @@ export function ProtectedAppShell() {
                       Ir para mesas
                     </Button>
                   )}
-                  <Button variant="secondary" onClick={() => navigate('/perfil')}>
+                  <Button variant="secondary" onClick={() => navigate('/conta')}>
                     <Shield className="size-4" />
                     Conta
                   </Button>

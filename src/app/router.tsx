@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ProtectedAppShell } from '@layouts/protected-app-shell';
 import { GuestLayout } from '@routes/guest-layout';
 import { LegacyRouteRedirect } from '@routes/legacy-route-redirect';
@@ -36,16 +36,28 @@ export const router = createBrowserRouter([
         element: <ProtectedAppShell />,
         children: [
           {
+            path: '/hub',
+            lazy: async () => ({ Component: (await import('@routes/hub-page')).HubPage })
+          },
+          {
             path: '/mesas',
             lazy: async () => ({ Component: (await import('@routes/mesas-page')).MesasPage })
           },
           {
-            path: '/perfil',
+            path: '/convites',
+            lazy: async () => ({ Component: (await import('@routes/invites-page')).InvitesPage })
+          },
+          {
+            path: '/conta',
             lazy: async () => ({ Component: (await import('@routes/profile-page')).ProfilePage })
           },
           {
             path: '/personagens',
             lazy: async () => ({ Component: (await import('@routes/my-characters-page')).MyCharactersPage })
+          },
+          {
+            path: '/perfil',
+            element: <Navigate to="/conta" replace />
           }
         ]
       },

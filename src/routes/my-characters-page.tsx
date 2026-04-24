@@ -10,7 +10,7 @@ import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Textarea } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { MesaHero, MesaMetricTile } from '@features/mesa/components/mesa-section-primitives';
-import { useWorkspace } from '@features/workspace/use-workspace';
+import { useAccountCharacters } from '@features/workspace/hooks/use-workspace-segments';
 import { characterSchema } from '@schemas/domain';
 import { ownershipTransferSchema } from '@schemas/mesa';
 import type { CharacterCoreSummary } from '@/types/domain';
@@ -132,7 +132,7 @@ function CharacterTransferDialog({
 }
 
 export function MyCharactersPage() {
-  const { listCharacterCores, createCharacterCore, importCharacterCoreFromJson, transferCharacterCoreOwnership } = useWorkspace();
+  const { listCharacterCores, createCharacterCore, importCharacterCoreFromJson, transferCharacterCoreOwnership } = useAccountCharacters();
   const [cores, setCores] = useState<CharacterCoreSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyCoreId, setBusyCoreId] = useState('');

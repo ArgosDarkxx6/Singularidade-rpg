@@ -8,5 +8,5 @@ export function RootRedirect() {
     return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando sessao...</div>;
   }
 
-  return <Navigate to={user ? '/mesas' : '/entrar'} replace />;
+  return <Navigate to={user ? '/hub' : '/entrar'} replace />;
 }

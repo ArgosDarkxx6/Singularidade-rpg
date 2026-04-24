@@ -12,7 +12,7 @@ import { Field, Input, Select, Textarea } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { useAuth } from '@features/auth/hooks/use-auth';
-import { useWorkspace } from '@features/workspace/use-workspace';
+import { usePlatformTables } from '@features/workspace/hooks/use-workspace-segments';
 import { GAME_SYSTEM_OPTIONS, getDefaultTableMetaForSystem, getGameSystem } from '@features/systems/registry';
 import { createTableSchema, joinCodeSchema, joinInviteSchema } from '@schemas/mesa';
 
@@ -55,7 +55,7 @@ export function MesasPage() {
     connectToInvite,
     connectToJoinCode,
     switchTable
-  } = useWorkspace();
+  } = usePlatformTables();
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [openingTableSlug, setOpeningTableSlug] = useState<string | null>(null);

@@ -142,7 +142,7 @@ async function signInUser(page: Page, identifier: string) {
   await page.getByRole('button', { name: 'Entrar no Project Nexus' }).click();
 
   await expect(page).toHaveURL(/\/mesas$/);
-  await expect(page.getByRole('heading', { name: 'Hub operacional' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mesas' })).toBeVisible();
 }
 
 async function expectInvalidLogin(page: Page, identifier: string, password = 'senhaerrada') {
@@ -580,7 +580,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   const player = await registerUser(page, 'Player Admin');
   await joinByCode(page, playerJoinCode, 'Player Admin', slug);
 
-  await page.goto('/perfil');
+  await page.goto('/conta');
   await expect(page.getByRole('main').getByText('Project Nexus')).toBeVisible();
   await expect(page.getByRole('main').getByText(tableName, { exact: true })).toBeVisible();
   const linkedCharacterLabel = page.getByRole('main').getByText(new RegExp(`Vinculado a ${tableName}`));
