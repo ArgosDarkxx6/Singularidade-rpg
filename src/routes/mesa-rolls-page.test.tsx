@@ -66,8 +66,8 @@ describe('MesaRollsPage', () => {
   it('renders the rolls console with composer and ledger', () => {
     render(<MesaRollsPage />);
 
-    expect(screen.getByRole('heading', { name: 'Console de resolução' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Teste de atributo' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Console compartilhado' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Rolagem por atributo' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Histórico recente' })).toBeInTheDocument();
     expect(screen.getAllByText('Força - Mysto').length).toBeGreaterThan(1);
   });

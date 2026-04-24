@@ -90,14 +90,27 @@ export function useMesaShell() {
 
   return useMemo(
     () => ({
+      isReady: workspace.isReady,
       online: workspace.online,
       tables: workspace.tables,
       table: workspace.online.table,
       session: workspace.online.session,
       members: workspace.online.members,
-      currentSession: workspace.online.currentSession
+      currentSession: workspace.online.currentSession,
+      switchTable: workspace.switchTable,
+      connectToInvite: workspace.connectToInvite,
+      previewInvite: workspace.previewInvite,
+      leaveCurrentTable: workspace.leaveCurrentTable
     }),
-    [workspace.online, workspace.tables]
+    [
+      workspace.connectToInvite,
+      workspace.isReady,
+      workspace.leaveCurrentTable,
+      workspace.online,
+      workspace.previewInvite,
+      workspace.switchTable,
+      workspace.tables
+    ]
   );
 }
 
@@ -157,7 +170,12 @@ export function useMesaCharacters() {
       canManageRoster: workspace.canManageRoster,
       hasPendingBoundSheet: workspace.hasPendingBoundSheet,
       boundSheetCharacterId: workspace.boundSheetCharacterId,
+      listCharacterCores: workspace.listCharacterCores,
+      createCharacterCore: workspace.createCharacterCore,
+      importCharacterCoreFromJson: workspace.importCharacterCoreFromJson,
       createTableCharacterFromCore: workspace.createTableCharacterFromCore,
+      exportState: workspace.exportState,
+      exportActiveCharacterJson: workspace.exportActiveCharacterJson,
       setActiveCharacter: workspace.setActiveCharacter,
       addCharacter: workspace.addCharacter,
       removeCharacter: workspace.removeCharacter,
@@ -192,9 +210,14 @@ export function useMesaCharacters() {
       workspace.canAccessSheetsModule,
       workspace.canManageRoster,
       workspace.clearCharacterAvatar,
+      workspace.createCharacterCore,
       workspace.createTableCharacterFromCore,
+      workspace.exportActiveCharacterJson,
+      workspace.exportState,
       workspace.hasBoundSheet,
       workspace.hasPendingBoundSheet,
+      workspace.importCharacterCoreFromJson,
+      workspace.listCharacterCores,
       workspace.online,
       workspace.removeCharacter,
       workspace.removeCharacterGalleryImage,

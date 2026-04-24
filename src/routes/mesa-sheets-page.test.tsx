@@ -162,7 +162,7 @@ describe('MesaSheetsPage', () => {
     render(<MesaSheetsPage />);
 
     expect(screen.getByText('Fichas indisponíveis para este papel.')).toBeInTheDocument();
-    expect(screen.queryByText('Workspace de personagens')).not.toBeInTheDocument();
+    expect(screen.queryByText('Elenco da mesa')).not.toBeInTheDocument();
   });
 
   it('shows only the player empty state when there is no bound sheet', async () => {
@@ -177,9 +177,9 @@ describe('MesaSheetsPage', () => {
 
     render(<MesaSheetsPage />);
 
-    expect(screen.getByText('Voce ainda nao tem ficha nesta mesa')).toBeVisible();
+    expect(screen.getByText('Você ainda não tem ficha nesta mesa')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Criar personagem na mesa' })).toBeVisible();
-    expect(screen.getByRole('button', { name: /Importar \.json/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Importar JSON/i })).toBeVisible();
     expect(screen.getByText('Usar personagem de Meus personagens')).toBeVisible();
     expect(screen.queryByText('Mysto')).not.toBeInTheDocument();
     expect(await screen.findByText('Veterano')).toBeInTheDocument();
@@ -201,14 +201,25 @@ describe('MesaSheetsPage', () => {
       expect(setActiveCharacterMock).toHaveBeenCalledWith('char-1');
     });
 
-    expect(screen.getByText('Workspace de personagens')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Editar ficha' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mysto' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar identidade' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Exportar personagem JSON' })).toBeInTheDocument();
     expect(screen.getByText('Collections panel')).toBeVisible();
     expect(screen.getByText('Conditions panel')).toBeVisible();
     expect(screen.queryByText(/Ficha em foco/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Elenco da mesa')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Exportar JSON' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Exportar mesa JSON' })).not.toBeInTheDocument();
+    expect(screen.getByText('O que pertence à conta e o que pertence à mesa')).toBeVisible();
+  });
+
+  it('keeps GM away from core editing while preserving operational access', () => {
+    render(<MesaSheetsPage />);
+
+    expect(screen.getByRole('heading', { name: 'Kaori' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Editar identidade' })).not.toBeInTheDocument();
+    expect(screen.getByText(/GM opera recursos e mecânicas/i)).toBeVisible();
+    expect(screen.getByText('Profile editor reading operational')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Exportar mesa JSON' })).toBeInTheDocument();
   });
 
   it('lets a player bind an existing core from the empty state', async () => {

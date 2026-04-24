@@ -221,11 +221,14 @@ async function openInviteModal(page: Page) {
 
     const clickedInviteButton = await tryClickVisibleButton('Convidar membro');
     if (!clickedInviteButton) {
-      const clickedNewInviteButton = await tryClickVisibleButton('Novo convite');
-      if (!clickedNewInviteButton) {
-        const slugMatch = page.url().match(/\/mesa\/([^/?#]+)/i);
-        if (slugMatch?.[1]) {
-          await page.goto(`/mesa/${slugMatch[1]}?focus=membros`);
+      const clickedCompactInviteButton = await tryClickVisibleButton('Convidar');
+      if (!clickedCompactInviteButton) {
+        const clickedNewInviteButton = await tryClickVisibleButton('Novo convite');
+        if (!clickedNewInviteButton) {
+          const slugMatch = page.url().match(/\/mesa\/([^/?#]+)/i);
+          if (slugMatch?.[1]) {
+            await page.goto(`/mesa/${slugMatch[1]}?focus=membros`);
+          }
         }
       }
     }
@@ -239,13 +242,13 @@ async function createRoleJoinCode(page: Page, role: 'player' | 'viewer') {
   const dialog = await openInviteModal(page);
   await dialog.getByLabel('Tipo').selectOption('code');
   await dialog.getByLabel('Papel concedido').selectOption(role);
-  await dialog.getByRole('button', { name: 'Gerar' }).click();
+  await dialog.getByRole('button', { name: 'Criar convite' }).click();
 
   let joinCode = '';
   await expect
     .poll(async () => {
       const bodyText = await page.locator('body').textContent();
-      joinCode = bodyText?.match(/Codigo\s+(\d{6})\s+criado/i)?.[1] || '';
+      joinCode = bodyText?.match(/C(?:ó|o)digo\s+(\d{6})\s+criado/i)?.[1] || '';
       return joinCode;
     })
     .not.toBe('');
@@ -260,7 +263,7 @@ async function createRoleInviteLink(page: Page, role: 'player' | 'viewer', slug:
   await dialog.getByLabel('Papel concedido').selectOption(role);
 
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
-  await dialog.getByRole('button', { name: 'Gerar' }).click();
+  await dialog.getByRole('button', { name: 'Criar convite' }).click();
 
   let inviteUrl = '';
   const pattern = new RegExp(`https?://[^\\s]+/mesa/${slug}\\?token=[a-f0-9]+`, 'i');
@@ -309,11 +312,6 @@ async function openSheetDialogAndAssert(page: Page, buttonName: string, dialogTi
   await expect(dialog.getByRole('heading', { name: dialogTitle })).toBeVisible();
   await dialog.getByRole('button', { name: 'Fechar' }).click();
   await expect(dialog).toHaveCount(0);
-}
-
-async function enterSheetEditMode(page: Page) {
-  await page.getByRole('button', { name: 'Editar ficha' }).click();
-  await expect(page.getByRole('button', { name: 'Concluir edição' })).toBeVisible();
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -391,18 +389,19 @@ test('registers, creates a mesa, and keeps legacy routes inside the mesa shell',
 
   await page.goto('/fichas');
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}/fichas$`));
-  await expect(page.getByRole('heading', { name: 'Workspace de personagens' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Editar ficha' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('heading', { name: 'Mysto', level: 1 })).toBeVisible();
+  await expect(page.getByText(/roster do GM fica s.*na lateral/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Exportar mesa JSON' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto('/rolagens');
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}/rolagens$`));
-  await expect(page.getByRole('heading', { name: 'Console de resolução' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Console compartilhado' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto('/ordem');
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}/ordem$`));
-  await expect(page.getByRole('heading', { name: 'Painel tático de combate' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Combate e iniciativa' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto('/livro');
@@ -443,8 +442,8 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
   const slug = slugify(tableName);
 
   await page.goto(`/mesa/${slug}`);
-  await expect(page.getByText('Status atual')).toBeVisible();
-  await expect(page.locator('body')).toContainText('Membros em foco');
+  await expect(page.getByRole('heading', { name: 'Leitura clara do momento' })).toBeVisible();
+  await expect(page.locator('body')).toContainText('Membros e acessos');
 
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByRole('heading', { name: 'Administração, metadados e segurança' })).toBeVisible();
@@ -466,15 +465,14 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
   expect(generatedCode).toHaveLength(6);
 
   await page.goto(`/mesa/${slug}/fichas`);
-  await expect(page.getByRole('heading', { name: 'Workspace de personagens' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Editar ficha' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('heading', { name: 'Mysto', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Exportar mesa JSON' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Editar identidade' })).toHaveCount(0);
   await page.goto(`/mesa/${slug}/rolagens`);
   await page.getByRole('button', { name: 'Rolar atributo' }).click();
   await expect(page.getByText(/Força -/).first()).toBeVisible({ timeout: 15_000 });
 
   await page.goto(`/mesa/${slug}/fichas`);
-  await enterSheetEditMode(page);
-  await expect(page.getByRole('button', { name: 'Salvar ficha principal' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Adicionar arma' })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Adicionar técnica' })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Adicionar item' })).toHaveCount(1);
@@ -536,11 +534,11 @@ test('player joins by linked invite URL', async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`/mesa/${slug}$`));
 
   await page.goto(`/mesa/${slug}/fichas`);
-  await expect(page.getByText('Voce ainda nao tem ficha nesta mesa')).toBeVisible();
+  await expect(page.getByText('Você ainda não tem ficha nesta mesa')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Criar personagem na mesa' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Importar .json' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Importar JSON' })).toBeVisible();
   await expect(page.getByText('Usar personagem de Meus personagens')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Editar ficha' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Editar identidade' })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
 

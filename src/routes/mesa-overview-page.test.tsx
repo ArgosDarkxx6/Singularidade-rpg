@@ -195,13 +195,14 @@ describe('MesaOverviewPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Mesa Alpha' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Leitura central da operação' })).toBeInTheDocument();
-    expect(screen.getAllByText('Campanha urbana com foco em tensão política.').length).toBeGreaterThan(1);
-    expect(screen.getAllByText('Saga Alpha').length).toBeGreaterThan(1);
-    expect(screen.getAllByText('Arco Um').length).toBeGreaterThan(1);
-    expect(screen.getByRole('button', { name: /Criar sessao/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Convidar membro/i })).toBeInTheDocument();
-    expect(screen.getByText('Governança rápida')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Leitura clara do momento' })).toBeInTheDocument();
+    expect(screen.getAllByText('Campanha urbana com foco em tensão política.').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Saga Alpha/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Arco Um/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Nova sessão/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Convidar/i })).toBeInTheDocument();
+    expect(screen.getByText('Membros e acessos')).toBeVisible();
     expect(screen.getByText('Snapshots recentes')).toBeVisible();
+    expect(screen.getByText('Entradas rápidas da mesa')).toBeVisible();
   });
 });

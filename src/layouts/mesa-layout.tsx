@@ -29,7 +29,7 @@ import { MESA_NAV_ITEMS, buildMesaSectionPath, getMesaSectionFromPath } from '@f
 import { useMesaShellStore } from '@features/mesa/store/use-mesa-shell-store';
 import { CharacterRosterPanel } from '@features/sheets/components/character-roster-panel';
 import { getGameSystem } from '@features/systems/registry';
-import { useWorkspace } from '@features/workspace/use-workspace';
+import { useMesaShell } from '@features/workspace/hooks/use-workspace-segments';
 import { MESA_SECTION_LABELS } from '@lib/domain/constants';
 import { cn } from '@lib/utils';
 import type { AuthUser, InvitePreview, MesaSection, PresenceMember, TableSession, TableState } from '@/types/domain';
@@ -352,7 +352,7 @@ export function MesaLayout() {
   const inviteToken = searchParams.get('token');
   const { user, signOut } = useAuth();
   const { mobileNavOpen, setMobileNavOpen } = useMesaShellStore();
-  const { isReady, online, tables, switchTable, connectToInvite, previewInvite, leaveCurrentTable } = useWorkspace();
+  const { isReady, online, tables, switchTable, connectToInvite, previewInvite, leaveCurrentTable } = useMesaShell();
   const attemptRef = useRef('');
   const [openError, setOpenError] = useState('');
   const [retryNonce, setRetryNonce] = useState(0);
@@ -598,7 +598,7 @@ export function MesaLayout() {
               currentSection={currentSection}
               onSwitchTable={handleSwitchTable}
               onLeave={() => void handleLeaveTable()}
-              onOpenProfile={() => navigate('/perfil')}
+              onOpenProfile={() => navigate('/conta')}
               onSignOut={handleSignOut}
               compact
             />
@@ -630,7 +630,7 @@ export function MesaLayout() {
                       onLeave={() => void handleLeaveTable()}
                       onOpenProfile={() => {
                         setMobileNavOpen(false);
-                        navigate('/perfil');
+                        navigate('/conta');
                       }}
                       onSignOut={() => {
                         setMobileNavOpen(false);
