@@ -11,15 +11,16 @@ import type { TableListItem, UserCharacterSummary } from '@/types/domain';
 
 type HubActivityItem = {
   id: string;
+  label: string;
   title: string;
   body: string;
   timestamp: string;
   href: string;
-  tone: 'table' | 'character' | 'session';
+  actionLabel: string;
 };
 
 function formatDate(value: string) {
-  if (!value) return 'Agora';
+  if (!value) return 'Recente';
   return new Date(value).toLocaleString('pt-BR', {
     day: '2-digit',
     month: 'short',
@@ -28,40 +29,35 @@ function formatDate(value: string) {
   });
 }
 
-function buildActivityItems(
-  tables: TableListItem[],
-  characters: UserCharacterSummary[],
-  tableById: Map<string, TableListItem>
-): HubActivityItem[] {
+function buildActivityItems(tables: TableListItem[], characters: UserCharacterSummary[]): HubActivityItem[] {
   const tableItems = tables.map((table) => ({
     id: `table:${table.id}`,
+    label: table.status || 'Mesa',
     title: table.name,
-    body: `${getGameSystem(table.systemKey).name} · ${table.status || 'Sem sessão'} · ${table.role === 'gm' ? 'Você gerencia esta mesa' : 'Você participa desta mesa'}`,
+    body: `${getGameSystem(table.systemKey).name} · ${table.role === 'gm' ? 'Você administra' : 'Você participa'}`,
     timestamp: table.updatedAt,
     href: `/mesa/${table.slug}`,
-    tone: 'table' as const
+    actionLabel: 'Entrar'
   }));
 
   const characterItems = characters.map((character) => ({
     id: `character:${character.id}`,
+    label: 'Personagem',
     title: character.name,
-    body: character.tableName
-      ? `Ficha vinculada a ${character.tableName}`
-      : 'Núcleo pessoal pronto para entrar em uma mesa',
+    body: character.tableName ? `Vinculado a ${character.tableName}` : 'Disponível para vincular',
     timestamp: character.updatedAt,
-    href: character.tableId && tableById.get(character.tableId) ? `/mesa/${tableById.get(character.tableId)?.slug}/fichas` : '/personagens',
-    tone: 'character' as const
+    href: '/personagens',
+    actionLabel: 'Abrir'
   }));
 
-  const items = [...tableItems, ...characterItems];
-  return items
+  return [...tableItems, ...characterItems]
     .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
-    .slice(0, 6);
+    .slice(0, 8);
 }
 
 export function HubPage() {
   const navigate = useNavigate();
-  const { user, profile, tables, online, listUserCharacters } = usePlatformHub();
+  const { user, profile, tables, listUserCharacters } = usePlatformHub();
   const [characters, setCharacters] = useState<UserCharacterSummary[]>([]);
   const [loadingCharacters, setLoadingCharacters] = useState(true);
 
@@ -87,156 +83,142 @@ export function HubPage() {
     };
   }, [listUserCharacters]);
 
-  const activeTable = useMemo(
-    () => tables.find((table) => table.slug === online.session?.tableSlug) || tables[0] || null,
-    [online.session?.tableSlug, tables]
-  );
-  const tableById = useMemo(() => new Map(tables.map((table) => [table.id, table])), [tables]);
-  const activityItems = useMemo(() => buildActivityItems(tables, characters, tableById), [characters, tableById, tables]);
-  const displayName = profile?.displayName || user?.displayName || user?.username || 'Feiticeiro';
+  const displayName = profile?.displayName || user?.displayName || user?.username || 'Usuário';
+  const activityItems = useMemo(() => buildActivityItems(tables, characters), [characters, tables]);
 
   return (
-    <div className="grid gap-4 pb-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+    <div className="grid items-start gap-4 pb-8 xl:grid-cols-[minmax(0,1.55fr)_320px]">
       <div className="grid gap-4">
-        <Panel className="rounded-[28px] p-5 sm:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Hub pessoal</p>
-              <h2 className="mt-2 text-2xl font-semibold leading-tight text-white sm:text-3xl">Retome o que importa sem atravessar dashboards inflados.</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-soft">
-                Sua plataforma agora concentra atividade real: mesas recentes, sessão ativa, personagens prontos para uso e atalhos claros para continuar.
-              </p>
+        <Panel className="p-3.5 sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Hub</p>
+              <h1 className="mt-1 font-display text-xl font-semibold leading-tight text-white sm:text-2xl">Atividade recente</h1>
             </div>
-
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => navigate('/mesas')}>
                 <Users className="size-4" />
-                Abrir mesas
+                Mesas
               </Button>
-              <Button variant="secondary" onClick={() => navigate('/convites')}>
-                <DoorOpen className="size-4" />
-                Aceitar convite
+              <Button variant="secondary" onClick={() => navigate('/personagens')}>
+                <IdCard className="size-4" />
+                Personagens
               </Button>
             </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <UtilityPanel className="rounded-2xl px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Mesas</p>
-              <p className="mt-2 text-lg font-semibold text-white">{tables.length}</p>
-            </UtilityPanel>
-            <UtilityPanel className="rounded-2xl px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Personagens</p>
-              <p className="mt-2 text-lg font-semibold text-white">{loadingCharacters ? '...' : characters.length}</p>
-            </UtilityPanel>
-            <UtilityPanel className="rounded-2xl px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Sessão ativa</p>
-              <p className="mt-2 truncate text-lg font-semibold text-white">{online.session?.tableName || 'Nenhuma em curso'}</p>
-            </UtilityPanel>
           </div>
         </Panel>
 
-        <Panel className="rounded-[28px] p-5 sm:p-6">
+        <Panel className="p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Atividade recente</p>
-              <h3 className="mt-1.5 text-xl font-semibold text-white">Fluxo de continuidade</h3>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Feed</p>
+              <h2 className="mt-1 font-display text-lg font-semibold text-white">Continuidade</h2>
             </div>
-            <Sparkles className="size-4 text-sky-200" />
+            <Sparkles className="size-4 text-accent" />
           </div>
 
-          <div className="mt-5 grid gap-3">
+          <div className="feed-list mt-4">
             {activityItems.length ? (
               activityItems.map((item) => (
-                <Link
-                  key={item.id}
-                  to={item.href}
-                  className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4 transition hover:border-sky-300/18 hover:bg-white/[0.05]"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                      <p className="mt-2 text-sm leading-6 text-soft">{item.body}</p>
+                <Link key={item.id} to={item.href} className="feed-row flex min-w-0 flex-col gap-3 overflow-hidden px-3.5 py-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <Avatar name={item.title} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{item.label}</span>
+                        <span className="text-[11px] text-muted">{formatDate(item.timestamp)}</span>
+                      </div>
+                      <p className="mt-1 truncate text-sm font-semibold text-white">{item.title}</p>
+                      <p className="mt-1 truncate text-sm leading-6 text-soft">{item.body}</p>
                     </div>
-                    <ArrowRight className="mt-1 size-4 shrink-0 text-muted" />
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-muted">
-                    <span>{item.tone === 'table' ? 'Mesa' : item.tone === 'session' ? 'Sessão' : 'Personagem'}</span>
-                    <span>{formatDate(item.timestamp)}</span>
-                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-2 self-start text-sm font-semibold text-white sm:self-center">
+                    {item.actionLabel}
+                    <ArrowRight className="size-4" />
+                  </span>
                 </Link>
               ))
             ) : (
-              <EmptyState title="Sem atividade recente." body="Assim que você entrar em mesas ou salvar personagens, o hub passa a organizar seus próximos passos aqui." />
+              <EmptyState title="Sem atividade recente." body="Mesas e personagens aparecem aqui quando houver movimento." />
             )}
           </div>
         </Panel>
       </div>
 
-      <div className="grid gap-4">
-        <Panel className="rounded-[28px] p-5 sm:p-6">
+      <div className="page-right-rail xl:grid-cols-1">
+        <Panel className="p-3.5">
           <div className="flex items-start gap-3">
-            <Avatar src={profile?.avatarUrl || user?.avatarUrl || undefined} name={displayName} size="lg" />
+            <Avatar src={profile?.avatarUrl || user?.avatarUrl || undefined} name={displayName} size="lg" className="size-14 text-lg" />
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Conta ativa</p>
-              <h3 className="mt-1.5 truncate text-xl font-semibold text-white">{displayName}</h3>
-              <p className="mt-1 truncate text-sm text-soft">@{profile?.username || user?.username}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Conta</p>
+              <h2 className="mt-1 truncate text-lg font-semibold text-white">{displayName}</h2>
+              <p className="truncate text-sm text-soft">@{profile?.username || user?.username}</p>
             </div>
           </div>
-
-          <div className="mt-5 grid gap-2">
+          <div className="mt-4 grid gap-2">
             <Button variant="secondary" onClick={() => navigate('/conta')}>
               Editar conta
             </Button>
             <Button variant="ghost" onClick={() => navigate('/personagens')}>
               <IdCard className="size-4" />
-              Abrir biblioteca
+              Biblioteca
             </Button>
           </div>
         </Panel>
 
-        <Panel className="rounded-[28px] p-5 sm:p-6">
+        <Panel className="p-3.5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Mesa ativa</p>
-              <h3 className="mt-1.5 text-xl font-semibold text-white">{activeTable?.name || 'Nenhuma mesa aberta'}</h3>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Mesas ativas</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">{tables.length}</h2>
             </div>
-            <RadioTower className="size-4 text-sky-200" />
+            <RadioTower className="size-4 text-accent" />
           </div>
-
-          {activeTable ? (
-            <div className="mt-5 grid gap-3">
-              <UtilityPanel className="rounded-2xl p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Sistema</p>
-                <p className="mt-2 text-sm font-semibold text-white">{getGameSystem(activeTable.systemKey).name}</p>
-              </UtilityPanel>
-              <UtilityPanel className="rounded-2xl p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Estado</p>
-                <p className="mt-2 text-sm font-semibold text-white">{activeTable.status || 'Sem sessão'}</p>
-              </UtilityPanel>
-              <Button onClick={() => navigate(`/mesa/${activeTable.slug}`)}>
-                Abrir mesa
-              </Button>
-            </div>
-          ) : (
-            <div className="mt-5">
-              <EmptyState title="Nenhuma mesa ativa." body="Crie ou entre em uma mesa para habilitar o fluxo rápido do hub." />
-            </div>
-          )}
+          <div className="mt-4 grid gap-2">
+            {tables.length ? (
+              tables.slice(0, 4).map((table) => (
+                <Link
+                  key={table.id}
+                  to={`/mesa/${table.slug}`}
+                  className="rounded-lg border border-white/8 bg-white/[0.025] px-3.5 py-3 transition hover:border-blue-300/16 hover:bg-white/[0.04]"
+                >
+                  <p className="truncate text-sm font-semibold text-white">{table.name}</p>
+                  <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-muted">
+                    {table.status || 'Planejamento'} · {table.role === 'gm' ? 'GM' : table.role === 'player' ? 'Player' : 'Viewer'}
+                  </p>
+                </Link>
+              ))
+            ) : (
+              <EmptyState title="Nenhuma mesa." body="Crie ou entre em uma mesa para começar." />
+            )}
+          </div>
         </Panel>
 
-        <Panel className="rounded-[28px] p-5 sm:p-6">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Personagens prontos</p>
-          <h3 className="mt-1.5 text-xl font-semibold text-white">Biblioteca pessoal</h3>
+        <Panel className="p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Convites</p>
+          <h2 className="mt-1 text-lg font-semibold text-white">Entrada rápida</h2>
+          <div className="mt-4 grid gap-2">
+            <UtilityPanel className="rounded-lg px-3.5 py-3">
+              <p className="text-sm leading-6 text-soft">Link ou código de mesa.</p>
+            </UtilityPanel>
+            <Button variant="secondary" onClick={() => navigate('/convites')}>
+              <DoorOpen className="size-4" />
+              Abrir convites
+            </Button>
+          </div>
+        </Panel>
 
-          <div className="mt-5 grid gap-3">
+        <Panel className="p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Personagens</p>
+          <h2 className="mt-1 text-lg font-semibold text-white">Biblioteca</h2>
+          <div className="mt-4 grid gap-2">
             {loadingCharacters ? (
-              <UtilityPanel className="rounded-2xl p-4">
+              <UtilityPanel className="rounded-lg px-3.5 py-3">
                 <p className="text-sm text-soft">Carregando personagens...</p>
               </UtilityPanel>
             ) : characters.length ? (
-              characters.slice(0, 4).map((character) => (
-                <UtilityPanel key={character.id} className="rounded-2xl p-4">
+              characters.slice(0, 3).map((character) => (
+                <UtilityPanel key={character.id} className="rounded-lg px-3.5 py-3">
                   <div className="flex items-start gap-3">
                     <Avatar src={character.avatarUrl || undefined} name={character.name} size="sm" />
                     <div className="min-w-0 flex-1">
@@ -244,15 +226,12 @@ export function HubPage() {
                       <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-muted">
                         {character.grade || 'Sem grau'} · {character.clan || 'Sem clã'}
                       </p>
-                      <p className="mt-2 text-sm text-soft">
-                        {character.tableName ? `Em ${character.tableName}` : 'Disponível para vincular'}
-                      </p>
                     </div>
                   </div>
                 </UtilityPanel>
               ))
             ) : (
-              <EmptyState title="Nenhum personagem salvo." body="Crie um núcleo em Personagens para deixá-lo pronto para uso em qualquer mesa." />
+              <EmptyState title="Sem personagens." body="Crie um personagem para usar em mesa." />
             )}
           </div>
         </Panel>

@@ -99,14 +99,11 @@ export function CharacterRosterPanel({
   });
 
   return (
-    <Panel className={cn(compact ? 'rounded-lg p-4' : 'rounded-lg p-5')}>
+    <Panel className={cn(compact ? 'p-3.5' : 'p-4')}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Roster do GM</p>
-          <h2 className={cn('mt-1.5 font-semibold leading-tight text-white', compact ? 'text-lg' : 'text-2xl')}>Elenco da mesa</h2>
-          <p className="mt-2 text-sm leading-6 text-soft">
-            Selecione a ficha ativa, filtre o elenco e adicione novos personagens sem ocupar o corpo principal da ficha.
-          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Elenco</p>
+          <h2 className={cn('mt-1.5 font-display font-semibold leading-tight text-white', compact ? 'text-lg' : 'text-2xl')}>Elenco da mesa</h2>
         </div>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -116,12 +113,10 @@ export function CharacterRosterPanel({
               Adicionar
             </Button>
           </DialogTrigger>
-          <DialogContent className="w-[min(94vw,560px)] p-5 sm:p-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Nova ficha</p>
+          <DialogContent className="w-[min(94vw,560px)] rounded-xl p-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Ficha</p>
             <DialogTitle className="mt-2 text-2xl font-semibold leading-tight text-white">Adicionar personagem</DialogTitle>
-            <DialogDescription className="mt-2 text-sm leading-6 text-soft">
-              Crie uma ficha base para o roster e refine o restante no workspace principal.
-            </DialogDescription>
+            <DialogDescription className="mt-2 text-sm leading-6 text-soft">Preencha os dados iniciais.</DialogDescription>
 
             <form className="mt-5 grid gap-4" onSubmit={handleCreateCharacter}>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -166,7 +161,7 @@ export function CharacterRosterPanel({
       </div>
 
       <div className="mt-4">
-        <Field label="Buscar no roster">
+        <Field label="Buscar no elenco">
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, clã ou grau..." autoComplete="off" />
         </Field>
       </div>
@@ -186,7 +181,7 @@ export function CharacterRosterPanel({
               }}
               onRemove={() => {
                 if (state.characters.length <= 1) {
-                  toast.error('A ficha ativa não pode ser a única do roster.');
+                  toast.error('A ficha ativa não pode ser a única do elenco.');
                   return;
                 }
 
@@ -195,7 +190,7 @@ export function CharacterRosterPanel({
             />
           ))
         ) : search.trim() ? (
-          <EmptyState title="Nenhum personagem encontrado." body="Ajuste a busca para voltar ao roster completo." />
+          <EmptyState title="Nenhum personagem encontrado." body="Ajuste a busca para ver o elenco completo." />
         ) : (
           <UtilityPanel className="rounded-lg p-4">
             <p className="text-sm leading-6 text-soft">Nenhum personagem foi criado para esta mesa ainda.</p>

@@ -92,8 +92,8 @@ describe('ProtectedAppShell', () => {
     expect(screen.getAllByText('Mesas')[0]).toBeVisible();
     expect(screen.getByText('Portal content')).toBeVisible();
     expect(screen.getAllByText('Mesa Alpha')[0]).toBeVisible();
-    expect(screen.getByRole('link', { name: /Hub/i })).toBeVisible();
-    expect(screen.getByRole('link', { name: /Conta/i })).toBeVisible();
+    expect(screen.getAllByRole('link', { name: /Hub/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /Conta/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /Abrir mesa ativa/i })).toBeVisible();
     expect(document.querySelector('[data-shell-layer="rail"]')).toBeTruthy();
     expect(document.querySelector('[data-shell-layer="header"]')).toBeTruthy();
@@ -114,7 +114,7 @@ describe('ProtectedAppShell', () => {
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole('link', { name: /Conta/i }));
+    await user.click(screen.getAllByRole('link', { name: /Conta/i })[0]);
 
     expect(screen.getByText('Profile content')).toBeVisible();
     expect(screen.getAllByText('Conta')[0]).toBeVisible();

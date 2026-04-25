@@ -435,7 +435,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         setOnline((current) => ({
           ...current,
           status: 'error',
-          error: error instanceof Error ? error.message : 'Nao foi possivel carregar o workspace.'
+        error: error instanceof Error ? error.message : 'Nao foi possivel carregar o ambiente.'
         }));
         setIsReady(true);
       }
@@ -560,7 +560,7 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         setOnline((current) => ({
           ...current,
           status: current.session ? 'error' : current.status,
-          error: error instanceof Error ? error.message : 'Nao foi possivel salvar o workspace.'
+        error: error instanceof Error ? error.message : 'Nao foi possivel salvar o ambiente.'
         }));
       } finally {
         workspaceSaveRunningRef.current = false;
@@ -1748,13 +1748,13 @@ export function WorkspaceProvider({ children, backend }: { children: ReactNode; 
         ),
       importStateFromText: (text) => {
         const parsed = workspaceStateSchema.safeParse(JSON.parse(text));
-        if (!parsed.success) throw new Error('O arquivo JSON nao corresponde ao formato esperado do remake.');
+    if (!parsed.success) throw new Error('O arquivo JSON nao corresponde ao formato esperado.');
         persistState(normalizeState(parsed.data), 'Importacao de estado');
       },
       importStateFromFile: async (file) => {
         const text = await readFileAsText(file);
         const parsed = workspaceStateSchema.safeParse(JSON.parse(text));
-        if (!parsed.success) throw new Error('O arquivo JSON nao corresponde ao formato esperado do remake.');
+    if (!parsed.success) throw new Error('O arquivo JSON nao corresponde ao formato esperado.');
         persistState(normalizeState(parsed.data), 'Importacao de arquivo');
       },
       exportState: () => downloadTextFile('project-nexus-state.json', JSON.stringify(stateRef.current, null, 2), 'application/json;charset=utf-8'),

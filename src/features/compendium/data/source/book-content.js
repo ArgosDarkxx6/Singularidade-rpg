@@ -20,7 +20,7 @@ export const BOOK_CHAPTERS = [
         summary: 'Singularidade e um jogo sobre decidir quanto de si voce aceita gastar para vencer o incompreensivel.',
         blocks: [
           paragraph('O nucleo mecanico continua direto: quando existe risco real, role 1d20 + Atributo. O peso do jogo nao esta em centenas de subsistemas, mas em quatro motores que se retroalimentam: Energia Amaldicoada, Ranks narrativos, Votos Vinculativos e Dominio.'),
-          paragraph('Este remake editorial nao altera o sistema. Ele organiza a leitura para que a mesa saiba exatamente quando agir, quando cobrar custo, quando acelerar a cena e quando deixar a ficcao respirar.'),
+        paragraph('A leitura organiza o sistema para a mesa saber quando agir, cobrar custo, acelerar a cena e deixar a ficcao respirar.'),
           list('Os motores que movem o livro', [
             'Energia Amaldicoada mede combustivel, folego e margem de explosao.',
             'Ranks medem escala narrativa e dizem o tamanho da presenca do personagem.',
@@ -33,7 +33,7 @@ export const BOOK_CHAPTERS = [
       {
         id: 'como-usar',
         title: 'Como usar este livro',
-        summary: 'O livro foi reordenado para funcionar tanto como leitura corrida quanto como referencia imediata de mesa.',
+      summary: 'O livro funciona como leitura corrida e como referencia imediata de mesa.',
         blocks: [
           paragraph('Leia a abertura e os fundamentos antes da primeira sessao. Na criacao de personagem, use os capitulos de Personagem e Energia em paralelo. Em combate, mantenha o capitulo de Conflito aberto: ele foi escrito como procedimento operativo, nao como texto contemplativo.'),
           list('Ordem recomendada de leitura', [
@@ -427,7 +427,7 @@ export const BOOK_CHAPTERS = [
     category: 'combate',
     label: 'Combate',
     title: 'Conflito, dano e leitura de turno',
-    summary: 'O capitulo de combate foi reescrito como manual operacional de mesa: procedimento claro, poucas ambiguidades e relacao direta entre rolagem, EA, DEF e consequencia.',
+      summary: 'O capitulo de combate funciona como manual operacional de mesa: procedimento claro e relacao direta entre rolagem, EA, DEF e consequencia.',
     sections: [
       {
         id: 'fluxo-geral-combate',

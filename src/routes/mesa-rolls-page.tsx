@@ -6,13 +6,7 @@ import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select } from '@components/ui/field';
 import { UtilityPanel } from '@components/ui/panel';
-import {
-  MesaActionCard,
-  MesaKeyValueRow,
-  MesaLeadMeta,
-  MesaPageLead,
-  MesaSectionPanel
-} from '@features/mesa/components/mesa-page-primitives';
+import { MesaActionCard, MesaKeyValueRow, MesaLeadMeta, MesaPageLead, MesaSectionPanel } from '@features/mesa/components/mesa-page-primitives';
 import { useMesaRolls } from '@features/workspace/hooks/use-workspace-segments';
 import { ATTRIBUTE_CONFIG, ROLL_CONTEXTS, ROLL_TN_PRESETS } from '@lib/domain/constants';
 import { contextLabel } from '@lib/domain/rules';
@@ -39,6 +33,7 @@ export function MesaRollsPage() {
     session?.role === 'player' && session.characterId
       ? state.characters.filter((character) => character.id === session.characterId)
       : state.characters;
+  const canRoll = session?.role === 'gm' || availableCharacters.length > 0;
 
   const guidedForm = useForm<GuidedValues>({
     resolver: zodResolver(guidedRollSchema) as never,
@@ -76,13 +71,12 @@ export function MesaRollsPage() {
   return (
     <div className="page-shell pb-8">
       <MesaPageLead
-        eyebrow="Rolagens da mesa"
-        title="Console compartilhado"
-        description="Composer direto, leitura rápida do último resultado e histórico visível para todo mundo da mesa."
+        eyebrow="Rolagens"
+        title="Rolagens"
         meta={
           <>
             <MesaLeadMeta label="Entradas" value={state.log.length} accent />
-            <MesaLeadMeta label="Fichas prontas" value={availableCharacters.length} />
+            <MesaLeadMeta label="Fichas" value={availableCharacters.length} />
             <MesaLeadMeta label="Último total" value={lastRoll?.total ?? '--'} />
           </>
         }
@@ -98,11 +92,7 @@ export function MesaRollsPage() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_360px]">
         <div className="grid gap-4">
-          <MesaSectionPanel
-            eyebrow="Composer guiado"
-            title="Rolagem por atributo"
-            description="Escolha personagem, atributo e contexto sem atravessar vários painéis."
-          >
+          <MesaSectionPanel eyebrow="Teste" title="Atributo">
             {availableCharacters.length ? (
               <>
                 <form
@@ -174,7 +164,6 @@ export function MesaRollsPage() {
                         key={attribute.key}
                         label={attribute.label}
                         value={attributeRankLabel(selectedCharacter, attribute.key)}
-                        helper="Valor e rank atuais."
                       />
                     ))}
                   </div>
@@ -183,19 +172,16 @@ export function MesaRollsPage() {
             ) : (
               <EmptyState
                 title="Nenhuma ficha disponível para rolagem."
-                body="Crie ou vincule um personagem na mesa para liberar o composer guiado."
+                body="Vincule uma ficha para rolar atributos."
               />
             )}
           </MesaSectionPanel>
 
-          <MesaSectionPanel
-            eyebrow="Composer livre"
-            title="Rolagem customizada"
-            description="Quando a resolução não depende de ficha, a mesa continua com um console direto."
-          >
+          <MesaSectionPanel eyebrow="Teste" title="Livre">
             <form
               className="grid gap-4"
               onSubmit={customForm.handleSubmit((values) => {
+                if (!canRoll) return;
                 executeCustomRoll({
                   expression: values.expression,
                   bonus: Number(values.bonus || 0),
@@ -218,7 +204,7 @@ export function MesaRollsPage() {
                   <Input type="number" placeholder="Opcional" {...customForm.register('tn')} />
                 </Field>
               </div>
-              <Button type="submit" disabled={!customForm.formState.isValid || customForm.formState.isSubmitting}>
+              <Button type="submit" disabled={!canRoll || !customForm.formState.isValid || customForm.formState.isSubmitting}>
                 <Dices className="size-4" />
                 Executar rolagem
               </Button>
@@ -227,17 +213,7 @@ export function MesaRollsPage() {
         </div>
 
         <div className="grid gap-4">
-          <MesaSectionPanel
-            eyebrow="Saída atual"
-            title={lastRoll ? lastRoll.label : 'Aguardando rolagem'}
-            description={
-              lastRoll
-                ? lastRoll.custom
-                  ? 'Resultado da rolagem customizada mais recente.'
-                  : contextLabel(lastRoll.context || 'standard')
-                : 'O último resultado importante da mesa aparece aqui.'
-            }
-          >
+          <MesaSectionPanel eyebrow="Último resultado" title={lastRoll ? lastRoll.label : 'Aguardando rolagem'}>
             {lastRoll ? (
               <>
                 <MesaActionCard
@@ -250,20 +226,16 @@ export function MesaRollsPage() {
                   icon={<Dices className="size-4" />}
                 />
                 <div className="grid gap-3">
-                  <MesaKeyValueRow label="Rolagens" value={lastRoll.rolls.join(', ')} helper="Dados considerados no cálculo." />
-                  <MesaKeyValueRow label="TN" value={lastRoll.tn ?? 'Sem TN'} helper="Referência usada para sucesso ou falha." />
+                  <MesaKeyValueRow label="Rolagens" value={lastRoll.rolls.join(', ')} />
+                  <MesaKeyValueRow label="TN" value={lastRoll.tn ?? 'Sem TN'} helper={lastRoll.custom ? 'Rolagem customizada' : contextLabel(lastRoll.context || 'standard')} />
                 </div>
               </>
             ) : (
-              <EmptyState title="Nenhuma rolagem ainda." body="Faça o primeiro teste para abrir a leitura de resultado da mesa." />
+              <EmptyState title="Nenhuma rolagem ainda." body="Faça um teste para registrar o resultado." />
             )}
           </MesaSectionPanel>
 
-          <MesaSectionPanel
-            eyebrow="Log compartilhado"
-            title="Histórico recente"
-            description="A mesa inteira acompanha daqui o que acabou de ser resolvido."
-          >
+          <MesaSectionPanel eyebrow="Log" title="Histórico">
             {state.log.length ? (
               state.log.slice(0, 12).map((entry) => (
                 <UtilityPanel key={entry.id} className="rounded-lg px-3.5 py-3.5">
@@ -281,7 +253,7 @@ export function MesaRollsPage() {
                 </UtilityPanel>
               ))
             ) : (
-              <EmptyState title="Sem entradas no histórico." body="Assim que as rolagens começarem, o log compartilhado aparece aqui." />
+              <EmptyState title="Sem entradas no histórico." body="As rolagens da mesa aparecem aqui." />
             )}
           </MesaSectionPanel>
         </div>

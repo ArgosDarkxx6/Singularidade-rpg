@@ -1646,7 +1646,7 @@ async function listUserOwnedCharacters(user: AuthUser): Promise<UserCharacterSum
   if (supportsCharacterCores) {
     const { data: coreData, error: coreError } = await client
       .from('character_cores')
-      .select('id, owner_id, name, clan, grade, lore, avatar_url, avatar_path, created_at, updated_at')
+      .select('id, owner_id, name, age, clan, grade, appearance, lore, avatar_url, avatar_path, created_at, updated_at')
       .eq('owner_id', user.id)
       .order('updated_at', { ascending: false });
 
@@ -1765,7 +1765,7 @@ async function listCharacterCoreSummaries(user: AuthUser): Promise<CharacterCore
   if (supportsCharacterCores) {
     const { data, error } = await client
       .from('character_cores')
-      .select('id, owner_id, name, clan, grade, lore, avatar_url, avatar_path, created_at, updated_at')
+      .select('id, owner_id, name, age, clan, grade, appearance, lore, avatar_url, avatar_path, created_at, updated_at')
       .eq('owner_id', user.id)
       .order('updated_at', { ascending: false });
 
@@ -1788,7 +1788,7 @@ async function listCharacterCoreSummaries(user: AuthUser): Promise<CharacterCore
 
   const { data, error } = await client
     .from('characters')
-    .select('id, owner_id, name, clan, grade, lore, avatar_url, avatar_path, created_at, updated_at')
+    .select('id, owner_id, name, age, clan, grade, appearance, lore, avatar_url, avatar_path, created_at, updated_at')
     .eq('owner_id', user.id)
     .is('table_id', null)
     .eq('archived', false)
@@ -1805,6 +1805,8 @@ async function listCharacterCoreSummaries(user: AuthUser): Promise<CharacterCore
         name: row.name,
         clan: row.clan || '',
         grade: row.grade || '',
+        age: row.age || 0,
+        appearance: row.appearance || '',
         lore: (row as { lore?: string | null }).lore || '',
         avatarUrl,
         avatarPath: row.avatar_path || '',
@@ -2027,12 +2029,12 @@ async function ensureDraftTable(user: AuthUser): Promise<string> {
   if (draftRow?.id) return draftRow.id;
 
   const initialState = createDefaultState();
-  const slug = await createUniqueSlug(`workspace-${user.id}`);
+  const slug = await createUniqueSlug(`mesa-${user.id}`);
   const buildInsertPayload = () => {
     const payload = toTableInsert(
         {
           ...DEFAULT_TABLE_META,
-          tableName: `Workspace de ${user.username || user.displayName || 'feiticeiro'}`
+          tableName: `Mesa de ${user.username || user.displayName || 'jogador'}`
         },
         initialState,
         user.id,
@@ -2060,7 +2062,7 @@ async function ensureDraftTable(user: AuthUser): Promise<string> {
   if (insertError) throw insertError;
   const insertedRow = (inserted as { id: string } | null) || null;
   if (!insertedRow?.id) {
-    throw new Error('Nao foi possivel criar o workspace pessoal.');
+    throw new Error('Nao foi possivel criar o ambiente pessoal.');
   }
 
   return insertedRow.id;
@@ -2154,8 +2156,10 @@ function toCharacterCoreSummary(row: CharacterCoreRow): CharacterCoreSummary {
     id: row.id,
     ownerId: row.owner_id,
     name: row.name,
+    age: row.age || 0,
     clan: row.clan || '',
     grade: row.grade || '',
+    appearance: row.appearance || '',
     lore: row.lore || '',
     avatarUrl: row.avatar_url || '',
     avatarPath: row.avatar_path || '',

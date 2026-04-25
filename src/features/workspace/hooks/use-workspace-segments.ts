@@ -303,3 +303,49 @@ export function useMesaInvites() {
     [workspace.createInviteLink, workspace.createJoinCode, workspace.online, workspace.previewInvite, workspace.revokeJoinCode]
   );
 }
+
+export function useMesaSettings() {
+  const workspace = useWorkspace();
+
+  return useMemo(
+    () => ({
+      online: workspace.online,
+      updateTableMeta: workspace.updateTableMeta,
+      createCloudSnapshot: workspace.createCloudSnapshot,
+      restoreCloudSnapshot: workspace.restoreCloudSnapshot,
+      transferTableOwnership: workspace.transferTableOwnership,
+      deleteCurrentTable: workspace.deleteCurrentTable,
+      leaveCurrentTable: workspace.leaveCurrentTable
+    }),
+    [
+      workspace.createCloudSnapshot,
+      workspace.deleteCurrentTable,
+      workspace.leaveCurrentTable,
+      workspace.online,
+      workspace.restoreCloudSnapshot,
+      workspace.transferTableOwnership,
+      workspace.updateTableMeta
+    ]
+  );
+}
+
+export function useMesaCompendium() {
+  const workspace = useWorkspace();
+
+  return useMemo(
+    () => ({
+      online: workspace.online,
+      compendiumCategory: workspace.compendiumCategory,
+      compendiumQuery: workspace.compendiumQuery,
+      setCompendiumCategory: workspace.setCompendiumCategory,
+      setCompendiumQuery: workspace.setCompendiumQuery
+    }),
+    [
+      workspace.compendiumCategory,
+      workspace.compendiumQuery,
+      workspace.online,
+      workspace.setCompendiumCategory,
+      workspace.setCompendiumQuery
+    ]
+  );
+}

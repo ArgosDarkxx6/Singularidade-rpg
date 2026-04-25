@@ -5,13 +5,7 @@ import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select, Textarea } from '@components/ui/field';
 import { UtilityPanel } from '@components/ui/panel';
-import {
-  MesaActionCard,
-  MesaKeyValueRow,
-  MesaLeadMeta,
-  MesaPageLead,
-  MesaSectionPanel
-} from '@features/mesa/components/mesa-page-primitives';
+import { MesaActionCard, MesaKeyValueRow, MesaLeadMeta, MesaPageLead, MesaSectionPanel } from '@features/mesa/components/mesa-page-primitives';
 import { useMesaOrder } from '@features/workspace/hooks/use-workspace-segments';
 import { combatantSchema } from '@schemas/order';
 
@@ -41,9 +35,8 @@ export function MesaOrderPage() {
   return (
     <div className="page-shell pb-8">
       <MesaPageLead
-        eyebrow="Ordem da mesa"
-        title="Combate e iniciativa"
-        description="Round, turno e fila tática em uma leitura compacta, boa para sessão longa e boa também no mobile."
+        eyebrow="Ordem"
+        title="Ordem"
         meta={
           <>
             <MesaLeadMeta label="Round" value={state.order.round} accent />
@@ -68,9 +61,8 @@ export function MesaOrderPage() {
         <div className="grid gap-4">
           {canManage ? (
             <MesaSectionPanel
-              eyebrow="Adicionar entrada"
-              title="Novo combatente"
-              description="Use personagens da mesa para PCs ou registre NPCs com modificador manual."
+              eyebrow="Entrada"
+              title="Adicionar combatente"
               actions={
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" type="button" onClick={manualSortOrder}>
@@ -142,11 +134,7 @@ export function MesaOrderPage() {
             </MesaSectionPanel>
           ) : null}
 
-          <MesaSectionPanel
-            eyebrow="Fila atual"
-            title="Sequência tática"
-            description="A ordem fica limpa: quem age agora, quem vem depois e quais notas importam no turno."
-          >
+          <MesaSectionPanel eyebrow="Fila" title="Sequência">
             {state.order.entries.length ? (
               state.order.entries.map((entry, index) => {
                 const isActive = index === state.order.turn;
@@ -193,18 +181,12 @@ export function MesaOrderPage() {
         </div>
 
         <div className="grid gap-4">
-          <MesaSectionPanel
-            eyebrow="Turno em foco"
-            title={activeEntry?.name || 'Sem confronto aberto'}
-            description={activeEntry ? 'Leitura resumida do combatente que está no topo da fila.' : 'A ordem ainda não foi iniciada.'}
-          >
+          <MesaSectionPanel eyebrow="Turno atual" title={activeEntry?.name || 'Sem confronto aberto'}>
             {activeEntry ? (
               <>
                 <MesaActionCard
                   title={activeEntry.type === 'pc' ? 'Personagem da mesa' : 'NPC ou inimigo'}
-                  description={
-                    activeEntry.notes || 'Sem notas adicionais neste turno. Use este espaço para efeitos, gatilhos ou marcações rápidas.'
-                  }
+                  description={activeEntry.notes || 'Sem notas neste turno.'}
                   icon={<Swords className="size-4" />}
                 />
                 <div className="grid gap-3">
@@ -213,11 +195,7 @@ export function MesaOrderPage() {
                     value={activeEntry.init ?? 'Não rolada'}
                     helper={`Modificador ${activeEntry.modifier >= 0 ? '+' : ''}${activeEntry.modifier}.`}
                   />
-                  <MesaKeyValueRow
-                    label="Posição"
-                    value={state.order.turn + 1}
-                    helper={`Round ${state.order.round}.`}
-                  />
+                  <MesaKeyValueRow label="Posição" value={state.order.turn + 1} helper={`Round ${state.order.round}.`} />
                 </div>
               </>
             ) : (

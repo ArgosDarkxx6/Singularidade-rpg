@@ -4,16 +4,11 @@ import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { UtilityPanel } from '@components/ui/panel';
-import {
-  MesaKeyValueRow,
-  MesaLeadMeta,
-  MesaPageLead,
-  MesaSectionPanel
-} from '@features/mesa/components/mesa-page-primitives';
-import { useMesaCharacters } from '@features/workspace/hooks/use-workspace-segments';
+import { MesaLeadMeta, MesaPageLead, MesaSectionPanel } from '@features/mesa/components/mesa-page-primitives';
 import { CollectionsPanel } from '@features/sheets/components/collections-panel';
 import { ConditionsEditor } from '@features/sheets/components/conditions-editor';
 import { CharacterProfileEditor } from '@features/sheets/components/profile-editor';
+import { useMesaCharacters } from '@features/workspace/hooks/use-workspace-segments';
 import { characterSchema } from '@schemas/domain';
 
 function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
@@ -73,9 +68,9 @@ export function MesaSheetsPage() {
       });
       if (!core) return;
       await createTableCharacterFromCore(core.id);
-      toast.success('Ficha criada e vinculada a esta mesa.');
+      toast.success('Ficha criada e vinculada.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Nao foi possivel criar sua ficha nesta mesa.');
+      toast.error(error instanceof Error ? error.message : 'Não foi possível criar sua ficha nesta mesa.');
     } finally {
       setCoreBusy(false);
     }
@@ -93,15 +88,15 @@ export function MesaSheetsPage() {
       try {
         const parsed = characterSchema.safeParse(JSON.parse(await file.text()));
         if (!parsed.success) {
-          throw new Error('JSON invalido para personagem.');
+          throw new Error('JSON inválido para personagem.');
         }
 
         const core = await importCharacterCoreFromJson(parsed.data);
         if (!core) return;
         await createTableCharacterFromCore(core.id);
-        toast.success('JSON importado e vinculado a esta mesa.');
+        toast.success('JSON importado e vinculado.');
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Nao foi possivel importar este personagem.');
+        toast.error(error instanceof Error ? error.message : 'Não foi possível importar este personagem.');
       } finally {
         setCoreBusy(false);
       }
@@ -132,7 +127,7 @@ export function MesaSheetsPage() {
       })
       .catch((error) => {
         if (!disposed) {
-          toast.error(error instanceof Error ? error.message : 'Nao foi possivel carregar seus personagens.');
+          toast.error(error instanceof Error ? error.message : 'Não foi possível carregar seus personagens.');
         }
       })
       .finally(() => {
@@ -161,7 +156,7 @@ export function MesaSheetsPage() {
       <div className="page-shell pb-8">
         <EmptyState
           title="Fichas indisponíveis para este papel."
-          body="O módulo de fichas fica restrito ao GM e a players com personagem vinculado na mesa."
+          body="Seu acesso nesta mesa é somente leitura."
         />
       </div>
     );
@@ -171,13 +166,12 @@ export function MesaSheetsPage() {
     return (
       <div className="page-shell pb-8">
         <MesaPageLead
-          eyebrow="Fichas da mesa"
+          eyebrow="Fichas"
           title="Você ainda não tem ficha nesta mesa"
-          description="Você não vê fichas alheias, não vê roster e não recebe dados de outros personagens. Escolha como quer entrar no módulo."
           meta={
             <>
               <MesaLeadMeta label="Papel" value="Player" accent />
-              <MesaLeadMeta label="Visibilidade" value="Somente a sua ficha" />
+              <MesaLeadMeta label="Visível" value="Apenas a sua ficha" />
             </>
           }
           actions={
@@ -193,14 +187,10 @@ export function MesaSheetsPage() {
           }
         />
 
-        <MesaSectionPanel
-          eyebrow="Biblioteca pessoal"
-          title="Usar personagem de Meus personagens"
-          description="Se você já tem um núcleo salvo na conta, basta vincular aqui e a ficha aparece imediatamente."
-        >
+        <MesaSectionPanel eyebrow="Biblioteca" title="Escolher personagem">
           {coreLoading ? (
             <UtilityPanel className="rounded-lg px-4 py-4">
-              <p className="text-sm text-soft">Carregando seus personagens...</p>
+              <p className="text-sm text-soft">Carregando personagens...</p>
             </UtilityPanel>
           ) : coreOptions.length ? (
             coreOptions.map((core) => (
@@ -212,9 +202,9 @@ export function MesaSheetsPage() {
                   setCoreBusy(true);
                   try {
                     await createTableCharacterFromCore(core.id);
-                    toast.success('Personagem vinculado à mesa.');
+                    toast.success('Personagem vinculado.');
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : 'Nao foi possivel usar este personagem.');
+                    toast.error(error instanceof Error ? error.message : 'Não foi possível usar este personagem.');
                   } finally {
                     setCoreBusy(false);
                   }
@@ -229,8 +219,8 @@ export function MesaSheetsPage() {
             ))
           ) : (
             <EmptyState
-              title="Nenhum personagem salvo na conta."
-              body="Crie um núcleo em Meus personagens ou importe um JSON para vincular aqui."
+              title="Nenhum personagem salvo."
+              body="Crie um personagem ou importe um JSON."
             />
           )}
         </MesaSectionPanel>
@@ -241,14 +231,10 @@ export function MesaSheetsPage() {
   if (hasPendingBoundSheet) {
     return (
       <div className="page-shell pb-8">
-        <MesaSectionPanel
-          eyebrow="Sincronizando"
-          title="Carregando sua ficha vinculada"
-          description="A membership já está ligada a um personagem. Estamos aguardando o estado da mesa refletir esse vínculo."
-        >
+        <MesaSectionPanel eyebrow="Fichas" title="Carregando ficha">
           <UtilityPanel className="flex items-start gap-3 rounded-lg px-4 py-4">
             <LoaderCircle className="mt-0.5 size-5 animate-spin text-sky-200" />
-            <p className="text-sm leading-6 text-soft">Assim que a mesa responder, o módulo troca automaticamente para a sua ficha.</p>
+            <p className="text-sm leading-6 text-soft">A mesa está sincronizando o vínculo do seu personagem.</p>
           </UtilityPanel>
         </MesaSectionPanel>
       </div>
@@ -262,19 +248,14 @@ export function MesaSheetsPage() {
   return (
     <div className="page-shell pb-8">
       <MesaPageLead
-        eyebrow="Fichas da mesa"
+        eyebrow="Fichas"
         title={sheetCharacter.name}
-        description={
-          session?.role === 'gm'
-            ? 'O roster do GM fica só na lateral. Aqui no corpo central você opera a ficha aberta sem duplicar contexto.'
-            : 'Sua ficha vinculada ocupa o centro do módulo. O que é da conta continua seu; o que é mecânica de mesa fica operacional aqui.'
-        }
         meta={
           <>
             <MesaLeadMeta label="Papel" value={session ? formatRoleLabel(session.role) : 'GM'} accent />
-            <MesaLeadMeta label="Galeria" value={sheetCharacter.gallery.length} />
-            <MesaLeadMeta label="Coleções" value={sheetCharacter.weapons.length + sheetCharacter.techniques.length + sheetCharacter.passives.length + sheetCharacter.vows.length} />
-            {canManageRoster ? <MesaLeadMeta label="Roster" value="Lateral do GM" /> : null}
+            <MesaLeadMeta label="Clã" value={sheetCharacter.clan || 'Sem clã'} />
+            <MesaLeadMeta label="Grau" value={sheetCharacter.grade || 'Sem grau'} />
+            {canManageRoster ? <MesaLeadMeta label="Elenco" value={state.characters.length} /> : null}
           </>
         }
         actions={
@@ -299,43 +280,11 @@ export function MesaSheetsPage() {
         }
       />
 
-      {session?.role === 'gm' ? (
-        <UtilityPanel className="rounded-lg px-4 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Permissões</p>
-          <p className="mt-2 text-sm leading-6 text-soft">
-            O GM opera recursos e mecânicas da ficha aberta, mas o core narrativo do personagem continua protegido ao dono.
-          </p>
-        </UtilityPanel>
-      ) : null}
-
       <div className="grid gap-4">
-        <CharacterProfileEditor
-          editable={canEditCharacterCore && editMode}
-          canOperateResources={canOperateSheetMechanics}
-        />
+        <CharacterProfileEditor editable={canEditCharacterCore && editMode} canOperateResources={canOperateSheetMechanics} />
         <CollectionsPanel editable={canOperateSheetMechanics} section="all" />
         <ConditionsEditor editable={canOperateSheetMechanics} />
       </div>
-
-      <MesaSectionPanel
-        eyebrow="Fronteira de domínio"
-        title="O que pertence à conta e o que pertence à mesa"
-        description="A nova ficha deixa explícita a separação entre identidade do personagem e instância mecânica da campanha."
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <MesaKeyValueRow
-            label="Core do personagem"
-            value="Nome, aparência, lore, galeria e identidade"
-            helper="Pertence ao usuário dono da ficha."
-            accent
-          />
-          <MesaKeyValueRow
-            label="Instância da mesa"
-            value="Atributos, recursos, inventário, técnicas e condições"
-            helper="Pode ser operada na campanha conforme seu papel."
-          />
-        </div>
-      </MesaSectionPanel>
     </div>
   );
 }

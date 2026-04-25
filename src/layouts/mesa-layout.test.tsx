@@ -248,10 +248,10 @@ describe('MesaLayout', () => {
   it('renders the mesa shell with persistent module navigation and layered shell containers', () => {
     renderMesaLayout();
 
-    expect(screen.getByRole('heading', { name: 'Geral' })).toBeVisible();
     expect(screen.getByText('Overview content')).toBeInTheDocument();
     expect(screen.getAllByText('Mesa Alpha')[0]).toBeVisible();
     expect(screen.getAllByRole('link', { name: /Fichas/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Convidar/i })).toBeVisible();
     expect(screen.queryByRole('link', { name: /Sessão/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Membros/i })).not.toBeInTheDocument();
     expect(document.querySelector('[data-shell-layer="rail"]')).toBeTruthy();
@@ -264,7 +264,7 @@ describe('MesaLayout', () => {
 
     renderMesaLayout('/mesa/mesa-alpha/fichas');
 
-    expect(screen.getByText('Elenco da mesa')).toBeVisible();
+    expect(screen.getByText('Elenco')).toBeVisible();
     expect(screen.queryByText(/Ficha em foco/i)).not.toBeInTheDocument();
 
     await user.click(screen.getAllByRole('button', { name: 'Abrir' })[0]);

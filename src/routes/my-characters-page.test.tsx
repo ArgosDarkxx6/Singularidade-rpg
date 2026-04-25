@@ -9,6 +9,9 @@ const importCharacterCoreFromJsonMock = vi.fn();
 const transferCharacterCoreOwnershipMock = vi.fn();
 
 const workspaceMock = {
+  online: {
+    session: null
+  },
   listCharacterCores: listCharacterCoresMock,
   createCharacterCore: createCharacterCoreMock,
   importCharacterCoreFromJson: importCharacterCoreFromJsonMock,
@@ -91,10 +94,10 @@ describe('MyCharactersPage', () => {
   it('keeps primary actions visible without relying on a side rail', async () => {
     render(<MyCharactersPage />);
 
-    expect(screen.getByRole('button', { name: 'Criar nucleo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Criar personagem' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Importar JSON' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Atualizar' })).toBeInTheDocument();
-    expect(await screen.findByText('Seus personagens')).toBeVisible();
+    expect(await screen.findByText('Biblioteca pessoal')).toBeVisible();
   });
 
   it('creates a character core through the compact dialog flow', async () => {
@@ -102,14 +105,14 @@ describe('MyCharactersPage', () => {
 
     render(<MyCharactersPage />);
 
-    await user.click(screen.getByRole('button', { name: 'Criar nucleo' }));
+    await user.click(screen.getByRole('button', { name: 'Criar personagem' }));
     await user.type(screen.getByLabelText('Nome'), 'Kaori');
     await user.type(screen.getByLabelText('Idade'), '22');
-    await user.type(screen.getByLabelText('Cla'), 'Gojo');
+    await user.type(screen.getByLabelText('Clã'), 'Gojo');
     await user.type(screen.getByLabelText('Grau'), 'Especial');
-    await user.type(screen.getByLabelText('Aparencia'), 'Uniforme azul.');
-    await user.type(screen.getByLabelText('Lore'), 'Nova nucleo criada fora da mesa.');
-    const createButtons = screen.getAllByRole('button', { name: 'Criar nucleo' });
+    await user.type(screen.getByLabelText('Aparência'), 'Uniforme azul.');
+    await user.type(screen.getByLabelText('Lore'), 'Nova personagem criada fora da mesa.');
+    const createButtons = screen.getAllByRole('button', { name: 'Criar personagem' });
     await user.click(createButtons[createButtons.length - 1]);
 
     await waitFor(() => {
@@ -119,7 +122,7 @@ describe('MyCharactersPage', () => {
         clan: 'Gojo',
         grade: 'Especial',
         appearance: 'Uniforme azul.',
-        lore: 'Nova nucleo criada fora da mesa.'
+        lore: 'Nova personagem criada fora da mesa.'
       });
     });
   });
@@ -150,7 +153,7 @@ describe('MyCharactersPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Transferir posse' }));
     await user.type(screen.getByLabelText('Transferir para username'), 'destino');
     await user.type(screen.getByLabelText('Confirmar senha atual'), 'senha123');
-    await user.click(screen.getByRole('button', { name: 'Confirmar transferencia' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar transferência' }));
 
     await waitFor(() => {
       expect(transferCharacterCoreOwnershipMock).toHaveBeenCalledWith({

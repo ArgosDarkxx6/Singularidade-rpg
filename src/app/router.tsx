@@ -6,7 +6,7 @@ import { NotFoundPage } from '@routes/not-found-page';
 import { ProtectedLayout } from '@routes/protected-layout';
 import { RootRedirect } from '@routes/root-redirect';
 
-const Placeholder = () => <div className="text-sm text-soft">Carregando modulo...</div>;
+const Placeholder = () => <div className="text-sm text-soft">Carregando módulo...</div>;
 
 export const router = createBrowserRouter([
   {

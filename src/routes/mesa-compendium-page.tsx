@@ -6,12 +6,13 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select } from '@components/ui/field';
-import { Panel, UtilityPanel } from '@components/ui/panel';
+import { UtilityPanel } from '@components/ui/panel';
 import { ScrollArea } from '@components/ui/scroll-area';
-import { MesaHero, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
+import { MesaPageLead, MesaSectionPanel } from '@features/mesa/components/mesa-page-primitives';
+import { MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
 import { BOOK_CHAPTERS, CANON_PRESETS, GLOSSARY_GROUPS, filterGlossaryEntries } from '@features/compendium/data';
 import type { BookBlock, BookChapter } from '@features/compendium/data';
-import { useWorkspace } from '@features/workspace/use-workspace';
+import { useMesaCompendium } from '@features/workspace/hooks/use-workspace-segments';
 import { searchReferenceCards } from '@services/references/reference-service';
 
 type ReferenceScope = 'all' | 'lore' | 'media';
@@ -176,7 +177,7 @@ function BookBlockView({ block }: { block: BookBlock }) {
 
 export function MesaCompendiumPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { compendiumCategory, compendiumQuery, setCompendiumCategory, setCompendiumQuery } = useWorkspace();
+  const { compendiumCategory, compendiumQuery, setCompendiumCategory, setCompendiumQuery } = useMesaCompendium();
   const [activeChapterId, setActiveChapterId] = useState(BOOK_CHAPTERS[0]?.id || '');
   const [referenceScope, setReferenceScope] = useState<ReferenceScope>('all');
 
@@ -226,10 +227,9 @@ export function MesaCompendiumPage() {
 
   return (
     <div className="page-shell pb-8">
-      <MesaHero
-        eyebrow="Compêndio contextual"
-        title="Livro da mesa, presets e busca editorial"
-        description="A leitura agora vive dentro da campanha. Navegue por capítulos, puxe presets canônicos e consulte referências externas sem sair do contexto da mesa."
+      <MesaPageLead
+        eyebrow="Livro"
+        title="Livro"
         actions={
           <Button variant="secondary" onClick={() => window.open('/assets/Singularidade_Livro_de_Regras.pdf', '_blank', 'noopener,noreferrer')}>
             <BookOpenText className="size-4" />
@@ -238,12 +238,8 @@ export function MesaCompendiumPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(260px,0.38fr)_minmax(0,1fr)]">
-        <Panel className="rounded-lg p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Navegação</p>
-          <h2 className="mt-2 font-display text-4xl leading-none text-white">Livro da mesa</h2>
-          <p className="mt-3 text-sm leading-6 text-soft">Filtre capítulos, glossário e presets a partir do mesmo campo.</p>
-
+      <div className="grid gap-4 xl:grid-cols-[minmax(260px,0.38fr)_minmax(0,1fr)]">
+        <MesaSectionPanel eyebrow="Navegação" title="Capítulos">
           <div className="mt-5 grid gap-4">
             <Field label="Buscar">
               <div className="relative">
@@ -281,7 +277,7 @@ export function MesaCompendiumPage() {
             </Field>
           </div>
 
-          <div className="mt-5 grid gap-2">
+          <div className="grid gap-2">
             <UtilityPanel className="rounded-lg p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Capítulos</p>
               <p className="mt-2 text-2xl font-semibold text-white">{filteredChapters.length}</p>
@@ -312,25 +308,19 @@ export function MesaCompendiumPage() {
               </div>
             </ScrollArea>
           </div>
-        </Panel>
+        </MesaSectionPanel>
 
-        <div className="grid gap-6">
+        <div className="grid gap-4">
           {deferredQuery.trim() ? (
-            <Panel className="rounded-lg p-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Busca editorial</p>
-              <h2 className="mt-2 font-display text-5xl leading-none text-white">Resultados para "{deferredQuery}"</h2>
-              <p className="mt-4 text-sm leading-6 text-soft">
-                {filteredChapters.length} capítulos, {glossaryCount} verbetes e {presetMatches.length} presets encontrados.
-              </p>
-
-              <div className="mt-6 grid gap-4">
+            <MesaSectionPanel eyebrow="Busca" title={`Resultados para "${deferredQuery}"`}>
+              <div className="mt-4 grid gap-3">
                 {filteredChapters.length ? (
                   filteredChapters.map((chapter) => (
                     <div key={chapter.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-5">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="max-w-3xl">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{chapter.label}</p>
-                          <h3 className="mt-2 font-display text-4xl leading-none text-white">{chapter.title}</h3>
+                          <h3 className="mt-2 font-display text-xl leading-tight text-white">{chapter.title}</h3>
                           <p className="mt-3 text-sm leading-6 text-soft">{chapter.summary}</p>
                         </div>
                         <Button variant="secondary" onClick={() => setActiveChapterId(chapter.id)}>
@@ -350,21 +340,18 @@ export function MesaCompendiumPage() {
                     </div>
                   ))
                 ) : (
-                  <EmptyState title="Nada encontrado." body="Use outro termo, uma tag, um nome de técnica ou navegue direto pelos capítulos ao lado." />
+                  <EmptyState title="Nada encontrado." body="Tente outro termo ou abra um capítulo." />
                 )}
               </div>
-            </Panel>
+            </MesaSectionPanel>
           ) : activeChapter ? (
-            <Panel className="rounded-lg p-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">{activeChapter.label}</p>
-              <h2 className="mt-2 font-display text-5xl leading-none text-white">{activeChapter.title}</h2>
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-soft">{activeChapter.summary}</p>
-
-              <div className="mt-6 grid gap-5">
+            <MesaSectionPanel eyebrow={activeChapter.label} title={activeChapter.title}>
+              <p className="max-w-3xl text-sm leading-6 text-soft">{activeChapter.summary}</p>
+              <div className="mt-4 grid gap-3">
                 {activeChapter.sections.map((section) => (
-                  <motion.section key={section.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-white/10 bg-white/[0.03] p-5">
+                  <motion.section key={section.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{section.id}</p>
-                    <h3 className="mt-2 font-display text-4xl leading-none text-white">{section.title}</h3>
+                    <h3 className="mt-2 font-display text-xl font-semibold leading-tight text-white">{section.title}</h3>
                     <p className="mt-3 text-sm leading-6 text-soft">{section.summary}</p>
                     <div className="mt-5 grid gap-4">
                       {section.blocks.map((block, index) => (
@@ -374,7 +361,7 @@ export function MesaCompendiumPage() {
                   </motion.section>
                 ))}
               </div>
-            </Panel>
+            </MesaSectionPanel>
           ) : (
             <EmptyState title="Capítulo não encontrado." body="Selecione outro item na navegação ou use a busca para localizar um trecho específico." />
           )}
@@ -384,7 +371,7 @@ export function MesaCompendiumPage() {
           <MesaRailCard
             eyebrow="Glossário"
             title="Verbetes em destaque"
-            description="Consulta rápida de termos, técnicas, objetos e domínios ligados ao termo atual."
+            description="Termos, técnicas, objetos e domínios ligados ao termo atual."
           >
             {filteredGlossary.length ? (
               filteredGlossary.slice(0, 4).map((group) => (
@@ -411,11 +398,11 @@ export function MesaCompendiumPage() {
                 </UtilityPanel>
               ))
             ) : (
-              <EmptyState title="Sem verbetes neste recorte." body="Ajuste a busca ou a categoria para puxar outro bloco do glossário." />
+              <EmptyState title="Sem verbetes neste recorte." body="Ajuste a busca ou a categoria." />
             )}
           </MesaRailCard>
 
-          <MesaRailCard eyebrow="Presets" title="Banco canônico" description="Armas, técnicas, passivas e itens prontos para consulta rápida durante a sessão.">
+          <MesaRailCard eyebrow="Acervo" title="Banco da mesa" description="Armas, técnicas, passivas e itens para consulta rápida.">
             {presetMatches.length ? (
               presetMatches.slice(0, 6).map((preset) => (
                 <UtilityPanel key={preset.id} className="rounded-lg p-4">
@@ -425,7 +412,7 @@ export function MesaCompendiumPage() {
                 </UtilityPanel>
               ))
             ) : (
-              <EmptyState title="Sem presets encontrados." body="Use o nome de uma técnica, arma ou item da obra para localizar referências rápidas." />
+              <EmptyState title="Nada encontrado." body="Busque uma técnica, arma ou item." />
             )}
           </MesaRailCard>
 
@@ -469,8 +456,8 @@ export function MesaCompendiumPage() {
                 title="Busca externa em espera."
                 body={
                   deferredQuery.trim().length < 3
-                    ? 'Digite ao menos 3 caracteres para ativar o proxy de referências externas.'
-                    : 'Nenhuma referência externa retornou resultados para a consulta atual.'
+                    ? 'Digite ao menos 3 caracteres.'
+                    : 'Nenhuma referência encontrada.'
                 }
               />
             )}

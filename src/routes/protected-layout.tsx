@@ -17,7 +17,7 @@ export function ProtectedLayout() {
   }
 
   if (!workspaceReady) {
-    return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando workspace...</div>;
+    return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando ambiente...</div>;
   }
 
   return <Outlet />;

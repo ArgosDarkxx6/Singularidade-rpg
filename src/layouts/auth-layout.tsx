@@ -10,7 +10,7 @@ const platformNotes = [
 
 const authBenefits = [
   'Acesse direto suas mesas e volte para a ação em segundos.',
-  'Permissões, fichas e rolagens seguem isoladas por campanha.',
+  'Cada mesa mantém seu próprio estado e seus próprios acessos.',
   'Login com email ou username em fluxo único.'
 ];
 
@@ -22,12 +22,12 @@ export function AuthLayout() {
     <div className="platform-shell min-h-screen px-3 py-3 sm:px-4 lg:px-6">
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-[1540px] overflow-hidden rounded-lg border border-white/12 bg-black/30 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:grid-cols-[1.02fr_0.98fr]">
         <section className="hidden border-r border-white/10 bg-white/[0.025] lg:flex">
-          <div className="flex h-full w-full flex-col justify-between p-8 xl:p-10">
+          <div className="flex h-full w-full flex-col justify-between p-5 xl:p-6">
             <LogoLockup />
 
             <div className="max-w-2xl">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Project Nexus</p>
-              <h2 className="mt-3 text-balance text-4xl font-semibold leading-tight text-white sm:text-5xl xl:text-6xl">
+              <h2 className="mt-3 text-balance text-2xl font-semibold leading-tight text-white sm:text-3xl xl:text-4xl">
                 {isRegister ? 'Crie sua conta para abrir a plataforma.' : 'Entre no seu hub de mesas.'}
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-soft">
@@ -55,11 +55,11 @@ export function AuthLayout() {
           </div>
         </section>
 
-        <section className="flex items-center justify-center p-4 sm:p-6 lg:p-8">
+        <section className="flex items-center justify-center p-4 sm:p-5">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            className="surface-panel-strong w-full max-w-[520px] rounded-lg p-5 sm:p-6"
+            className="surface-panel-strong w-full max-w-[520px] rounded-lg p-5"
           >
             <div className="mb-6 flex items-center justify-between gap-4">
               <LogoLockup compact className="lg:hidden" />

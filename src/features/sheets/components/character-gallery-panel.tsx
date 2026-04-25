@@ -34,11 +34,10 @@ export function CharacterGalleryPanel({ editable = true }: { editable?: boolean 
   };
 
   return (
-    <Card className="p-6">
+    <Card className="p-4">
       <SectionTitle
         eyebrow="Galeria do personagem"
         title="Imagens extras"
-        description="Referência visual e apresentação convivem no mesmo painel: miniaturas limpas, ordem manual e visualização ampliada."
         actions={
           editable ? (
             <Button
@@ -65,15 +64,15 @@ export function CharacterGalleryPanel({ editable = true }: { editable?: boolean 
         }
       />
 
-      <div className="mt-6 grid gap-4">
+      <div className="mt-4 grid gap-3">
         {images.length ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {images.map((image, index) => (
-              <UtilityPanel key={image.id} className="rounded-2xl overflow-hidden">
+              <UtilityPanel key={image.id} className="overflow-hidden rounded-lg">
                 <button type="button" className="block w-full text-left" onClick={() => setViewerIndex(index)}>
                   <img src={image.url} alt={image.caption || `${activeCharacter.name} ${index + 1}`} className="h-48 w-full object-cover" />
                 </button>
-                <div className="grid gap-3 p-4">
+                <div className="grid gap-3 p-3.5">
                   <div className="flex items-start gap-3">
                     {editable ? <GripVertical className="mt-0.5 size-4 shrink-0 text-muted" /> : null}
                     <div className="min-w-0 flex-1">
@@ -122,7 +121,7 @@ export function CharacterGalleryPanel({ editable = true }: { editable?: boolean 
             ))}
           </div>
         ) : (
-          <EmptyState title="Sem imagens extras." body="Adicione poses, referências visuais ou momentos marcantes do personagem para enriquecer a ficha." />
+          <EmptyState title="Sem imagens extras." body="Adicione referências visuais do personagem." />
         )}
       </div>
 
@@ -133,12 +132,12 @@ export function CharacterGalleryPanel({ editable = true }: { editable?: boolean 
               <div className="bg-black">
                 <img src={activeImage.url} alt={activeImage.caption || activeCharacter.name} className="max-h-[90vh] w-full object-contain" />
               </div>
-              <div className="grid gap-4 p-6">
+              <div className="grid gap-4 p-4">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Viewer</p>
-                  <DialogTitle className="mt-2 font-display text-4xl leading-none text-white">{activeCharacter.name}</DialogTitle>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Imagem</p>
+                  <DialogTitle className="mt-2 font-display text-2xl font-semibold leading-tight text-white">{activeCharacter.name}</DialogTitle>
                   <DialogDescription className="mt-3 text-sm leading-6 text-soft">
-                    {activeImage.caption || 'Sem legenda. Use esta área para referências visuais, variações de traje ou cenas-chave do personagem.'}
+                    {activeImage.caption || 'Sem legenda.'}
                   </DialogDescription>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">

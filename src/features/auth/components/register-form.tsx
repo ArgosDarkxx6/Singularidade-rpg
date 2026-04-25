@@ -43,12 +43,12 @@ export function RegisterForm({ onSuccess }: { onSuccess: (result: SignUpResult) 
   return (
     <form className="grid gap-5" onSubmit={onSubmit}>
       <Field label="Nome público">
-        <Input placeholder="Mysto" autoComplete="name" {...register('displayName')} />
+          <Input placeholder="Argos" autoComplete="name" {...register('displayName')} />
         {errors.displayName ? <span className="text-xs text-rose-200">{errors.displayName.message}</span> : null}
       </Field>
 
       <Field label="Username">
-        <Input placeholder="mysto" spellCheck={false} autoComplete="username" {...register('username')} />
+          <Input placeholder="argos" spellCheck={false} autoComplete="username" {...register('username')} />
         {errors.username ? <span className="text-xs text-rose-200">{errors.username.message}</span> : null}
       </Field>
 

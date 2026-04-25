@@ -23,10 +23,19 @@ export function LogoLockup({
       animate={{ opacity: 1, y: 0 }}
       className={cn('flex items-center gap-3', className)}
     >
-      <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/14 bg-[#081325] shadow-[0_14px_34px_rgba(4,10,22,0.4)]">
-        {isSystem ? <img src={system.assets.icon} alt={system.name} className="size-8 object-contain" /> : <img src="/assets/nexus-mark.svg" alt="Project Nexus" className="size-9 object-contain" />}
+      <div
+        className={cn(
+          'relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/14 bg-[#081325] shadow-[0_14px_34px_rgba(4,10,22,0.4)]',
+          compact ? 'size-8' : 'size-11'
+        )}
+      >
+        {isSystem ? (
+          <img src={system.assets.icon} alt={system.name} className={cn('object-contain', compact ? 'size-6' : 'size-8')} />
+        ) : (
+          <img src="/assets/nexus-mark.svg" alt="Project Nexus" className={cn('object-contain', compact ? 'size-6' : 'size-9')} />
+        )}
       </div>
-      <div className={compact ? 'hidden sm:block' : ''}>
+      <div className={compact ? 'hidden' : ''}>
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#92dbff]">{isSystem ? 'Sistema ativo' : 'Project Nexus'}</p>
         <div className="mt-1.5">
           {isSystem ? (

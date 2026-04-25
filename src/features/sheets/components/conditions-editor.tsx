@@ -29,11 +29,10 @@ export function ConditionsEditor({ editable = true }: { editable?: boolean }) {
   });
 
   return (
-    <Card className="p-6">
+    <Card className="p-4">
       <SectionTitle
         eyebrow="Condições"
         title="Estados ativos"
-        description="Pressão, ferimentos, buffs e restrições ficam legíveis na ficha; a edição abre só quando acionada."
         actions={
           editable ? (
             <Button variant="secondary" onClick={() => setOpen(true)}>
@@ -91,10 +90,8 @@ export function ConditionsEditor({ editable = true }: { editable?: boolean }) {
       >
         <DialogContent>
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Condição</p>
-          <DialogTitle className="mt-2 font-display text-4xl leading-none text-white">Adicionar estado</DialogTitle>
-          <DialogDescription className="mt-3 text-sm leading-6 text-soft">
-            Registre pressão, ferimento, buff ou restrição sem deixar um editor fixo vazando na ficha.
-          </DialogDescription>
+          <DialogTitle className="mt-2 font-display text-2xl font-semibold leading-tight text-white">Adicionar estado</DialogTitle>
+          <DialogDescription className="mt-3 text-sm leading-6 text-soft">Registre pressão, ferimento, buff ou restrição.</DialogDescription>
 
           <form
             className="mt-6 grid gap-4"

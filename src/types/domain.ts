@@ -384,8 +384,10 @@ export interface CharacterCoreSummary {
   id: string;
   ownerId: string;
   name: string;
+  age?: number;
   clan: string;
   grade: string;
+  appearance?: string;
   lore: string;
   avatarUrl: string;
   avatarPath?: string;

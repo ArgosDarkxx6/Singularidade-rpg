@@ -7,10 +7,10 @@ import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Textarea } from '@components/ui/field';
-import { Panel, UtilityPanel } from '@components/ui/panel';
+import { UtilityPanel } from '@components/ui/panel';
 import { useAuth } from '@features/auth/hooks/use-auth';
-import { MesaHero, MesaRailCard } from '@features/mesa/components/mesa-section-primitives';
-import { useWorkspace } from '@features/workspace/use-workspace';
+import { MesaKeyValueRow, MesaLeadMeta, MesaPageLead, MesaSectionPanel } from '@features/mesa/components/mesa-page-primitives';
+import { useMesaSettings } from '@features/workspace/hooks/use-workspace-segments';
 import { ownershipTransferSchema, snapshotSchema, tableMetaSchema } from '@schemas/mesa';
 
 type TableMetaValues = import('zod').infer<typeof tableMetaSchema>;
@@ -31,7 +31,7 @@ export function MesaSettingsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { online, updateTableMeta, createCloudSnapshot, restoreCloudSnapshot, transferTableOwnership, deleteCurrentTable, leaveCurrentTable } =
-    useWorkspace();
+    useMesaSettings();
   const table = online.table;
   const session = online.session;
   const canManage = session?.role === 'gm';
@@ -74,35 +74,51 @@ export function MesaSettingsPage() {
 
   return (
     <div className="page-shell pb-8">
-      <MesaHero
-        eyebrow="Configurações da mesa"
-        title="Administração, metadados e segurança"
-        description="Concentre identidade da mesa, snapshots, transferência de ownership e ações críticas em uma área única e controlada."
+      <MesaPageLead
+        eyebrow="Configurações"
+        title="Configurações"
+        meta={
+          <>
+            <MesaLeadMeta label="Papel" value={session.role.toUpperCase()} accent />
+            <MesaLeadMeta label="Snapshots" value={table.snapshots.length} />
+            <MesaLeadMeta label="Último sync" value={formatDateTime(table.updatedAt)} />
+          </>
+        }
+        actions={
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              try {
+                await leaveCurrentTable();
+                navigate('/mesas');
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Não foi possível sair desta mesa.');
+              }
+            }}
+          >
+            <DoorOpen className="size-4" />
+            Sair da mesa
+          </Button>
+        }
       />
 
-      <div className="grid gap-6">
-        <div className="grid gap-6">
-          <Panel className="rounded-lg p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Metadados</p>
-            <h2 className="mt-2 font-display text-4xl leading-none text-white">Identidade da mesa</h2>
-
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_360px]">
+        <div className="grid gap-4">
+          <MesaSectionPanel eyebrow="Mesa" title="Dados básicos">
             <form
-              className="mt-6 grid gap-4"
+              className="grid gap-4"
               onSubmit={metaForm.handleSubmit(async (values) => {
                 try {
                   await updateTableMeta(values);
                   toast.success('Metadados atualizados.');
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Nao foi possivel atualizar os metadados.');
+                  toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar os metadados.');
                 }
               })}
             >
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Nome da mesa">
                   <Input disabled={!canManage} {...metaForm.register('tableName')} />
-                </Field>
-                <Field label="Descrição" className="md:col-span-2">
-                  <Textarea disabled={!canManage} {...metaForm.register('description')} />
                 </Field>
                 <Field label="Série">
                   <Input disabled={!canManage} {...metaForm.register('seriesName')} />
@@ -113,42 +129,35 @@ export function MesaSettingsPage() {
                 <Field label="Vagas">
                   <Input disabled={!canManage} type="number" min={0} {...metaForm.register('slotCount', { valueAsNumber: true })} />
                 </Field>
+                <Field label="Descrição" className="md:col-span-2">
+                  <Textarea disabled={!canManage} {...metaForm.register('description')} />
+                </Field>
               </div>
 
               {canManage ? (
                 <Button type="submit" disabled={metaForm.formState.isSubmitting}>
                   <Save className="size-4" />
-                  Salvar configurações
+                  Salvar
                 </Button>
               ) : (
                 <UtilityPanel className="rounded-lg p-4">
-                  <p className="text-sm text-soft">Seu papel atual é de leitura. Apenas GMs podem alterar metadados e controlar snapshots.</p>
+                  <p className="text-sm text-soft">Somente GMs podem alterar os dados da mesa.</p>
                 </UtilityPanel>
               )}
             </form>
-          </Panel>
+          </MesaSectionPanel>
 
-          <Panel className="rounded-lg p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">Snapshots</p>
-                <h2 className="mt-2 font-display text-4xl leading-none text-white">Restauração e versionamento</h2>
-              </div>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-soft">
-                {table.snapshots.length} salvos
-              </span>
-            </div>
-
+          <MesaSectionPanel eyebrow="Snapshots" title="Restauração">
             {canManage ? (
               <form
-                className="mt-6 flex flex-col gap-3 sm:flex-row"
+                className="flex flex-col gap-3 sm:flex-row"
                 onSubmit={snapshotForm.handleSubmit(async (values) => {
                   try {
                     const result = await createCloudSnapshot(values.label);
                     if (!result) return;
                     toast.success('Snapshot salvo.');
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : 'Nao foi possivel salvar o snapshot.');
+                    toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o snapshot.');
                   }
                 })}
               >
@@ -159,7 +168,7 @@ export function MesaSettingsPage() {
               </form>
             ) : null}
 
-            <div className="mt-6 grid gap-3">
+            <div className="grid gap-3">
               {table.snapshots.length ? (
                 table.snapshots.map((snapshot) => (
                   <UtilityPanel key={snapshot.id} className="rounded-lg p-4">
@@ -179,7 +188,7 @@ export function MesaSettingsPage() {
                               await restoreCloudSnapshot(snapshot.id);
                               toast.success('Snapshot restaurado.');
                             } catch (error) {
-                              toast.error(error instanceof Error ? error.message : 'Nao foi possivel restaurar o snapshot.');
+                              toast.error(error instanceof Error ? error.message : 'Não foi possível restaurar o snapshot.');
                             }
                           }}
                         >
@@ -191,24 +200,16 @@ export function MesaSettingsPage() {
                   </UtilityPanel>
                 ))
               ) : (
-                <EmptyState title="Nenhum snapshot salvo." body="Salve um ponto de restauração antes de alterações críticas na campanha." />
+                <EmptyState title="Nenhum snapshot salvo." body="Salve um ponto de restauração antes de alterações críticas." />
               )}
             </div>
-          </Panel>
+          </MesaSectionPanel>
 
           {isPrimaryOwner ? (
-            <Panel className="rounded-lg border border-rose-300/18 bg-rose-500/10 p-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-100">Danger zone</p>
-              <h2 className="mt-2 font-display text-4xl leading-none text-white">Transferencia e exclusao da mesa</h2>
-              <p className="mt-3 text-sm leading-6 text-soft">
-                Apenas o administrador principal pode transferir a posse da mesa ou exclui-la. A exclusao remove sessoes, presencas,
-                convites e o contexto da campanha, mas preserva personagens pessoais dos seus donos.
-              </p>
-
-              <div className="mt-6 grid gap-6 xl:grid-cols-2">
-                <UtilityPanel className="rounded-lg p-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Transferir administracao</p>
-                  <p className="mt-3 text-sm text-soft">Informe username e sua senha atual para confirmar a transferencia.</p>
+            <MesaSectionPanel eyebrow="Danger zone" title="Ownership e exclusão" className="border border-rose-300/18 bg-rose-500/10">
+              <div className="grid gap-4 xl:grid-cols-2">
+                <UtilityPanel className="rounded-lg p-4">
+                  <p className="text-sm font-semibold text-white">Transferir administração</p>
                   <form
                     className="mt-4 grid gap-3"
                     onSubmit={transferForm.handleSubmit(async (values) => {
@@ -219,9 +220,9 @@ export function MesaSettingsPage() {
                           currentPassword: values.currentPassword
                         });
                         transferForm.reset();
-                        toast.success('Administracao transferida.');
+                        toast.success('Administração transferida.');
                       } catch (error) {
-                        toast.error(error instanceof Error ? error.message : 'Nao foi possivel transferir a administracao.');
+                        toast.error(error instanceof Error ? error.message : 'Não foi possível transferir a administração.');
                       } finally {
                         setDangerBusy(false);
                       }
@@ -235,17 +236,17 @@ export function MesaSettingsPage() {
                     </Field>
                     <Button className="mt-1" type="submit" variant="secondary" disabled={dangerBusy || transferForm.formState.isSubmitting}>
                       <Crown className="size-4" />
-                      Transferir administracao
+                      Transferir
                     </Button>
                   </form>
                 </UtilityPanel>
 
-                <UtilityPanel className="rounded-lg p-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Excluir mesa</p>
-                  <p className="mt-3 text-sm text-soft">
-                    Digite <span className="font-semibold text-white">{table.name}</span> para confirmar a exclusao definitiva.
+                <UtilityPanel className="rounded-lg p-4">
+                  <p className="text-sm font-semibold text-white">Excluir mesa</p>
+                  <p className="mt-2 text-sm text-soft">
+                    Digite <span className="font-semibold text-white">{table.name}</span> para confirmar.
                   </p>
-                  <Field label="Confirmacao" className="mt-4">
+                  <Field label="Confirmação" className="mt-4">
                     <Input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} />
                   </Field>
                   <Button
@@ -256,52 +257,30 @@ export function MesaSettingsPage() {
                       setDangerBusy(true);
                       try {
                         await deleteCurrentTable();
-                        toast.success('Mesa excluida.');
+                        toast.success('Mesa excluída.');
                         navigate('/mesas');
                       } catch (error) {
-                        toast.error(error instanceof Error ? error.message : 'Nao foi possivel excluir a mesa.');
+                        toast.error(error instanceof Error ? error.message : 'Não foi possível excluir a mesa.');
                       } finally {
                         setDangerBusy(false);
                       }
                     }}
                   >
                     <Trash2 className="size-4" />
-                    Excluir mesa inteira
+                    Excluir mesa
                   </Button>
                 </UtilityPanel>
               </div>
-            </Panel>
+            </MesaSectionPanel>
           ) : null}
         </div>
 
-        <div className="page-right-rail">
-          <MesaRailCard eyebrow="Sessão atual" title={table.name} description={`Último sync em ${formatDateTime(table.updatedAt)}.`}>
-            <UtilityPanel className="rounded-lg p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Seu papel</p>
-              <p className="mt-2 text-sm font-semibold capitalize text-white">{session.role}</p>
-            </UtilityPanel>
-            <UtilityPanel className="rounded-lg p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status da campanha</p>
-              <p className="mt-2 text-sm font-semibold text-white">{table.currentSession?.status || 'Sem sessão ativa'}</p>
-            </UtilityPanel>
-          </MesaRailCard>
-
-          <MesaRailCard eyebrow="Saída" title="Deixar esta mesa" description="Voce volta para suas mesas.">
-            <Button
-              variant="danger"
-              onClick={async () => {
-                try {
-                  await leaveCurrentTable();
-                  navigate('/mesas');
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Não foi possível sair desta mesa.');
-                }
-              }}
-            >
-              <DoorOpen className="size-4" />
-              Sair da mesa
-            </Button>
-          </MesaRailCard>
+        <div className="grid gap-4">
+          <MesaSectionPanel eyebrow="Resumo" title={table.name}>
+            <MesaKeyValueRow label="Seu papel" value={session.role.toUpperCase()} />
+            <MesaKeyValueRow label="Sessão" value={table.currentSession?.status || 'Sem sessão ativa'} />
+            <MesaKeyValueRow label="Sistema" value={table.systemKey} />
+          </MesaSectionPanel>
         </div>
       </div>
     </div>

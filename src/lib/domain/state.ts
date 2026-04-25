@@ -237,11 +237,11 @@ export function uniquifyCharacterName(name: string, characters: Character[]): st
 }
 
 export function createDefaultState(): WorkspaceState {
-  const mystoId = crypto.randomUUID();
+  const elaraId = crypto.randomUUID();
   const kayoId = crypto.randomUUID();
-  const mysto = makeCharacter({
-    id: mystoId,
-    name: 'Mysto',
+  const elara = makeCharacter({
+    id: elaraId,
+    name: 'Elara Nyx',
     age: 14,
     appearance: 'Pele branca e fria. Cabelo preto com mechas azuis, olhos azul-escuro e postura eletrica.',
     clan: 'Kashimo',
@@ -268,7 +268,7 @@ export function createDefaultState(): WorkspaceState {
     }
   });
 
-  mysto.weapons = [
+  elara.weapons = [
     {
       id: uid('weapon'),
       name: 'Luvas de garras triplas felinas',
@@ -278,7 +278,7 @@ export function createDefaultState(): WorkspaceState {
       description: 'Conjunto veloz pensado para rasgos curtos, mobilidade e pressao continua.'
     }
   ];
-  mysto.techniques = [
+  elara.techniques = [
     {
       id: uid('technique'),
       name: 'Descarga de relampago',
@@ -307,7 +307,7 @@ export function createDefaultState(): WorkspaceState {
       description: 'Reverte o corpo em eletricidade controlada, aumentando a velocidade e pagando o preco em dor.'
     }
   ];
-  mysto.passives = [
+  elara.passives = [
     {
       id: uid('passive'),
       name: 'Energia eletrificada',
@@ -321,7 +321,7 @@ export function createDefaultState(): WorkspaceState {
       description: 'Os movimentos aceleram naturalmente quando a energia sobe, criando janelas para ataques adicionais.'
     }
   ];
-  mysto.inventory = {
+  elara.inventory = {
     money: 500,
     items: [{ id: uid('inventory'), name: 'Lata de energetico', quantity: 4, effect: 'Recuperacao narrativa em cena, a criterio da mesa.' }]
   };
@@ -396,17 +396,17 @@ export function createDefaultState(): WorkspaceState {
 
   return {
     version: CURRENT_VERSION,
-    characters: [mysto, kayo],
+    characters: [elara, kayo],
     order: { round: 1, turn: 0, entries: [] },
     disaster: { criticalFailures: 0, threshold: 5, disastersTriggered: 0, history: [] },
     log: [
       createLogEntry({
         category: 'Sistema',
         title: 'Mesa carregada',
-        text: 'Estado inicial criado com Mysto e Kayo.'
+      text: 'Estado inicial criado.'
       })
     ],
-    activeCharacterId: mystoId
+    activeCharacterId: elaraId
   };
 }
 

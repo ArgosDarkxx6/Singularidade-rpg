@@ -180,7 +180,7 @@ describe('MesaSheetsPage', () => {
     expect(screen.getByText('Você ainda não tem ficha nesta mesa')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Criar personagem na mesa' })).toBeVisible();
     expect(screen.getByRole('button', { name: /Importar JSON/i })).toBeVisible();
-    expect(screen.getByText('Usar personagem de Meus personagens')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Escolher personagem' })).toBeVisible();
     expect(screen.queryByText('Mysto')).not.toBeInTheDocument();
     expect(await screen.findByText('Veterano')).toBeInTheDocument();
   });
@@ -207,9 +207,9 @@ describe('MesaSheetsPage', () => {
     expect(screen.getByText('Collections panel')).toBeVisible();
     expect(screen.getByText('Conditions panel')).toBeVisible();
     expect(screen.queryByText(/Ficha em foco/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('Elenco da mesa')).not.toBeInTheDocument();
+    expect(screen.queryByText('Elenco')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Exportar mesa JSON' })).not.toBeInTheDocument();
-    expect(screen.getByText('O que pertence à conta e o que pertence à mesa')).toBeVisible();
+    expect(screen.queryByText('O que pertence à conta e o que pertence à mesa')).not.toBeInTheDocument();
   });
 
   it('keeps GM away from core editing while preserving operational access', () => {
@@ -217,7 +217,7 @@ describe('MesaSheetsPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Kaori' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Editar identidade' })).not.toBeInTheDocument();
-    expect(screen.getByText(/GM opera recursos e mecânicas/i)).toBeVisible();
+    expect(screen.queryByText(/GM opera recursos e mecânicas/i)).not.toBeInTheDocument();
     expect(screen.getByText('Profile editor reading operational')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Exportar mesa JSON' })).toBeInTheDocument();
   });

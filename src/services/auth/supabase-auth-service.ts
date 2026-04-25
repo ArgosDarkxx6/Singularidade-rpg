@@ -52,7 +52,7 @@ function fallbackAuthUser(user: User, avatarUrl = '', avatarPath = ''): AuthUser
     id: user.id,
     email: user.email || '',
     username: String(user.user_metadata.username || ''),
-    displayName: String(user.user_metadata.display_name || user.user_metadata.full_name || user.email || 'Feiticeiro'),
+    displayName: String(user.user_metadata.display_name || user.user_metadata.full_name || user.email || 'Usuário'),
     avatarUrl,
     avatarPath
   };
@@ -91,7 +91,7 @@ export function createSupabaseAuthService(): AuthService {
       ...fallbackAuthUser(user, avatarUrl, avatarPath),
       username: profile?.username || String(user.user_metadata.username || ''),
       displayName:
-        profile?.display_name || String(user.user_metadata.display_name || user.user_metadata.full_name || user.email || 'Feiticeiro')
+      profile?.display_name || String(user.user_metadata.display_name || user.user_metadata.full_name || user.email || 'Usuário')
     };
   }
 
@@ -211,7 +211,7 @@ export function createSupabaseAuthService(): AuthService {
 
     if (!user) return null;
 
-    const nextDisplayName = patch.displayName?.trim() || String(user.user_metadata.display_name || user.email || 'Feiticeiro');
+  const nextDisplayName = patch.displayName?.trim() || String(user.user_metadata.display_name || user.email || 'Usuário');
     const { error: authError } = await client.auth.updateUser({
       data: {
         display_name: nextDisplayName

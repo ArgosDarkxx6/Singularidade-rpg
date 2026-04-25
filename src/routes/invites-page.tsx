@@ -12,6 +12,7 @@ import { useAuth } from '@features/auth/hooks/use-auth';
 import { usePlatformInvites } from '@features/workspace/hooks/use-workspace-segments';
 import { joinCodeSchema, joinInviteSchema } from '@schemas/mesa';
 import type { InvitePreview } from '@/types/domain';
+
 type JoinCodeValues = import('zod').infer<typeof joinCodeSchema>;
 type JoinInviteValues = import('zod').infer<typeof joinInviteSchema>;
 
@@ -41,7 +42,7 @@ export function InvitesPage() {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [joinBusy, setJoinBusy] = useState<'invite' | 'code' | null>(null);
 
-  const defaultNickname = user?.displayName || user?.username || 'Feiticeiro';
+  const defaultNickname = user?.displayName || user?.username || 'Jogador';
 
   const inviteForm = useForm<JoinInviteValues>({
     resolver: zodResolver(joinInviteSchema) as never,
@@ -118,36 +119,28 @@ export function InvitesPage() {
   });
 
   return (
-    <div className="grid gap-4 pb-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+    <div className="grid items-start gap-4 pb-8 xl:grid-cols-[minmax(0,1.45fr)_320px]">
       <div className="grid gap-4">
-        <Panel className="rounded-[28px] p-5 sm:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Convites e acesso</p>
-              <h2 className="mt-2 text-2xl font-semibold leading-tight text-white sm:text-3xl">Entre em uma mesa sem depender da página errada.</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-soft">
-                Código manual, link com prévia e entrada direta em qualquer viewport. O convite não precisa carregar personagem, só o papel certo.
-              </p>
+        <Panel className="p-3.5 sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Convites</p>
+              <h1 className="mt-1 font-display text-xl font-semibold leading-tight text-white sm:text-2xl">Entrar em uma mesa</h1>
             </div>
-
-            <UtilityPanel className="rounded-2xl px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Sessão atual</p>
-              <p className="mt-2 text-sm font-semibold text-white">{online.session?.tableName || 'Nenhuma mesa aberta'}</p>
-            </UtilityPanel>
           </div>
         </Panel>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <Panel className="rounded-[28px] p-5 sm:p-6">
+          <Panel className="p-3.5 sm:p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Link de convite</p>
-                <h3 className="mt-1.5 text-xl font-semibold text-white">Prévia antes de aceitar</h3>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Link</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">Prévia</h2>
               </div>
-              <Link2 className="size-4 text-sky-200" />
+              <Link2 className="size-4 text-accent" />
             </div>
 
-            <form className="mt-5 grid gap-4" onSubmit={handleJoinInvite}>
+            <form className="mt-4 grid gap-4" onSubmit={handleJoinInvite}>
               <Field label="URL do convite" error={inviteForm.formState.errors.inviteUrl?.message}>
                 <Input placeholder="https://..." autoComplete="off" {...inviteForm.register('inviteUrl')} />
               </Field>
@@ -167,33 +160,29 @@ export function InvitesPage() {
               </div>
             </form>
 
-            <div className="mt-5">
+            <div className="mt-4">
               {preview ? (
-                <UtilityPanel className="rounded-2xl p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Prévia</p>
+                <UtilityPanel className="rounded-lg px-3.5 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{formatRoleLabel(preview.role)}</p>
                   <p className="mt-2 text-lg font-semibold text-white">{preview.tableName}</p>
                   <p className="mt-2 text-sm leading-6 text-soft">{preview.tableDescription || 'Mesa sem descrição pública.'}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.16em] text-muted">
-                    <span>{formatRoleLabel(preview.role)}</span>
-                    <span>Link</span>
-                  </div>
                 </UtilityPanel>
               ) : (
-                <EmptyState title="Sem prévia carregada." body="Cole um link de convite e use a prévia para conferir a mesa antes de aceitar." />
+                <EmptyState title="Sem prévia." body="Cole um link de convite." />
               )}
             </div>
           </Panel>
 
-          <Panel className="rounded-[28px] p-5 sm:p-6">
+          <Panel className="p-3.5 sm:p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Código manual</p>
-                <h3 className="mt-1.5 text-xl font-semibold text-white">Entrar com código</h3>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Código</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">Entrada manual</h2>
               </div>
-              <KeyRound className="size-4 text-sky-200" />
+              <KeyRound className="size-4 text-accent" />
             </div>
 
-            <form className="mt-5 grid gap-4" onSubmit={handleJoinCode}>
+            <form className="mt-4 grid gap-4" onSubmit={handleJoinCode}>
               <Field label="Código" error={codeForm.formState.errors.code?.message}>
                 <Input autoComplete="one-time-code" placeholder="ABCD1234" {...codeForm.register('code')} />
               </Field>
@@ -210,20 +199,16 @@ export function InvitesPage() {
         </div>
       </div>
 
-      <div className="grid gap-4">
-        <Panel className="rounded-[28px] p-5 sm:p-6">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Regras do fluxo</p>
-          <h3 className="mt-1.5 text-xl font-semibold text-white">O convite só decide acesso.</h3>
-          <div className="mt-5 grid gap-3">
-            <UtilityPanel className="rounded-2xl p-4">
-              <p className="text-sm leading-6 text-soft">Convite não escolhe ficha nem prende personagem. O vínculo correto acontece depois, dentro da mesa.</p>
+      <div className="page-right-rail xl:grid-cols-1">
+        <Panel className="p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Sessão atual</p>
+          <div className="mt-4 grid gap-2">
+            <UtilityPanel className="rounded-lg px-3.5 py-3">
+              <p className="text-sm font-semibold text-white">{online.session?.tableName || 'Nenhuma mesa aberta'}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-2xl p-4">
-              <p className="text-sm leading-6 text-soft">Links abrem prévia da mesa. Códigos servem para entrada manual rápida em desktop e mobile.</p>
-            </UtilityPanel>
-            <UtilityPanel className="rounded-2xl p-4">
-              <p className="text-sm leading-6 text-soft">Se você entrar como player sem ficha vinculada, a página de Fichas passa para o estado vazio correto.</p>
-            </UtilityPanel>
+            <Button variant="secondary" onClick={() => navigate('/mesas')}>
+              Voltar para mesas
+            </Button>
           </div>
         </Panel>
       </div>

@@ -12,19 +12,19 @@ export function MesaPageLead({
 }: {
   eyebrow: string;
   title: string;
-  description: string;
+  description?: string;
   actions?: ReactNode;
   meta?: ReactNode;
   className?: string;
 }) {
   return (
-    <Panel className={cn('rounded-lg px-4 py-4 sm:px-5 sm:py-5', className)}>
+    <Panel className={cn('px-3.5 py-3.5 sm:px-4 sm:py-4', className)}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 max-w-4xl">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">{eyebrow}</p>
-          <h1 className="mt-1.5 text-balance text-2xl font-semibold leading-tight text-white sm:text-[1.75rem]">{title}</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-soft">{description}</p>
-          {meta ? <div className="mt-4 flex flex-wrap gap-2">{meta}</div> : null}
+          <h1 className="mt-1 text-balance font-display text-xl font-semibold leading-tight text-white sm:text-2xl">{title}</h1>
+          {description ? <p className="mt-1.5 max-w-3xl text-sm leading-6 text-soft">{description}</p> : null}
+          {meta ? <div className="mt-3 flex flex-wrap gap-2">{meta}</div> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2 lg:justify-end">{actions}</div> : null}
       </div>
@@ -46,13 +46,13 @@ export function MesaLeadMeta({
   return (
     <UtilityPanel
       className={cn(
-        'rounded-full px-3 py-2',
-        accent && 'border-sky-300/20 bg-sky-500/10 text-sky-100',
+        'rounded-lg px-2.5 py-1.5',
+        accent && 'border-blue-300/20 bg-blue-500/12 text-white',
         className
       )}
     >
-      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{label}</span>
-      <span className="ml-2 text-sm font-semibold text-white">{value}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{label}</span>
+      <span className="ml-2 text-xs font-semibold text-white sm:text-sm">{value}</span>
     </UtilityPanel>
   );
 }
@@ -73,16 +73,16 @@ export function MesaSectionPanel({
   className?: string;
 }) {
   return (
-    <Panel className={cn('rounded-lg p-4 sm:p-5', className)}>
+    <Panel className={cn('p-3.5 sm:p-4', className)}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           {eyebrow ? <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{eyebrow}</p> : null}
-          <h2 className="mt-1 text-lg font-semibold leading-tight text-white sm:text-xl">{title}</h2>
-          {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-soft">{description}</p> : null}
+          <h2 className="mt-1 font-display text-base font-semibold leading-tight text-white sm:text-lg">{title}</h2>
+          {description ? <p className="mt-1.5 max-w-2xl text-sm leading-6 text-soft">{description}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
-      <div className="mt-4 grid gap-3">{children}</div>
+      <div className="mt-3 grid gap-2.5">{children}</div>
     </Panel>
   );
 }
@@ -103,8 +103,8 @@ export function MesaKeyValueRow({
   return (
     <UtilityPanel
       className={cn(
-        'rounded-lg px-3.5 py-3.5',
-        accent && 'border-sky-300/18 bg-sky-500/10',
+        'rounded-lg px-3 py-2.5',
+        accent && 'border-blue-300/18 bg-blue-500/10',
         className
       )}
     >
@@ -133,9 +133,9 @@ export function MesaActionCard({
   className?: string;
 }) {
   return (
-    <UtilityPanel className={cn('rounded-lg px-4 py-4', className)}>
+    <UtilityPanel className={cn('rounded-lg px-3.5 py-3.5', className)}>
       <div className="flex items-start gap-3">
-        {icon ? <div className="rounded-lg border border-sky-300/16 bg-sky-500/10 p-2.5 text-sky-100">{icon}</div> : null}
+        {icon ? <div className="rounded-lg border border-blue-300/16 bg-blue-500/10 p-2 text-white">{icon}</div> : null}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white">{title}</p>
           <p className="mt-2 text-sm leading-6 text-soft">{description}</p>
