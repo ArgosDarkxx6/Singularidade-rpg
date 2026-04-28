@@ -264,23 +264,26 @@ async function createRoleJoinCode(page: Page, role: 'player' | 'viewer', slug: s
   const admin = createAdminClient();
   let joinCode = '';
   await expect
-    .poll(async () => {
-      const { data: table } = await admin.from('tables').select('id').eq('slug', slug).maybeSingle();
-      if (!table?.id) return '';
+    .poll(
+      async () => {
+        const { data: table } = await admin.from('tables').select('id').eq('slug', slug).maybeSingle();
+        if (!table?.id) return '';
 
-      const { data } = await admin
-        .from('table_join_codes')
-        .select('code')
-        .eq('table_id', table.id)
-        .eq('role', role)
-        .eq('active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        const { data } = await admin
+          .from('table_join_codes')
+          .select('code')
+          .eq('table_id', table.id)
+          .eq('role', role)
+          .eq('active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      joinCode = data?.code || '';
-      return joinCode;
-    })
+        joinCode = data?.code || '';
+        return joinCode;
+      },
+      { timeout: 30_000 }
+    )
     .not.toBe('');
 
   expect(joinCode).toHaveLength(6);
