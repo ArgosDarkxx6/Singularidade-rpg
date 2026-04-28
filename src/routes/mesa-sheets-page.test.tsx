@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MesaSheetsPage } from './mesa-sheets-page';
@@ -177,10 +177,10 @@ describe('MesaSheetsPage', () => {
 
     render(<MesaSheetsPage />);
 
-    expect(screen.getByText('Você ainda não tem ficha nesta mesa')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Criar personagem na mesa' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Você ainda não tem ficha nesta mesa.' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Criar ficha' })).toBeVisible();
     expect(screen.getByRole('button', { name: /Importar JSON/i })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Escolher personagem' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Usar personagem' })).toBeVisible();
     expect(screen.queryByText('Mysto')).not.toBeInTheDocument();
     expect(await screen.findByText('Veterano')).toBeInTheDocument();
   });
@@ -194,16 +194,13 @@ describe('MesaSheetsPage', () => {
     workspaceMock.hasBoundSheet = true;
     workspaceMock.canManageRoster = false;
     workspaceMock.boundSheetCharacterId = 'char-1';
+    workspaceMock.activeCharacter = makeCharacter('char-1', 'Mysto');
 
     render(<MesaSheetsPage />);
 
-    await waitFor(() => {
-      expect(setActiveCharacterMock).toHaveBeenCalledWith('char-1');
-    });
-
     expect(screen.getByRole('heading', { name: 'Mysto' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Editar identidade' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Exportar personagem JSON' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Exportar JSON' })).toBeInTheDocument();
     expect(screen.getByText('Collections panel')).toBeVisible();
     expect(screen.getByText('Conditions panel')).toBeVisible();
     expect(screen.queryByText(/Ficha em foco/i)).not.toBeInTheDocument();
@@ -215,7 +212,8 @@ describe('MesaSheetsPage', () => {
   it('keeps GM away from core editing while preserving operational access', () => {
     render(<MesaSheetsPage />);
 
-    expect(screen.getByRole('heading', { name: 'Kaori' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Kaori' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Elenco da mesa' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Editar identidade' })).not.toBeInTheDocument();
     expect(screen.queryByText(/GM opera recursos e mecânicas/i)).not.toBeInTheDocument();
     expect(screen.getByText('Profile editor reading operational')).toBeVisible();

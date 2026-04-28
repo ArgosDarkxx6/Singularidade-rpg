@@ -27,6 +27,19 @@ function formatDateTime(value: string) {
   });
 }
 
+function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
+  if (role === 'gm') return 'GM';
+  if (role === 'player') return 'Jogador';
+  return 'Visitante';
+}
+
+function formatPointLabel(label: string) {
+  const normalized = label.trim().toLowerCase();
+  if (normalized === 'snapshot inicial') return 'Ponto inicial';
+  if (normalized === 'snapshot manual') return 'Ponto manual';
+  return label;
+}
+
 export function MesaSettingsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -49,7 +62,7 @@ export function MesaSettingsPage() {
     resolver: zodResolver(snapshotSchema) as never,
     mode: 'onBlur',
     defaultValues: {
-      label: 'Snapshot manual'
+      label: 'Ponto manual'
     }
   });
 
@@ -69,7 +82,7 @@ export function MesaSettingsPage() {
   }, [metaForm, table?.meta]);
 
   if (!table || !session) {
-    return <EmptyState title="Mesa offline." body="Abra uma mesa válida para editar configurações e snapshots." />;
+    return <EmptyState title="Mesa offline." body="Abra uma mesa válida." />;
   }
 
   return (
@@ -79,9 +92,9 @@ export function MesaSettingsPage() {
         title="Configurações"
         meta={
           <>
-            <MesaLeadMeta label="Papel" value={session.role.toUpperCase()} accent />
-            <MesaLeadMeta label="Snapshots" value={table.snapshots.length} />
-            <MesaLeadMeta label="Último sync" value={formatDateTime(table.updatedAt)} />
+            <MesaLeadMeta label="Papel" value={formatRoleLabel(session.role)} accent />
+            <MesaLeadMeta label="Pontos" value={table.snapshots.length} />
+            <MesaLeadMeta label="Atualizado" value={formatDateTime(table.updatedAt)} />
           </>
         }
         actions={
@@ -110,9 +123,9 @@ export function MesaSettingsPage() {
               onSubmit={metaForm.handleSubmit(async (values) => {
                 try {
                   await updateTableMeta(values);
-                  toast.success('Metadados atualizados.');
+                  toast.success('Dados salvos.');
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar os metadados.');
+                  toast.error(error instanceof Error ? error.message : 'Não foi possível salvar os dados.');
                 }
               })}
             >
@@ -140,14 +153,14 @@ export function MesaSettingsPage() {
                   Salvar
                 </Button>
               ) : (
-                <UtilityPanel className="rounded-lg p-4">
+                <UtilityPanel className="rounded-[10px] p-4">
                   <p className="text-sm text-soft">Somente GMs podem alterar os dados da mesa.</p>
                 </UtilityPanel>
               )}
             </form>
           </MesaSectionPanel>
 
-          <MesaSectionPanel eyebrow="Snapshots" title="Restauração">
+          <MesaSectionPanel eyebrow="Pontos salvos" title="Restauração">
             {canManage ? (
               <form
                 className="flex flex-col gap-3 sm:flex-row"
@@ -155,15 +168,15 @@ export function MesaSettingsPage() {
                   try {
                     const result = await createCloudSnapshot(values.label);
                     if (!result) return;
-                    toast.success('Snapshot salvo.');
+                    toast.success('Ponto salvo.');
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o snapshot.');
+                    toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o ponto.');
                   }
                 })}
               >
                 <Input {...snapshotForm.register('label')} />
                 <Button type="submit" variant="secondary" disabled={snapshotForm.formState.isSubmitting}>
-                  Salvar snapshot
+                  Salvar ponto
                 </Button>
               </form>
             ) : null}
@@ -171,10 +184,10 @@ export function MesaSettingsPage() {
             <div className="grid gap-3">
               {table.snapshots.length ? (
                 table.snapshots.map((snapshot) => (
-                  <UtilityPanel key={snapshot.id} className="rounded-lg p-4">
+                  <UtilityPanel key={snapshot.id} className="rounded-[10px] p-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
-                        <p className="text-base font-semibold text-white">{snapshot.label}</p>
+                        <p className="text-base font-semibold text-white">{formatPointLabel(snapshot.label)}</p>
                         <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted">
                           {snapshot.actorName} · {formatDateTime(snapshot.createdAt)}
                         </p>
@@ -186,9 +199,9 @@ export function MesaSettingsPage() {
                           onClick={async () => {
                             try {
                               await restoreCloudSnapshot(snapshot.id);
-                              toast.success('Snapshot restaurado.');
+                              toast.success('Ponto restaurado.');
                             } catch (error) {
-                              toast.error(error instanceof Error ? error.message : 'Não foi possível restaurar o snapshot.');
+                              toast.error(error instanceof Error ? error.message : 'Não foi possível restaurar o ponto.');
                             }
                           }}
                         >
@@ -200,15 +213,15 @@ export function MesaSettingsPage() {
                   </UtilityPanel>
                 ))
               ) : (
-                <EmptyState title="Nenhum snapshot salvo." body="Salve um ponto de restauração antes de alterações críticas." />
+                <EmptyState title="Nenhum ponto salvo." body="Salve um ponto antes de alterações críticas." />
               )}
             </div>
           </MesaSectionPanel>
 
           {isPrimaryOwner ? (
-            <MesaSectionPanel eyebrow="Danger zone" title="Ownership e exclusão" className="border border-rose-300/18 bg-rose-500/10">
+            <MesaSectionPanel eyebrow="Área crítica" title="Administração" className="border border-rose-300/18 bg-rose-500/10">
               <div className="grid gap-4 xl:grid-cols-2">
-                <UtilityPanel className="rounded-lg p-4">
+                <UtilityPanel className="rounded-[10px] p-4">
                   <p className="text-sm font-semibold text-white">Transferir administração</p>
                   <form
                     className="mt-4 grid gap-3"
@@ -241,7 +254,7 @@ export function MesaSettingsPage() {
                   </form>
                 </UtilityPanel>
 
-                <UtilityPanel className="rounded-lg p-4">
+                <UtilityPanel className="rounded-[10px] p-4">
                   <p className="text-sm font-semibold text-white">Excluir mesa</p>
                   <p className="mt-2 text-sm text-soft">
                     Digite <span className="font-semibold text-white">{table.name}</span> para confirmar.
@@ -277,7 +290,7 @@ export function MesaSettingsPage() {
 
         <div className="grid gap-4">
           <MesaSectionPanel eyebrow="Resumo" title={table.name}>
-            <MesaKeyValueRow label="Seu papel" value={session.role.toUpperCase()} />
+            <MesaKeyValueRow label="Seu papel" value={formatRoleLabel(session.role)} />
             <MesaKeyValueRow label="Sessão" value={table.currentSession?.status || 'Sem sessão ativa'} />
             <MesaKeyValueRow label="Sistema" value={table.systemKey} />
           </MesaSectionPanel>

@@ -27,7 +27,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        'min-h-10 w-full min-w-0 rounded-lg border border-white/12 bg-slate-950/60 px-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/78',
+        'min-h-9 w-full min-w-0 rounded-[9px] border border-white/12 bg-slate-950/58 px-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/78',
         className
       )}
       {...props}
@@ -39,7 +39,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cn(
-        'min-h-24 w-full min-w-0 rounded-lg border border-white/12 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/78',
+        'min-h-24 w-full min-w-0 rounded-[9px] border border-white/12 bg-slate-950/58 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-sky-300/35 focus:bg-slate-950/78',
         className
       )}
       {...props}
@@ -51,7 +51,7 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
   return (
     <select
       className={cn(
-        'min-h-10 w-full min-w-0 rounded-lg border border-white/12 bg-slate-950/60 px-3 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/78',
+        'min-h-9 w-full min-w-0 rounded-[9px] border border-white/12 bg-slate-950/58 px-3 text-sm text-white outline-none transition focus:border-sky-300/35 focus:bg-slate-950/78',
         className
       )}
       {...props}

@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input } from '@components/ui/field';
-import { Panel, UtilityPanel } from '@components/ui/panel';
+import { NexusPageHeader, NexusPanel, NexusSectionHeader } from '@components/ui/nexus';
+import { UtilityPanel } from '@components/ui/panel';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { usePlatformInvites } from '@features/workspace/hooks/use-workspace-segments';
 import { joinCodeSchema, joinInviteSchema } from '@schemas/mesa';
@@ -30,8 +31,8 @@ function extractInviteToken(value: string) {
 
 function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
   if (role === 'gm') return 'GM';
-  if (role === 'player') return 'Player';
-  return 'Viewer';
+  if (role === 'player') return 'Jogador';
+  return 'Visitante';
 }
 
 export function InvitesPage() {
@@ -119,28 +120,15 @@ export function InvitesPage() {
   });
 
   return (
-    <div className="grid items-start gap-4 pb-8 xl:grid-cols-[minmax(0,1.45fr)_320px]">
-      <div className="grid gap-4">
-        <Panel className="p-3.5 sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Convites</p>
-              <h1 className="mt-1 font-display text-xl font-semibold leading-tight text-white sm:text-2xl">Entrar em uma mesa</h1>
-            </div>
-          </div>
-        </Panel>
+    <div className="grid items-start gap-3 pb-8 xl:grid-cols-[minmax(0,1.45fr)_304px]">
+      <div className="grid gap-3">
+        <NexusPageHeader kicker="Convites" title="Entrar em uma mesa" />
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Panel className="p-3.5 sm:p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Link</p>
-                <h2 className="mt-1 text-lg font-semibold text-white">Prévia</h2>
-              </div>
-              <Link2 className="size-4 text-accent" />
-            </div>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <NexusPanel>
+            <NexusSectionHeader kicker="Link" title="Prévia" actions={<Link2 className="size-4 text-accent" />} />
 
-            <form className="mt-4 grid gap-4" onSubmit={handleJoinInvite}>
+            <form className="mt-4 grid gap-3" onSubmit={handleJoinInvite}>
               <Field label="URL do convite" error={inviteForm.formState.errors.inviteUrl?.message}>
                 <Input placeholder="https://..." autoComplete="off" {...inviteForm.register('inviteUrl')} />
               </Field>
@@ -162,7 +150,7 @@ export function InvitesPage() {
 
             <div className="mt-4">
               {preview ? (
-                <UtilityPanel className="rounded-lg px-3.5 py-3">
+                <UtilityPanel className="rounded-[9px] px-3 py-2.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{formatRoleLabel(preview.role)}</p>
                   <p className="mt-2 text-lg font-semibold text-white">{preview.tableName}</p>
                   <p className="mt-2 text-sm leading-6 text-soft">{preview.tableDescription || 'Mesa sem descrição pública.'}</p>
@@ -171,18 +159,12 @@ export function InvitesPage() {
                 <EmptyState title="Sem prévia." body="Cole um link de convite." />
               )}
             </div>
-          </Panel>
+          </NexusPanel>
 
-          <Panel className="p-3.5 sm:p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Código</p>
-                <h2 className="mt-1 text-lg font-semibold text-white">Entrada manual</h2>
-              </div>
-              <KeyRound className="size-4 text-accent" />
-            </div>
+          <NexusPanel>
+            <NexusSectionHeader kicker="Código" title="Entrada manual" actions={<KeyRound className="size-4 text-accent" />} />
 
-            <form className="mt-4 grid gap-4" onSubmit={handleJoinCode}>
+            <form className="mt-4 grid gap-3" onSubmit={handleJoinCode}>
               <Field label="Código" error={codeForm.formState.errors.code?.message}>
                 <Input autoComplete="one-time-code" placeholder="ABCD1234" {...codeForm.register('code')} />
               </Field>
@@ -195,22 +177,22 @@ export function InvitesPage() {
                 {joinBusy === 'code' ? 'Entrando...' : 'Usar código'}
               </Button>
             </form>
-          </Panel>
+          </NexusPanel>
         </div>
       </div>
 
       <div className="page-right-rail xl:grid-cols-1">
-        <Panel className="p-3.5">
+        <NexusPanel>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Sessão atual</p>
           <div className="mt-4 grid gap-2">
-            <UtilityPanel className="rounded-lg px-3.5 py-3">
+            <UtilityPanel className="rounded-[9px] px-3 py-2.5">
               <p className="text-sm font-semibold text-white">{online.session?.tableName || 'Nenhuma mesa aberta'}</p>
             </UtilityPanel>
             <Button variant="secondary" onClick={() => navigate('/mesas')}>
               Voltar para mesas
             </Button>
           </div>
-        </Panel>
+        </NexusPanel>
       </div>
     </div>
   );

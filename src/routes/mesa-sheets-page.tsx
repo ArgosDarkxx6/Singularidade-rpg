@@ -6,6 +6,7 @@ import { EmptyState } from '@components/ui/empty-state';
 import { UtilityPanel } from '@components/ui/panel';
 import { MesaLeadMeta, MesaPageLead, MesaSectionPanel } from '@features/mesa/components/mesa-page-primitives';
 import { CollectionsPanel } from '@features/sheets/components/collections-panel';
+import { CharacterRosterPanel } from '@features/sheets/components/character-roster-panel';
 import { ConditionsEditor } from '@features/sheets/components/conditions-editor';
 import { CharacterProfileEditor } from '@features/sheets/components/profile-editor';
 import { useMesaCharacters } from '@features/workspace/hooks/use-workspace-segments';
@@ -13,8 +14,8 @@ import { characterSchema } from '@schemas/domain';
 
 function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
   if (role === 'gm') return 'GM';
-  if (role === 'player') return 'Player';
-  return 'Viewer';
+  if (role === 'player') return 'Jogador';
+  return 'Visitante';
 }
 
 export function MesaSheetsPage() {
@@ -167,17 +168,11 @@ export function MesaSheetsPage() {
       <div className="page-shell pb-8">
         <MesaPageLead
           eyebrow="Fichas"
-          title="Você ainda não tem ficha nesta mesa"
-          meta={
-            <>
-              <MesaLeadMeta label="Papel" value="Player" accent />
-              <MesaLeadMeta label="Visível" value="Apenas a sua ficha" />
-            </>
-          }
+          title="Você ainda não tem ficha nesta mesa."
           actions={
             <>
               <Button disabled={coreBusy} onClick={() => void handleCreateAndBind()}>
-                Criar personagem na mesa
+                Criar ficha
               </Button>
               <Button variant="secondary" disabled={coreBusy} onClick={() => void handleImportAndBind()}>
                 <Upload className="size-4" />
@@ -187,10 +182,10 @@ export function MesaSheetsPage() {
           }
         />
 
-        <MesaSectionPanel eyebrow="Biblioteca" title="Escolher personagem">
+        <MesaSectionPanel eyebrow="Biblioteca" title="Usar personagem">
           {coreLoading ? (
-            <UtilityPanel className="rounded-lg px-4 py-4">
-              <p className="text-sm text-soft">Carregando personagens...</p>
+            <UtilityPanel className="rounded-[10px] px-4 py-4">
+              <p className="text-sm text-soft">Carregando personagens.</p>
             </UtilityPanel>
           ) : coreOptions.length ? (
             coreOptions.map((core) => (
@@ -209,7 +204,7 @@ export function MesaSheetsPage() {
                     setCoreBusy(false);
                   }
                 }}
-                className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-300/24 hover:bg-white/[0.05]"
+                className="rounded-[10px] border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-300/24 hover:bg-white/[0.05]"
               >
                 <p className="text-sm font-semibold text-white">{core.name}</p>
                 <p className="mt-1 text-sm text-soft">
@@ -232,9 +227,22 @@ export function MesaSheetsPage() {
     return (
       <div className="page-shell pb-8">
         <MesaSectionPanel eyebrow="Fichas" title="Carregando ficha">
-          <UtilityPanel className="flex items-start gap-3 rounded-lg px-4 py-4">
+          <UtilityPanel className="flex items-start gap-3 rounded-[10px] px-4 py-4">
             <LoaderCircle className="mt-0.5 size-5 animate-spin text-sky-200" />
-            <p className="text-sm leading-6 text-soft">A mesa está sincronizando o vínculo do seu personagem.</p>
+            <p className="text-sm leading-6 text-soft">Sincronizando personagem.</p>
+          </UtilityPanel>
+        </MesaSectionPanel>
+      </div>
+    );
+  }
+
+  if (session?.role === 'player' && sheetCharacter && activeCharacter.id !== sheetCharacter.id) {
+    return (
+      <div className="page-shell pb-8" data-contract="player-bound-sheet-sync">
+        <MesaSectionPanel eyebrow="Fichas" title="Carregando ficha">
+          <UtilityPanel className="flex items-start gap-3 rounded-[10px] px-4 py-4">
+            <LoaderCircle className="mt-0.5 size-5 animate-spin text-sky-200" />
+            <p className="text-sm leading-6 text-soft">Carregando sua ficha.</p>
           </UtilityPanel>
         </MesaSectionPanel>
       </div>
@@ -246,7 +254,7 @@ export function MesaSheetsPage() {
   }
 
   return (
-    <div className="page-shell pb-8">
+    <div className="page-shell pb-8" data-contract={session?.role === 'player' ? 'player-bound-sheet' : canManageRoster ? 'gm-sheet-with-rail' : 'sheet'}>
       <MesaPageLead
         eyebrow="Fichas"
         title={sheetCharacter.name}
@@ -268,7 +276,7 @@ export function MesaSheetsPage() {
             ) : null}
             <Button variant="secondary" onClick={exportActiveCharacterJson}>
               <FileJson className="size-4" />
-              Exportar personagem JSON
+              Exportar JSON
             </Button>
             {canManageRoster ? (
               <Button variant="ghost" onClick={exportState}>
@@ -280,10 +288,18 @@ export function MesaSheetsPage() {
         }
       />
 
-      <div className="grid gap-4">
-        <CharacterProfileEditor editable={canEditCharacterCore && editMode} canOperateResources={canOperateSheetMechanics} />
-        <CollectionsPanel editable={canOperateSheetMechanics} section="all" />
-        <ConditionsEditor editable={canOperateSheetMechanics} />
+      <div className={canManageRoster ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]' : 'grid gap-4'}>
+        <div className="grid gap-4">
+          <CharacterProfileEditor editable={canEditCharacterCore && editMode} canOperateResources={canOperateSheetMechanics} />
+          <CollectionsPanel editable={canOperateSheetMechanics} section="all" />
+          <ConditionsEditor editable={canOperateSheetMechanics} />
+        </div>
+
+        {canManageRoster ? (
+          <aside className="grid gap-4 xl:sticky xl:top-3 xl:self-start">
+            <CharacterRosterPanel variant="rail" />
+          </aside>
+        ) : null}
       </div>
     </div>
   );

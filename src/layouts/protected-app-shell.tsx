@@ -1,13 +1,5 @@
-import {
-  DoorOpen,
-  House,
-  IdCard,
-  Inbox,
-  Menu,
-  Shield,
-  Sparkles,
-  Users
-} from 'lucide-react';
+import { Bell, DoorOpen, House, IdCard, Inbox, Menu, Shield, Users } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LogoLockup } from '@components/shared/logo-lockup';
 import { Avatar } from '@components/ui/avatar';
@@ -92,12 +84,12 @@ function PlatformSidebarContent({
         <Link
           to="/hub"
           onClick={onNavigate}
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white transition hover:border-white/18 hover:bg-white/[0.06]"
+          className="flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.03] text-white transition hover:border-white/18 hover:bg-white/[0.06]"
           aria-label="Project Nexus"
         >
           <LogoLockup compact className="scale-[0.82]" />
         </Link>
-        <span className={cn('rail-expanded-block rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted', compact && 'rail-expanded-block')}>
+        <span className={cn('rail-expanded-block rounded-[9px] border border-white/8 bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted', compact && 'rail-expanded-block')}>
           Plataforma
         </span>
       </div>
@@ -114,7 +106,7 @@ function PlatformSidebarContent({
                 onClick={onNavigate}
                 aria-label={item.label}
                 className={cn(
-                  'rail-nav-link group flex items-center gap-3 text-sm font-semibold transition',
+              'rail-nav-link group flex items-center gap-3 text-sm font-semibold transition',
                   active ? 'border border-blue-300/18 bg-blue-500/14 text-white' : 'border border-transparent text-soft hover:border-white/8 hover:bg-white/[0.04] hover:text-white'
                 )}
               >
@@ -132,7 +124,7 @@ function PlatformSidebarContent({
             to={`/mesa/${activeTable.slug}`}
             onClick={onNavigate}
             className={cn(
-              'rail-expanded-block rounded-lg border border-white/8 bg-white/[0.03] px-3.5 py-3 transition hover:border-blue-300/16 hover:bg-white/[0.05]',
+              'rail-expanded-block rounded-[9px] border border-white/8 bg-white/[0.03] px-3 py-2.5 transition hover:border-blue-300/16 hover:bg-white/[0.05]',
               !compact && 'max-h-[1200px] opacity-100 pointer-events-auto translate-x-0'
             )}
           >
@@ -177,7 +169,7 @@ function PlatformMobileBottomNav({ pathname }: { pathname: string }) {
                 to={item.to}
                 aria-label={item.label}
                 className={cn(
-                  'flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg border text-[11px] font-semibold transition',
+                  'flex min-h-12 flex-col items-center justify-center gap-1 rounded-[10px] border text-[11px] font-semibold transition',
                   active ? 'border-blue-300/24 bg-blue-500/14 text-white' : 'border-white/8 bg-white/[0.03] text-soft hover:text-white'
                 )}
               >
@@ -199,25 +191,32 @@ export function ProtectedAppShell() {
   const { tables, online } = usePlatformTables();
   const pageTitle = getPageTitle(location.pathname);
   const activeTable = tables.find((table) => table.slug === online.session?.tableSlug) || null;
+  const contentScrollRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!contentScrollRef.current) return;
+    contentScrollRef.current.scrollTop = 0;
+    contentScrollRef.current.scrollLeft = 0;
+  }, [location.pathname, location.search]);
 
   return (
     <div className="platform-shell app-shell-root relative">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(47,109,255,0.16),transparent_21%),radial-gradient(circle_at_top_right,rgba(16,30,66,0.18),transparent_18%),linear-gradient(180deg,rgba(5,10,18,0.98),rgba(3,6,11,0.99))]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(47,109,255,0.12),transparent_21%),radial-gradient(circle_at_top_right,rgba(73,207,255,0.06),transparent_18%),linear-gradient(180deg,rgba(4,9,17,0.98),rgba(2,6,12,0.99))]" />
 
-      <div className="app-shell-grid relative mx-auto grid h-full max-w-[1820px] grid-cols-1 gap-3 px-3 py-3 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-4 xl:py-4">
+      <div className="app-shell-grid relative mx-auto grid h-full max-w-[1880px] grid-cols-1 gap-2.5 px-2.5 py-2.5 xl:grid-cols-[min-content_minmax(0,1fr)] xl:px-3 xl:py-3">
         <aside className="app-sidebar-shell rail-shell hidden xl:flex xl:flex-col" data-shell-layer="rail" aria-label="Navegação lateral">
           <div className="rail-shell-content">
             <PlatformSidebarContent pathname={location.pathname} activeTableSlug={activeTable?.slug || null} onSignOut={signOut} compact />
           </div>
         </aside>
 
-        <div className="app-main-column flex h-full min-h-0 flex-col gap-3">
+        <div className="app-main-column flex h-full min-h-0 flex-col gap-2.5">
           <header className="app-topbar" data-shell-layer="header">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-h-[46px] flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
                 <Sheet>
                   <SheetTrigger asChild>
-                    <button className="inline-flex rounded-lg border border-white/10 bg-white/[0.04] p-2 text-soft transition hover:text-white xl:hidden">
+                    <button className="inline-flex rounded-[9px] border border-white/10 bg-white/[0.04] p-2 text-soft transition hover:text-white xl:hidden">
                       <Menu className="size-5" />
                       <span className="sr-only">Abrir navegação</span>
                     </button>
@@ -227,30 +226,30 @@ export function ProtectedAppShell() {
                   </SheetContent>
                 </Sheet>
 
-                <div className="min-w-0 sm:min-w-[180px]">
+                <div className="min-w-0 sm:min-w-[170px]">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Project Nexus</p>
                   <p className="mt-0.5 font-display text-base font-semibold text-white sm:text-lg">{pageTitle}</p>
                 </div>
 
                 <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
-                  <span className="rounded-lg border border-white/8 bg-white/[0.025] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+                  <span className="rounded-[9px] border border-white/8 bg-white/[0.025] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
                     Plataforma
                   </span>
-                  <span className="rounded-lg border border-blue-300/16 bg-blue-500/10 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white">
+                  <span className="rounded-[9px] border border-blue-300/16 bg-blue-500/10 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white">
                     {pageTitle}
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                <UtilityPanel className="hidden rounded-lg px-2.5 py-1.5 md:flex md:items-center md:gap-2">
-                  <Sparkles className="size-4 text-accent" />
-                  <span className="text-xs font-semibold text-soft">{tables.length} mesa(s)</span>
+                <UtilityPanel className="hidden rounded-[9px] px-2.5 py-1.5 md:flex md:items-center md:gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">Mesas</span>
+                  <span className="text-xs font-semibold text-white">{tables.length}</span>
                 </UtilityPanel>
                 {activeTable ? (
                   <Button onClick={() => navigate(`/mesa/${activeTable.slug}`)}>
                     <Users className="size-4" />
-                    Abrir mesa ativa
+                    Mesa ativa
                   </Button>
                 ) : (
                   <Button onClick={() => navigate('/mesas')}>
@@ -259,6 +258,10 @@ export function ProtectedAppShell() {
                   </Button>
                 )}
                 <Button variant="secondary" onClick={() => navigate('/conta')}>
+                  <Bell className="size-4" />
+                  <span className="sr-only">Notificações</span>
+                </Button>
+                <Button variant="secondary" onClick={() => navigate('/conta')}>
                   <Shield className="size-4" />
                   Conta
                 </Button>
@@ -266,7 +269,7 @@ export function ProtectedAppShell() {
             </div>
           </header>
 
-          <main className="app-content-shell px-3 py-3 sm:px-4 xl:px-5" data-shell-layer="content" data-scroll-region="content">
+          <main ref={contentScrollRef} className="app-content-shell px-3 py-3 sm:px-3.5 xl:px-4" data-shell-layer="content" data-scroll-region="content">
             <div className="page-grid pb-24 sm:pb-8">
               <Outlet />
             </div>

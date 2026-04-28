@@ -8,7 +8,7 @@ export function ProtectedLayout() {
   const location = useLocation();
 
   if (!isReady) {
-    return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando sessao...</div>;
+    return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando sessão...</div>;
   }
 
   if (!user) {
@@ -17,7 +17,7 @@ export function ProtectedLayout() {
   }
 
   if (!workspaceReady) {
-    return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando ambiente...</div>;
+    return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando Nexus...</div>;
   }
 
   return <Outlet />;

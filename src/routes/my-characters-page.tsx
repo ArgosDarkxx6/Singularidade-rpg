@@ -5,10 +5,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Avatar } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Textarea } from '@components/ui/field';
-import { Panel, UtilityPanel } from '@components/ui/panel';
+import { NexusPageHeader, NexusPanel } from '@components/ui/nexus';
+import { UtilityPanel } from '@components/ui/panel';
 import { useAccountCharacters } from '@features/workspace/hooks/use-workspace-segments';
 import { makeCharacter } from '@lib/domain/state';
 import { characterSchema } from '@schemas/domain';
@@ -106,11 +107,8 @@ function CharacterTransferDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="w-[min(94vw,560px)] rounded-xl p-5">
+      <DialogContent aria-describedby={undefined} className="w-[min(94vw,560px)] rounded-[12px] p-5">
         <DialogTitle className="font-display text-2xl text-white">Transferir {core.name}</DialogTitle>
-        <DialogDescription className="mt-2 text-sm leading-6 text-soft">
-          Confirme o username de destino e sua senha atual.
-        </DialogDescription>
 
         <form
           className="mt-5 grid gap-4"
@@ -120,7 +118,7 @@ function CharacterTransferDialog({
             setOpen(false);
           })}
         >
-          <Field label="Transferir para username" error={transferForm.formState.errors.targetUsername?.message}>
+          <Field label="Usuário de destino" error={transferForm.formState.errors.targetUsername?.message}>
             <Input autoComplete="off" placeholder="@destino" {...transferForm.register('targetUsername')} />
           </Field>
           <Field label="Confirmar senha atual" error={transferForm.formState.errors.currentPassword?.message}>
@@ -210,7 +208,7 @@ export function MyCharactersPage() {
   };
 
   return (
-    <div className="grid gap-4 pb-8">
+    <div className="grid gap-3 pb-8">
       <input
         ref={importInputRef}
         type="file"
@@ -224,13 +222,11 @@ export function MyCharactersPage() {
         }}
       />
 
-      <Panel className="p-3.5 sm:p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Personagens</p>
-            <h1 className="mt-1 font-display text-xl font-semibold leading-tight text-white sm:text-2xl">Biblioteca pessoal</h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <NexusPageHeader
+        kicker="Personagens"
+        title="Biblioteca pessoal"
+        actions={
+          <>
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -238,11 +234,8 @@ export function MyCharactersPage() {
                   Criar personagem
                 </Button>
               </DialogTrigger>
-      <DialogContent className="w-[min(94vw,680px)] rounded-xl p-5">
+              <DialogContent aria-describedby={undefined} className="w-[min(94vw,680px)] rounded-[12px] p-5">
                 <DialogTitle className="font-display text-2xl text-white">Novo personagem</DialogTitle>
-                <DialogDescription className="mt-2 text-sm leading-6 text-soft">
-                  Salve um personagem na sua biblioteca.
-                </DialogDescription>
 
                 <form
                   className="mt-5 grid gap-4"
@@ -310,36 +303,36 @@ export function MyCharactersPage() {
               <RefreshCw className="size-4" />
               Atualizar
             </Button>
-          </div>
-        </div>
-      </Panel>
+          </>
+        }
+      />
 
-      <Panel className="p-3.5 sm:p-4">
-        <div className="grid gap-3">
+      <NexusPanel>
+        <div className="grid gap-2.5">
           {loading ? (
-            <UtilityPanel className="rounded-lg px-3.5 py-3">
+            <UtilityPanel className="rounded-[9px] px-3 py-2.5">
               <p className="text-sm text-soft">Carregando personagens...</p>
             </UtilityPanel>
           ) : cores.length ? (
             cores.map((core) => (
-              <UtilityPanel key={core.id} className="rounded-lg px-3.5 py-3">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <UtilityPanel key={core.id} className="rounded-[9px] px-3 py-2.5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex min-w-0 items-start gap-3">
                     <Avatar src={core.avatarUrl || undefined} name={core.name} size="sm" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-base font-semibold text-white">{core.name}</p>
                         <span className="chip-muted inline-flex rounded-lg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]">
-                          Biblioteca
+                          Núcleo
                         </span>
                       </div>
                       <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-muted">
                         {core.clan || 'Sem clã'} · {core.grade || 'Sem grau'}
                       </p>
-                      <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm leading-6 text-soft">
+                      <p className="mt-1.5 line-clamp-2 whitespace-pre-line text-sm leading-6 text-soft">
                         {core.lore || 'Sem lore definida.'}
                       </p>
-                      <p className="mt-2 text-xs text-muted">Atualizado em {formatDate(core.updatedAt)}</p>
+                      <p className="mt-1.5 text-xs text-muted">{formatDate(core.updatedAt)}</p>
                     </div>
                   </div>
 
@@ -396,7 +389,7 @@ export function MyCharactersPage() {
             <EmptyState title="Nenhum personagem ainda." body="Crie um personagem ou importe um JSON." />
           )}
         </div>
-      </Panel>
+      </NexusPanel>
     </div>
   );
 }

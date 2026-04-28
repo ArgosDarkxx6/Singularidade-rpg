@@ -27,7 +27,7 @@ export function normalizeWorkspaceError(error: unknown, fallback: string): strin
 
   if (normalized.includes('invite not found')) return INVITE_MISSING;
   if (normalized.includes('join code not found')) return CODE_MISSING;
-  if (normalized.includes('character required')) return 'Escolha um personagem para entrar como player.';
+  if (normalized.includes('character required')) return 'Escolha um personagem para entrar como jogador.';
   if (normalized.includes('character already claimed')) return 'Este personagem ja esta vinculado a outra conta.';
   if (normalized.includes('character not found')) return 'Personagem indisponivel para este convite.';
   if (code === '42501' || normalized.includes('permission denied') || normalized.includes('row-level security')) {

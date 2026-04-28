@@ -46,8 +46,8 @@ const MOBILE_PRIMARY_SECTIONS: MesaSection[] = ['overview', 'fichas', 'rolagens'
 
 function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
   if (role === 'gm') return 'GM';
-  if (role === 'player') return 'Player';
-  return 'Viewer';
+  if (role === 'player') return 'Jogador';
+  return 'Visitante';
 }
 
 function MesaNavigation({
@@ -112,7 +112,7 @@ function MesaMobileBottomNav({
               <NavLink
                 to={buildMesaSectionPath(slug, section)}
                 className={cn(
-                  'flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg border text-[11px] font-semibold transition',
+                  'flex min-h-12 flex-col items-center justify-center gap-1 rounded-[9px] border text-[11px] font-semibold transition',
                   isActive ? 'border-blue-300/24 bg-blue-500/14 text-white' : 'border-white/8 bg-white/[0.03] text-soft hover:text-white'
                 )}
                 aria-label={navItem.label}
@@ -127,7 +127,7 @@ function MesaMobileBottomNav({
           <button
             type="button"
             onClick={onOpenMore}
-            className="flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-lg border border-white/8 bg-white/[0.03] text-[11px] font-semibold text-soft transition hover:text-white"
+            className="flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-[9px] border border-white/8 bg-white/[0.03] text-[11px] font-semibold text-soft transition hover:text-white"
             aria-label="Mais"
           >
             <Menu className="size-4" />
@@ -177,12 +177,12 @@ function MesaSidebarContent({
         <Link
           to={`/mesa/${slug}`}
           onClick={onNavigate}
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white transition hover:border-white/18 hover:bg-white/[0.06]"
+          className="flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.03] text-white transition hover:border-white/18 hover:bg-white/[0.06]"
           aria-label={table.name}
         >
           <LogoLockup compact variant="system" systemKey={table.systemKey} className="scale-[0.82]" />
         </Link>
-        <span className={cn('rail-expanded-block rounded-lg border border-blue-300/16 bg-blue-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white', compact && 'rail-expanded-block')}>
+        <span className={cn('rail-expanded-block rounded-[9px] border border-blue-300/16 bg-blue-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white', compact && 'rail-expanded-block')}>
           {formatRoleLabel(session.role)}
         </span>
       </div>
@@ -223,7 +223,7 @@ function MesaSidebarContent({
                         onSwitchTable(entry.slug);
                         onNavigate?.();
                       }}
-                      className="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2.5 text-left transition hover:border-blue-300/16 hover:bg-white/[0.05]"
+                      className="rounded-[9px] border border-white/8 bg-white/[0.03] px-3 py-2.5 text-left transition hover:border-blue-300/16 hover:bg-white/[0.05]"
                     >
                       <p className="truncate text-sm font-semibold text-white">{entry.name}</p>
                       <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-muted">
@@ -284,6 +284,7 @@ export function MesaLayout() {
   const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
   const [invitePreviewLoading, setInvitePreviewLoading] = useState(false);
   const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const currentSection = getMesaSectionFromPath(location.pathname);
 
   const accessError = useMemo(() => {
@@ -299,6 +300,12 @@ export function MesaLayout() {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [location.pathname, setMobileNavOpen]);
+
+  useEffect(() => {
+    if (!contentScrollRef.current) return;
+    contentScrollRef.current.scrollTop = 0;
+    contentScrollRef.current.scrollLeft = 0;
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     attemptRef.current = '';
@@ -350,7 +357,7 @@ export function MesaLayout() {
         if (inviteToken) return;
         const nextSession = await switchTable(slug);
         if (!nextSession) {
-          setOpenError('A mesa não respondeu com uma sessão válida para esta rota.');
+          setOpenError('Não foi possível abrir esta mesa.');
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Não foi possível abrir a mesa solicitada.';
@@ -395,7 +402,7 @@ export function MesaLayout() {
     try {
       const joinedSession = await connectToInvite(window.location.href, user?.displayName || user?.username || 'Jogador');
       if (!joinedSession) {
-        setOpenError('A mesa não respondeu com uma sessão válida para este convite.');
+        setOpenError('Não foi possível entrar nesta mesa.');
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível aceitar este convite.';
@@ -409,11 +416,11 @@ export function MesaLayout() {
   if (!isReady || (!session && !terminalAccessError && !inviteToken)) {
     return (
       <div className="grid min-h-screen place-items-center px-4 py-10">
-        <Panel className="w-full max-w-lg p-5 text-center">
+        <Panel className="w-full max-w-md p-5 text-center">
           <LoaderCircle className="mx-auto size-10 animate-spin text-accent" />
           <h1 className="mt-4 font-display text-2xl text-white">Carregando mesa</h1>
           {openError ? <p className="mt-3 text-sm text-rose-200">{openError}</p> : null}
-          <p className="mt-3 text-sm leading-6 text-soft">Abrindo dados da mesa.</p>
+          <p className="mt-3 text-sm leading-6 text-soft">Carregando.</p>
         </Panel>
       </div>
     );
@@ -422,12 +429,12 @@ export function MesaLayout() {
   if (shouldShowInvitePreview) {
     return (
       <div className="grid min-h-screen place-items-center px-4 py-10">
-        <Panel className="w-full max-w-[720px] p-5">
+        <Panel className="w-full max-w-[680px] p-5">
           {invitePreviewLoading ? (
             <>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Convite</p>
               <h1 className="mt-2 font-display text-2xl text-white">Abrindo convite</h1>
-              <p className="mt-3 text-sm leading-6 text-soft">Buscando dados da mesa.</p>
+              <p className="mt-3 text-sm leading-6 text-soft">Carregando.</p>
             </>
           ) : invitePreview ? (
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -479,7 +486,7 @@ export function MesaLayout() {
         <Panel className="w-full max-w-2xl p-5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-accent">Mesa indisponível</p>
           <h1 className="mt-3 font-display text-2xl leading-none text-white sm:text-3xl">Não foi possível abrir /mesa/{slug}</h1>
-          <div className="mt-4 flex max-w-2xl gap-3 rounded-lg border border-rose-300/18 bg-rose-500/10 px-4 py-4">
+          <div className="mt-4 flex max-w-2xl gap-3 rounded-[10px] border border-rose-300/18 bg-rose-500/10 px-4 py-4">
             <TriangleAlert className="mt-0.5 size-5 shrink-0 text-rose-200" />
             <div className="text-sm leading-6 text-soft">
               <p>{terminalAccessError || 'Você precisa participar da mesa ou usar um convite válido.'}</p>
@@ -536,7 +543,7 @@ export function MesaLayout() {
               <div className="flex items-center gap-3">
                 <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                   <SheetTrigger asChild>
-                    <button className="inline-flex rounded-lg border border-white/10 bg-white/[0.04] p-2 text-soft transition hover:text-white xl:hidden">
+                    <button className="inline-flex rounded-[9px] border border-white/10 bg-white/[0.04] p-2 text-soft transition hover:text-white xl:hidden">
                       <Menu className="size-5" />
                       <span className="sr-only">Abrir navegação</span>
                     </button>
@@ -569,7 +576,7 @@ export function MesaLayout() {
                 <button
                   type="button"
                   onClick={() => navigate('/mesas')}
-                  className="hidden rounded-lg border border-white/8 bg-white/[0.03] p-2 text-soft transition hover:text-white sm:inline-flex"
+                  className="hidden rounded-[9px] border border-white/8 bg-white/[0.03] p-2 text-soft transition hover:text-white sm:inline-flex"
                   aria-label="Voltar às mesas"
                 >
                   <ArrowLeft className="size-4" />
@@ -581,17 +588,17 @@ export function MesaLayout() {
                 </div>
 
                 {table.currentSession?.episodeTitle ? (
-                  <UtilityPanel className="hidden rounded-lg px-2.5 py-1.5 lg:flex">
+                  <UtilityPanel className="hidden rounded-[9px] px-2.5 py-1.5 lg:flex">
                     <span className="text-xs font-semibold text-white">{table.currentSession.episodeTitle}</span>
                   </UtilityPanel>
                 ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                <span className="chip-muted inline-flex rounded-lg px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                <span className="chip-muted inline-flex rounded-[9px] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em]">
                   {currentTableSummary?.status || table.currentSession?.status || 'Planejamento'}
                 </span>
-                <UtilityPanel className="hidden rounded-lg px-2.5 py-1.5 md:flex md:items-center md:gap-1.5">
+                <UtilityPanel className="hidden rounded-[9px] px-2.5 py-1.5 md:flex md:items-center md:gap-1.5">
                   {members.slice(0, 5).map((member) => (
                     <Avatar key={member.id} name={member.nickname} size="sm" className="size-8 text-xs" />
                   ))}
@@ -611,7 +618,7 @@ export function MesaLayout() {
             </div>
           </header>
 
-          <div className="app-content-shell px-3 py-3 sm:px-4 xl:px-5" data-shell-layer="content" data-scroll-region="content">
+          <div ref={contentScrollRef} className="app-content-shell px-3 py-3 sm:px-4 xl:px-5" data-shell-layer="content" data-scroll-region="content">
             <AnimatePresence mode="wait">
               <motion.main
                 key={location.pathname + location.search}

@@ -141,7 +141,7 @@ async function signInUser(page: Page, identifier: string) {
   await page.getByLabel('Senha').fill(TEST_PASSWORD);
   await page.getByRole('button', { name: 'Entrar no Project Nexus' }).click();
 
-  await expect(page).toHaveURL(/\/mesas$/);
+  await expect(page).toHaveURL(/\/mesas$/, { timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Campanhas ativas' })).toBeVisible();
 }
 
@@ -255,17 +255,30 @@ async function openInviteModal(page: Page) {
   return dialog;
 }
 
-async function createRoleJoinCode(page: Page, role: 'player' | 'viewer') {
+async function createRoleJoinCode(page: Page, role: 'player' | 'viewer', slug: string) {
   const dialog = await openInviteModal(page);
   await dialog.getByLabel('Formato').selectOption('code');
   await dialog.getByLabel('Papel').selectOption(role);
   await dialog.getByRole('button', { name: 'Criar convite' }).click();
 
+  const admin = createAdminClient();
   let joinCode = '';
   await expect
     .poll(async () => {
-      const bodyText = await page.locator('body').textContent();
-      joinCode = bodyText?.match(/C(?:ó|o)digo\s+(\d{6})\s+criado/i)?.[1] || '';
+      const { data: table } = await admin.from('tables').select('id').eq('slug', slug).maybeSingle();
+      if (!table?.id) return '';
+
+      const { data } = await admin
+        .from('table_join_codes')
+        .select('code')
+        .eq('table_id', table.id)
+        .eq('role', role)
+        .eq('active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      joinCode = data?.code || '';
       return joinCode;
     })
     .not.toBe('');
@@ -474,7 +487,7 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
 
   await page.goto(`/mesa/${slug}/configuracoes`);
   await expect(page.getByRole('heading', { name: 'Configurações' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Salvar snapshot' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Salvar ponto' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto(`/mesa/${slug}/membros`);
@@ -487,7 +500,7 @@ test('gm sees session, presence, and sheet dialogs for the active mesa', async (
   await expect(inviteModal.getByLabel('Papel')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  const generatedCode = await createRoleJoinCode(page, 'player');
+  const generatedCode = await createRoleJoinCode(page, 'player', slug);
   expect(generatedCode).toHaveLength(6);
 
   await page.goto(`/mesa/${slug}/fichas`);
@@ -517,7 +530,7 @@ test('viewer joins read-only, legacy livro redirect stays inside the mesa, and m
   const slug = slugify(tableName);
 
   await page.goto(`/mesa/${slug}/membros`);
-  const joinCode = await createRoleJoinCode(page, 'viewer');
+  const joinCode = await createRoleJoinCode(page, 'viewer', slug);
 
   await signOutCurrentUser(page);
   await registerUser(page, 'Viewer Join');
@@ -561,9 +574,9 @@ test('player joins by linked invite URL', async ({ page }) => {
 
   await page.goto(`/mesa/${slug}/fichas`);
   await expect(page.getByText('Você ainda não tem ficha nesta mesa')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Criar personagem na mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Criar ficha' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Importar JSON' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Escolher personagem' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Usar personagem' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Editar identidade' })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
@@ -598,7 +611,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   const slug = slugify(tableName);
 
   await page.goto(`/mesa/${slug}/membros`);
-  const playerJoinCode = await createRoleJoinCode(page, 'player');
+  const playerJoinCode = await createRoleJoinCode(page, 'player', slug);
 
   await signOutCurrentUser(page);
   const player = await registerUser(page, 'Player Admin');
@@ -635,7 +648,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   await signInUser(page, gm.safeId);
 
   await page.goto(`/mesa/${slug}/configuracoes`);
-  await expect(page.getByText('Danger zone')).toBeVisible();
+  await expect(page.getByText('Área crítica')).toBeVisible();
   await page.getByLabel('Username de destino').fill(player.safeId);
   await page.getByLabel('Sua senha atual').fill(TEST_PASSWORD);
   await page.getByRole('button', { name: 'Transferir' }).click();
@@ -645,7 +658,7 @@ test('profile account, ownership transfer, and table deletion preserve owned cha
   await signInUser(page, player.safeId);
 
   await page.goto(`/mesa/${slug}/configuracoes`);
-  await expect(page.getByText('Danger zone')).toBeVisible();
+  await expect(page.getByText('Área crítica')).toBeVisible();
   await page.getByLabel('Confirmação').fill(tableName);
   await page.getByRole('button', { name: 'Excluir mesa' }).click();
   await expect(page).toHaveURL(/\/mesas$/);

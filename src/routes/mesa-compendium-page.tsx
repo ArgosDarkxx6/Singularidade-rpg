@@ -106,7 +106,7 @@ function BookBlockView({ block }: { block: BookBlock }) {
 
   if (block.type === 'list') {
     return (
-      <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+      <div className="rounded-[10px] border border-white/10 bg-white/[0.04] p-4">
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{block.title}</p>
         <ul className="mt-3 grid gap-2 text-sm leading-6 text-soft">
           {block.items.map((item) => (
@@ -122,7 +122,7 @@ function BookBlockView({ block }: { block: BookBlock }) {
 
   if (block.type === 'table') {
     return (
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+      <div className="overflow-hidden rounded-[10px] border border-white/10 bg-white/[0.04]">
         <div className="border-b border-white/10 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{block.title}</p>
         </div>
@@ -157,7 +157,7 @@ function BookBlockView({ block }: { block: BookBlock }) {
   const titledBlock = block as Extract<BookBlock, { title: string }>;
 
   return (
-    <div className={`rounded-lg border p-4 ${toneClass(block)}`}>
+    <div className={`rounded-[10px] border p-4 ${toneClass(block)}`}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{'label' in block ? block.label || block.type : block.type}</p>
       <h4 className="mt-2 font-display text-2xl text-white">{titledBlock.title}</h4>
       {'body' in block ? <p className="mt-3 text-sm leading-7 text-soft">{block.body}</p> : null}
@@ -278,17 +278,17 @@ export function MesaCompendiumPage() {
           </div>
 
           <div className="grid gap-2">
-            <UtilityPanel className="rounded-lg p-4">
+            <UtilityPanel className="rounded-[10px] p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Capítulos</p>
               <p className="mt-2 text-2xl font-semibold text-white">{filteredChapters.length}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-lg p-4">
+            <UtilityPanel className="rounded-[10px] p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Verbetes</p>
               <p className="mt-2 text-2xl font-semibold text-white">{glossaryCount}</p>
             </UtilityPanel>
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-lg border border-white/10 bg-white/[0.02]">
+          <div className="mt-5 overflow-hidden rounded-[10px] border border-white/10 bg-white/[0.02]">
             <ScrollArea className="h-[min(52vh,560px)]">
               <div className="grid gap-2 p-3">
                 {filteredChapters.map((chapter) => (
@@ -296,7 +296,7 @@ export function MesaCompendiumPage() {
                     key={chapter.id}
                     type="button"
                     onClick={() => setActiveChapterId(chapter.id)}
-                    className={`rounded-lg border px-4 py-3 text-left transition ${
+                    className={`rounded-[9px] border px-4 py-3 text-left transition ${
                       activeChapterId === chapter.id ? 'border-sky-300/24 bg-sky-500/10 text-white' : 'border-white/10 bg-white/[0.03] text-soft hover:text-white'
                     }`}
                   >
@@ -316,7 +316,7 @@ export function MesaCompendiumPage() {
               <div className="mt-4 grid gap-3">
                 {filteredChapters.length ? (
                   filteredChapters.map((chapter) => (
-                    <div key={chapter.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-5">
+                    <div key={chapter.id} className="rounded-[10px] border border-white/10 bg-white/[0.03] p-5">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="max-w-3xl">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{chapter.label}</p>
@@ -330,7 +330,7 @@ export function MesaCompendiumPage() {
 
                       <div className="mt-5 grid gap-4">
                         {chapter.sections.map((section) => (
-                          <UtilityPanel key={section.id} className="rounded-lg p-4">
+                          <UtilityPanel key={section.id} className="rounded-[10px] p-4">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{section.id}</p>
                             <p className="mt-2 text-base font-semibold text-white">{section.title}</p>
                             <p className="mt-2 text-sm leading-6 text-soft">{section.summary}</p>
@@ -349,7 +349,7 @@ export function MesaCompendiumPage() {
               <p className="max-w-3xl text-sm leading-6 text-soft">{activeChapter.summary}</p>
               <div className="mt-4 grid gap-3">
                 {activeChapter.sections.map((section) => (
-                  <motion.section key={section.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                  <motion.section key={section.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[10px] border border-white/10 bg-white/[0.03] p-4">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{section.id}</p>
                     <h3 className="mt-2 font-display text-xl font-semibold leading-tight text-white">{section.title}</h3>
                     <p className="mt-3 text-sm leading-6 text-soft">{section.summary}</p>
@@ -371,13 +371,12 @@ export function MesaCompendiumPage() {
           <MesaRailCard
             eyebrow="Glossário"
             title="Verbetes em destaque"
-            description="Termos, técnicas, objetos e domínios ligados ao termo atual."
           >
             {filteredGlossary.length ? (
               filteredGlossary.slice(0, 4).map((group) => (
-                <UtilityPanel key={group.key} className={`rounded-lg p-4 ${getGlossaryGroupStyle(group.key).panel}`}>
+                <UtilityPanel key={group.key} className={`rounded-[10px] p-4 ${getGlossaryGroupStyle(group.key).panel}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`flex size-14 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br ${getGlossaryGroupStyle(group.key).badge} shadow-[0_10px_30px_rgba(2,8,15,0.35)]`}>
+                    <div className={`flex size-14 items-center justify-center rounded-[10px] border border-white/10 bg-gradient-to-br ${getGlossaryGroupStyle(group.key).badge} shadow-[0_10px_30px_rgba(2,8,15,0.35)]`}>
                       <span className={`text-[11px] font-semibold uppercase tracking-[0.28em] ${getGlossaryGroupStyle(group.key).accent}`}>
                         {getGlossaryGroupMark(group.label)}
                       </span>
@@ -389,7 +388,7 @@ export function MesaCompendiumPage() {
                   </div>
                   <div className="mt-4 grid gap-2">
                     {group.entries.slice(0, 3).map((entry) => (
-                      <div key={entry.id} className="rounded-lg border border-white/8 bg-slate-950/40 px-3 py-3">
+                      <div key={entry.id} className="rounded-[9px] border border-white/8 bg-slate-950/40 px-3 py-3">
                         <p className="text-sm font-semibold text-white">{entry.name}</p>
                         <p className="mt-1 text-xs leading-5 text-soft">{entry.summary}</p>
                       </div>
@@ -402,10 +401,10 @@ export function MesaCompendiumPage() {
             )}
           </MesaRailCard>
 
-          <MesaRailCard eyebrow="Acervo" title="Banco da mesa" description="Armas, técnicas, passivas e itens para consulta rápida.">
+          <MesaRailCard eyebrow="Acervo" title="Banco da mesa">
             {presetMatches.length ? (
               presetMatches.slice(0, 6).map((preset) => (
-                <UtilityPanel key={preset.id} className="rounded-lg p-4">
+                <UtilityPanel key={preset.id} className="rounded-[10px] p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{preset.origin}</p>
                   <p className="mt-2 text-sm font-semibold text-white">{preset.name}</p>
                   <p className="mt-2 text-sm leading-6 text-soft">{preset.description}</p>
@@ -416,7 +415,7 @@ export function MesaCompendiumPage() {
             )}
           </MesaRailCard>
 
-          <MesaRailCard eyebrow="Referências externas" title="Wiki e AniList" description="Busque termos fora do livro quando precisar.">
+          <MesaRailCard eyebrow="Referências externas" title="Wiki e AniList">
             <Field label="Escopo">
               <Select value={referenceScope} onChange={(event) => setReferenceScope(event.target.value as ReferenceScope)}>
                 <option value="all">Tudo</option>
@@ -427,7 +426,7 @@ export function MesaCompendiumPage() {
 
             {referencesQuery.isFetching ? (
               Array.from({ length: 3 }).map((_, index) => (
-                <div key={`reference-skeleton-${index}`} className="h-28 animate-pulse rounded-lg border border-white/10 bg-white/[0.04]" />
+                <div key={`reference-skeleton-${index}`} className="h-28 animate-pulse rounded-[10px] border border-white/10 bg-white/[0.04]" />
               ))
             ) : referencesQuery.data?.length ? (
               referencesQuery.data.map((card) => (
@@ -436,7 +435,7 @@ export function MesaCompendiumPage() {
                   href={card.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-lg border border-white/10 bg-white/[0.04] p-4 transition hover:border-sky-300/22 hover:bg-white/[0.06]"
+                  className="rounded-[10px] border border-white/10 bg-white/[0.04] p-4 transition hover:border-sky-300/22 hover:bg-white/[0.06]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>

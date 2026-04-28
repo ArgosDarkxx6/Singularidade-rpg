@@ -32,9 +32,8 @@ export function RegisterPage() {
     <div>
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent">Project Nexus</p>
       <h2 className="mt-3 text-balance font-display text-2xl font-semibold leading-tight text-white sm:text-3xl">Crie sua conta.</h2>
-      <p className="mt-4 max-w-lg text-sm leading-6 text-soft">Escolha um usuario unico para jogar e criar mesas.</p>
 
-      <div className="mt-8">
+      <div className="mt-6">
         <RegisterForm onSuccess={handleSuccess} />
       </div>
 

@@ -21,6 +21,12 @@ const userFacingRoutes = [
   'src/routes/mesa-order-page.tsx',
   'src/routes/mesa-compendium-page.tsx',
   'src/routes/mesa-settings-page.tsx',
+  'src/features/mesa/components/mesa-page-primitives.tsx',
+  'src/features/mesa/components/mesa-section-primitives.tsx',
+  'src/features/sheets/components/character-roster-panel.tsx',
+  'src/features/sheets/components/profile-editor.tsx',
+  'src/features/sheets/components/collections-panel.tsx',
+  'src/features/sheets/components/conditions-editor.tsx',
   'src/features/compendium/data/source/book-content.js'
 ];
 
@@ -47,7 +53,16 @@ const bannedPhrases = [
   'proxy de referências externas',
   'proxy de referencias externas',
   'presets encontrados',
-  'composer'
+  'composer',
+  'danger zone',
+  'último sync',
+  'ultimo sync',
+  'snapshot salvo',
+  'snapshot restaurado',
+  'salvar snapshot',
+  'metadados',
+  'core narrativo protegido',
+  'roster do gm'
 ];
 
 describe('user-facing copy', () => {

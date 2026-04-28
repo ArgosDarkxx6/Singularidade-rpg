@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Project Nexus Mark">
   <defs>
-    <linearGradient id="nexusMarkCore" x1="14" y1="16" x2="84" y2="82" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8DE0FF" />
-      <stop offset="0.55" stop-color="#4E9FFF" />
-      <stop offset="1" stop-color="#2E4EFF" />
+    <linearGradient id="markStroke" x1="11" y1="8" x2="85" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8FE9FF" />
+      <stop offset="0.52" stop-color="#3F8DFF" />
+      <stop offset="1" stop-color="#214BFF" />
     </linearGradient>
-    <linearGradient id="nexusMarkEdge" x1="8" y1="8" x2="88" y2="88" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#9CE9FF" stop-opacity="0.9" />
-      <stop offset="1" stop-color="#4978FF" stop-opacity="0.45" />
+    <linearGradient id="markFill" x1="19" y1="18" x2="78" y2="79" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#65CFFF" />
+      <stop offset="1" stop-color="#2F6DFF" />
     </linearGradient>
   </defs>
-  <rect x="4" y="4" width="88" height="88" rx="18" fill="#050A15" />
-  <rect x="8" y="8" width="80" height="80" rx="14" fill="#0A1220" stroke="url(#nexusMarkEdge)" stroke-width="1.5" />
-  <path d="M24 26h14l14 18 14-18h14L59 51l22 29H66L52 61 38 80H23l22-29-21-25z" fill="url(#nexusMarkCore)" />
+  <rect x="5" y="5" width="86" height="86" rx="15" fill="#050A14" stroke="#233653" stroke-width="1.5" />
+  <path d="M22 76V18l14 8v31l24-39 14 8v52l-14-8V44L36 82l-14-6z" fill="url(#markFill)" />
+  <path d="M22 18l14 8 24 36V18l14 8v58l-14-8-24-36v42l-14-6V18z" fill="none" stroke="url(#markStroke)" stroke-width="4" stroke-linejoin="round" />
 </svg>

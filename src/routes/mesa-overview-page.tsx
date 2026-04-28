@@ -19,8 +19,8 @@ type GameSessionValues = import('zod').infer<typeof gameSessionFormSchema>;
 
 function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
   if (role === 'gm') return 'GM';
-  if (role === 'player') return 'Player';
-  return 'Viewer';
+  if (role === 'player') return 'Jogador';
+  return 'Visitante';
 }
 
 function formatDateTime(value: string) {
@@ -31,6 +31,13 @@ function formatDateTime(value: string) {
     hour: '2-digit',
     minute: '2-digit'
   });
+}
+
+function formatPointLabel(label: string) {
+  const normalized = label.trim().toLowerCase();
+  if (normalized === 'snapshot inicial') return 'Ponto inicial';
+  if (normalized === 'snapshot manual') return 'Ponto manual';
+  return label;
 }
 
 export function MesaOverviewPage() {
@@ -95,10 +102,10 @@ export function MesaOverviewPage() {
 
   const handleCreateSnapshot = async () => {
     try {
-      await createCloudSnapshot(`Checkpoint ${new Date().toLocaleString('pt-BR')}`);
-      toast.success('Snapshot salvo.');
+      await createCloudSnapshot(`Ponto ${new Date().toLocaleString('pt-BR')}`);
+      toast.success('Ponto salvo.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o snapshot.');
+      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o ponto.');
     }
   };
 
@@ -127,7 +134,7 @@ export function MesaOverviewPage() {
               </Button>
               <Button onClick={() => void handleCreateSnapshot()}>
                 <Plus className="size-4" />
-                Snapshot
+                Salvar ponto
               </Button>
             </>
           ) : undefined
@@ -156,7 +163,7 @@ export function MesaOverviewPage() {
                 <MesaKeyValueRow label="Objetivo" value={currentSession.objective || 'Sem registro'} />
               </>
             ) : (
-              <EmptyState title="Nenhuma sessão aberta." body="Crie a próxima sessão para registrar o momento atual da mesa." />
+              <EmptyState title="Nenhuma sessão aberta." body="Crie uma sessão." />
             )}
           </MesaSectionPanel>
 
@@ -168,8 +175,8 @@ export function MesaOverviewPage() {
               </div>
               <MesaKeyValueRow label="Descrição" value={table.meta.description || 'Sem descrição cadastrada.'} />
               <div className="grid gap-3 md:grid-cols-2">
-                <MesaKeyValueRow label="Último sync" value={formatDateTime(table.updatedAt)} />
-                <MesaKeyValueRow label="Snapshots" value={table.snapshots.length} />
+                <MesaKeyValueRow label="Atualizado" value={formatDateTime(table.updatedAt)} />
+                <MesaKeyValueRow label="Pontos salvos" value={table.snapshots.length} />
               </div>
             </MesaSectionPanel>
 
@@ -184,13 +191,13 @@ export function MesaOverviewPage() {
             </MesaSectionPanel>
           </div>
 
-          <MesaSectionPanel eyebrow="Próximos módulos" title="Abrir módulo">
+          <MesaSectionPanel eyebrow="Atalhos" title="Abrir módulo">
             <div className="grid gap-2 md:grid-cols-2">
               {nextModules.map((item) => (
                 <Link
                   key={item.section}
                   to={item.href}
-                  className="rounded-lg border border-white/8 bg-white/[0.025] px-3.5 py-3 transition hover:border-blue-300/16 hover:bg-white/[0.04]"
+                  className="rounded-[9px] border border-white/8 bg-white/[0.025] px-3.5 py-3 transition hover:border-blue-300/16 hover:bg-white/[0.04]"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -209,7 +216,7 @@ export function MesaOverviewPage() {
           <MesaSectionPanel eyebrow="Membros" title="Presença">
             {members.length ? (
               members.map((member) => (
-              <UtilityPanel key={member.id} className="rounded-lg px-3.5 py-3.5">
+              <UtilityPanel key={member.id} className="rounded-[9px] px-3.5 py-3.5">
                   <div className="flex items-start gap-3">
                     <Avatar name={member.nickname} size="sm" />
                     <div className="min-w-0 flex-1">
@@ -223,35 +230,35 @@ export function MesaOverviewPage() {
                 </UtilityPanel>
               ))
             ) : (
-              <EmptyState title="Sem presença ao vivo." body="Os membros aparecem aqui quando entram na mesa." />
+              <EmptyState title="Sem presença ativa." body="Nenhum membro online." />
             )}
           </MesaSectionPanel>
 
-          <MesaSectionPanel eyebrow="Snapshots" title="Recentes">
+          <MesaSectionPanel eyebrow="Pontos salvos" title="Recentes">
             {table.snapshots.length ? (
               table.snapshots.slice(0, 4).map((snapshot) => (
                 <MesaKeyValueRow
                   key={snapshot.id}
-                  label={snapshot.label}
+                  label={formatPointLabel(snapshot.label)}
                   value={formatDateTime(snapshot.createdAt)}
                   helper={snapshot.actorName || 'Autor não identificado'}
                 />
               ))
             ) : (
-              <EmptyState title="Nenhum snapshot salvo." body="Crie um checkpoint quando quiser guardar um ponto seguro da mesa." />
+              <EmptyState title="Nenhum ponto salvo." body="Salve um ponto quando precisar." />
             )}
           </MesaSectionPanel>
 
           <MesaSectionPanel eyebrow="Status" title="Leitura rápida">
             <MesaKeyValueRow label="Sistema" value={table.systemKey} />
-            <MesaKeyValueRow label="Owner" value={members.find((member) => member.isOwner)?.nickname || 'Sem owner'} />
+            <MesaKeyValueRow label="Responsável" value={members.find((member) => member.isOwner)?.nickname || 'Sem responsável'} />
             <MesaKeyValueRow label="Vagas" value={table.meta.slotCount || 0} />
           </MesaSectionPanel>
         </div>
       </div>
 
       <Dialog open={sessionModalOpen} onOpenChange={setSessionModalOpen}>
-        <DialogContent className="max-h-[88vh] overflow-y-auto rounded-xl">
+        <DialogContent className="max-h-[88vh] overflow-y-auto rounded-[12px]">
           <DialogTitle className="font-display text-2xl text-white">Sessão</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-soft">Preencha os dados do próximo episódio.</DialogDescription>
           <form
@@ -307,7 +314,7 @@ export function MesaOverviewPage() {
       </Dialog>
 
       <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
-        <DialogContent className="max-h-[88vh] overflow-y-auto rounded-xl">
+        <DialogContent className="max-h-[88vh] overflow-y-auto rounded-[12px]">
           <DialogTitle className="font-display text-2xl text-white">Convite</DialogTitle>
           <DialogDescription className="mt-2 text-sm leading-6 text-soft">Escolha o papel e gere o acesso.</DialogDescription>
           <form
@@ -342,13 +349,13 @@ export function MesaOverviewPage() {
             </Field>
             <Field label="Papel">
               <Select {...inviteForm.register('role')}>
-                <option value="player">Player</option>
-                <option value="viewer">Viewer</option>
+                <option value="player">Jogador</option>
+                <option value="viewer">Visitante</option>
                 <option value="gm">GM</option>
               </Select>
             </Field>
             <div className="grid gap-2 sm:grid-cols-2">
-              <UtilityPanel className="rounded-lg px-3.5 py-3">
+              <UtilityPanel className="rounded-[9px] px-3.5 py-3">
                 <div className="flex items-center gap-3">
                   <Link2 className="size-4 text-sky-200" />
                   <div>
@@ -357,7 +364,7 @@ export function MesaOverviewPage() {
                   </div>
                 </div>
               </UtilityPanel>
-              <UtilityPanel className="rounded-lg px-3.5 py-3">
+              <UtilityPanel className="rounded-[9px] px-3.5 py-3">
                 <div className="flex items-center gap-3">
                   <Ticket className="size-4 text-sky-200" />
                   <div>

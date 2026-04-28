@@ -8,7 +8,8 @@ import { Button } from '@components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select, Textarea } from '@components/ui/field';
-import { Panel, UtilityPanel } from '@components/ui/panel';
+import { NexusPageHeader, NexusPanel, NexusSectionHeader } from '@components/ui/nexus';
+import { UtilityPanel } from '@components/ui/panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { usePlatformTables } from '@features/workspace/hooks/use-workspace-segments';
@@ -21,8 +22,8 @@ type JoinInviteValues = import('zod').infer<typeof joinInviteSchema>;
 
 function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
   if (role === 'gm') return 'GM';
-  if (role === 'player') return 'Player';
-  return 'Viewer';
+  if (role === 'player') return 'Jogador';
+  return 'Visitante';
 }
 
 function formatDate(value: string) {
@@ -141,16 +142,15 @@ export function MesasPage() {
   });
 
   return (
-    <div className="grid items-start gap-4 pb-8 xl:grid-cols-[minmax(0,1.6fr)_320px]">
-      <div className="grid gap-4">
-        <Panel className="p-3.5 sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Mesas</p>
-              <h1 className="mt-1 font-display text-xl font-semibold leading-tight text-white sm:text-2xl">Campanhas ativas</h1>
-            </div>
-            <div className="flex flex-wrap gap-2">
+    <div className="grid items-start gap-3 pb-8 xl:grid-cols-[minmax(0,1.6fr)_304px]">
+      <div className="grid gap-3">
+        <NexusPageHeader
+          kicker="Mesas"
+          title="Campanhas ativas"
+          actions={
+            <>
               <Button
+                data-action="create-table"
                 onClick={() => {
                   createForm.reset(buildCreateDefaults(defaultNickname));
                   setCreateOpen(true);
@@ -159,45 +159,45 @@ export function MesasPage() {
                 <Plus className="size-4" />
                 Nova mesa
               </Button>
-              <Button variant="secondary" onClick={() => setJoinOpen(true)}>
+              <Button data-action="join-table" variant="secondary" onClick={() => setJoinOpen(true)}>
                 <DoorOpen className="size-4" />
                 Entrar
               </Button>
-            </div>
-          </div>
-        </Panel>
+            </>
+          }
+        />
 
         {tableActionError ? (
-          <UtilityPanel className="rounded-lg border border-rose-300/18 bg-rose-500/10 px-4 py-4">
+          <UtilityPanel className="rounded-[9px] border border-rose-300/18 bg-rose-500/10 px-3.5 py-3">
             <p className="text-sm leading-6 text-soft">{tableActionError}</p>
           </UtilityPanel>
         ) : null}
 
-        <Panel className="p-3.5 sm:p-4">
-          <div className="grid gap-3">
+        <NexusPanel>
+          <div className="grid gap-2.5">
             {tables.length ? (
               tables.map((table) => (
                 <div
                   key={table.id}
-                  className="rounded-lg border border-white/8 bg-white/[0.025] px-3.5 py-3 transition hover:border-blue-300/16 hover:bg-white/[0.04]"
+                  className="nexus-row px-3 py-2.5"
                 >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0 max-w-3xl">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="chip-accent inline-flex rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                        <span className="chip-accent inline-flex rounded-[8px] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
                           {formatRoleLabel(table.role)}
                         </span>
-                        <span className="chip-muted inline-flex rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                        <span className="chip-muted inline-flex rounded-[8px] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
                           {getGameSystem(table.systemKey).name}
                         </span>
                         {table.isOwner ? (
-                          <span className="chip-muted inline-flex rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                          <span className="chip-muted inline-flex rounded-[8px] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
                             Criador
                           </span>
                         ) : null}
                       </div>
-                      <h2 className="mt-2 font-display text-lg font-semibold leading-tight text-white sm:text-xl">{table.name}</h2>
-                      <p className="mt-2 text-sm leading-6 text-soft">
+                      <h2 className="mt-2 font-display text-base font-semibold leading-tight text-white sm:text-lg">{table.name}</h2>
+                      <p className="mt-1.5 text-sm leading-6 text-soft">
                         {table.seriesName || 'Sem série'} · {table.campaignName || 'Sem campanha'} · atualizado em {formatDate(table.updatedAt)}
                       </p>
                     </div>
@@ -211,45 +211,39 @@ export function MesasPage() {
                 </div>
               ))
             ) : (
-              <EmptyState title="Nenhuma mesa ainda." body="Crie uma campanha ou entre usando um código ou convite." />
+              <EmptyState title="Nenhuma mesa ainda." body="Crie uma campanha ou entre por convite." />
             )}
           </div>
-        </Panel>
+        </NexusPanel>
       </div>
 
       <div className="page-right-rail xl:grid-cols-1">
-        <Panel className="p-3.5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Mesa ativa</p>
-              <h2 className="mt-1 text-lg font-semibold text-white">{activeTable?.name || 'Nenhuma mesa aberta'}</h2>
-            </div>
-            <RadioTower className="size-4 text-accent" />
-          </div>
+        <NexusPanel>
+          <NexusSectionHeader kicker="Mesa ativa" title={activeTable?.name || 'Nenhuma mesa aberta'} actions={<RadioTower className="size-4 text-accent" />} />
           <div className="mt-4 grid gap-2">
             {activeTable ? (
               <>
-                <UtilityPanel className="rounded-lg px-3.5 py-3">
+                <UtilityPanel className="rounded-[9px] px-3 py-2.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status</p>
                   <p className="mt-1 text-sm font-semibold text-white">{activeTable.status || 'Planejamento'}</p>
                 </UtilityPanel>
-                <UtilityPanel className="rounded-lg px-3.5 py-3">
+                <UtilityPanel className="rounded-[9px] px-3 py-2.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Seu papel</p>
                   <p className="mt-1 text-sm font-semibold text-white">{formatRoleLabel(activeTable.role)}</p>
                 </UtilityPanel>
                 <Button onClick={() => void handleContinueTable(activeTable.slug)}>Abrir mesa</Button>
               </>
             ) : (
-              <EmptyState title="Sem mesa aberta." body="Quando você entrar em uma mesa, ela aparece aqui." />
+              <EmptyState title="Sem mesa aberta." body="Entre em uma mesa." />
             )}
           </div>
-        </Panel>
+        </NexusPanel>
 
-        <Panel className="p-3.5">
+        <NexusPanel>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Entrar</p>
           <h2 className="mt-1 text-lg font-semibold text-white">Código ou convite</h2>
           <div className="mt-4 grid gap-2">
-            <UtilityPanel className="rounded-lg px-3.5 py-3">
+            <UtilityPanel className="rounded-[9px] px-3 py-2.5">
               <p className="text-sm leading-6 text-soft">Código ou link de convite.</p>
             </UtilityPanel>
             <Button variant="secondary" onClick={() => setJoinOpen(true)}>
@@ -257,7 +251,7 @@ export function MesasPage() {
               Abrir entrada
             </Button>
           </div>
-        </Panel>
+        </NexusPanel>
       </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>

@@ -5,7 +5,7 @@ describe('workspace invite error rules', () => {
   it('maps invite and code states to clear messages', () => {
     expect(normalizeWorkspaceError(new Error('invite not found'), 'fallback')).toBe('Convite invalido ou expirado.');
     expect(normalizeWorkspaceError(new Error('join code not found'), 'fallback')).toBe('Codigo invalido ou revogado.');
-    expect(normalizeWorkspaceError(new Error('character required'), 'fallback')).toBe('Escolha um personagem para entrar como player.');
+    expect(normalizeWorkspaceError(new Error('character required'), 'fallback')).toBe('Escolha um personagem para entrar como jogador.');
     expect(normalizeWorkspaceError(new Error('character already claimed'), 'fallback')).toBe('Este personagem ja esta vinculado a outra conta.');
   });
 

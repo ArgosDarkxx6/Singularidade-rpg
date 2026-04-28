@@ -206,7 +206,7 @@ export function MesaRollsPage() {
               </div>
               <Button type="submit" disabled={!canRoll || !customForm.formState.isValid || customForm.formState.isSubmitting}>
                 <Dices className="size-4" />
-                Executar rolagem
+                Rolar dados
               </Button>
             </form>
           </MesaSectionPanel>
@@ -231,14 +231,14 @@ export function MesaRollsPage() {
                 </div>
               </>
             ) : (
-              <EmptyState title="Nenhuma rolagem ainda." body="Faça um teste para registrar o resultado." />
+              <EmptyState title="Nenhuma rolagem ainda." body="Role os dados para começar." />
             )}
           </MesaSectionPanel>
 
           <MesaSectionPanel eyebrow="Log" title="Histórico">
             {state.log.length ? (
               state.log.slice(0, 12).map((entry) => (
-                <UtilityPanel key={entry.id} className="rounded-lg px-3.5 py-3.5">
+                <UtilityPanel key={entry.id} className="rounded-[9px] px-3.5 py-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{entry.category}</p>

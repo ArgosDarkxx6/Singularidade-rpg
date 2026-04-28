@@ -94,7 +94,7 @@ describe('ProtectedAppShell', () => {
     expect(screen.getAllByText('Mesa Alpha')[0]).toBeVisible();
     expect(screen.getAllByRole('link', { name: /Hub/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /Conta/i }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /Abrir mesa ativa/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Mesa ativa/i })).toBeVisible();
     expect(document.querySelector('[data-shell-layer="rail"]')).toBeTruthy();
     expect(document.querySelector('[data-shell-layer="header"]')).toBeTruthy();
     expect(document.querySelector('[data-shell-layer="content"]')).toBeTruthy();

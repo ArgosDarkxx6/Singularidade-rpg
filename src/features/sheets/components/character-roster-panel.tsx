@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { Button } from '@components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select } from '@components/ui/field';
 import { Panel, UtilityPanel } from '@components/ui/panel';
@@ -33,7 +33,7 @@ function RosterCard({
   return (
     <div
       className={cn(
-        'rounded-lg border px-3 py-3 transition',
+        'rounded-[9px] border px-3 py-3 transition',
         active ? 'border-sky-300/28 bg-sky-500/10' : 'border-white/10 bg-white/[0.03] hover:border-white/16'
       )}
     >
@@ -99,7 +99,7 @@ export function CharacterRosterPanel({
   });
 
   return (
-    <Panel className={cn(compact ? 'p-3.5' : 'p-4')}>
+    <Panel className={cn(compact ? 'p-3.5' : 'p-4')} data-contract="gm-character-rail">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Elenco</p>
@@ -113,10 +113,9 @@ export function CharacterRosterPanel({
               Adicionar
             </Button>
           </DialogTrigger>
-          <DialogContent className="w-[min(94vw,560px)] rounded-xl p-5">
+          <DialogContent className="w-[min(94vw,560px)] rounded-[12px] p-5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Ficha</p>
             <DialogTitle className="mt-2 text-2xl font-semibold leading-tight text-white">Adicionar personagem</DialogTitle>
-            <DialogDescription className="mt-2 text-sm leading-6 text-soft">Preencha os dados iniciais.</DialogDescription>
 
             <form className="mt-5 grid gap-4" onSubmit={handleCreateCharacter}>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -192,7 +191,7 @@ export function CharacterRosterPanel({
         ) : search.trim() ? (
           <EmptyState title="Nenhum personagem encontrado." body="Ajuste a busca para ver o elenco completo." />
         ) : (
-          <UtilityPanel className="rounded-lg p-4">
+          <UtilityPanel className="rounded-[10px] p-4">
             <p className="text-sm leading-6 text-soft">Nenhum personagem foi criado para esta mesa ainda.</p>
           </UtilityPanel>
         )}

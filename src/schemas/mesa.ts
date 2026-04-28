@@ -67,7 +67,7 @@ export const joinCodeCreateSchema = z.object({
 });
 
 export const snapshotSchema = z.object({
-  label: z.string().min(2, 'Informe o nome do snapshot.')
+  label: z.string().min(2, 'Informe o nome do ponto.')
 });
 
 export const ownershipTransferSchema = z.object({

@@ -151,7 +151,7 @@ describe('MyCharactersPage', () => {
 
     await screen.findByText('Mysto');
     await user.click(await screen.findByRole('button', { name: 'Transferir posse' }));
-    await user.type(screen.getByLabelText('Transferir para username'), 'destino');
+    await user.type(screen.getByLabelText('Usuário de destino'), 'destino');
     await user.type(screen.getByLabelText('Confirmar senha atual'), 'senha123');
     await user.click(screen.getByRole('button', { name: 'Confirmar transferência' }));
 

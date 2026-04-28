@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { SectionTitle } from '@components/shared/section-title';
 import { Button } from '@components/ui/button';
 import { Card } from '@components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select, Textarea } from '@components/ui/field';
 import { UtilityPanel } from '@components/ui/panel';
@@ -27,12 +27,11 @@ function splitTagText(value: string) {
   return parseTags(value.split(',').map((item) => item.trim()));
 }
 
-function DialogHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+function DialogHeader({ eyebrow, title }: { eyebrow: string; title: string; description?: string }) {
   return (
     <>
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">{eyebrow}</p>
       <DialogTitle className="mt-2 font-display text-2xl font-semibold leading-tight text-white">{title}</DialogTitle>
-      <DialogDescription className="mt-3 text-sm leading-6 text-soft">{description}</DialogDescription>
     </>
   );
 }
@@ -53,7 +52,7 @@ function ItemCard({
   onRemove: () => void;
 }) {
   return (
-    <UtilityPanel className="rounded-lg p-4">
+    <UtilityPanel className="rounded-[10px] p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-lg font-semibold text-white">{title}</p>
@@ -169,7 +168,7 @@ export function CollectionsPanel({ section = 'all', editable = true }: { section
         <Card className="p-4">
           <SectionTitle eyebrow="Itens e recursos" title="Inventário" actions={editable ? <Button variant="secondary" onClick={() => openDialog('inventory')}><Plus className="size-4" />Adicionar item</Button> : undefined} />
           <div className="mt-4 grid gap-3">
-            <UtilityPanel className="rounded-lg p-3.5">
+            <UtilityPanel className="rounded-[10px] p-3.5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Dinheiro disponível</p>

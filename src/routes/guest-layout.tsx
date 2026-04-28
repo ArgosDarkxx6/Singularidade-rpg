@@ -6,7 +6,7 @@ export function GuestLayout() {
   const { isReady, user } = useAuth();
 
   if (!isReady) {
-    return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando sessao...</div>;
+    return <div className="grid min-h-screen place-items-center text-sm text-soft">Carregando sessão...</div>;
   }
 
   if (user) {

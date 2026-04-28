@@ -2480,7 +2480,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
         const { error: snapshotError } = await client.from('table_snapshots').insert({
           table_id: createdTable.id,
           created_by: user.id,
-          label: 'Snapshot inicial',
+          label: 'Ponto inicial',
           state: serializeStateForSnapshot(state) as unknown as Json
         });
 
@@ -2701,7 +2701,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
     },
     async createSnapshot({ session, label, actor, state }) {
       if (session.role !== 'gm') {
-        throw new Error('Apenas GMs podem salvar snapshots da mesa.');
+        throw new Error('Apenas GMs podem salvar pontos da mesa.');
       }
 
       const client = assertClient();
@@ -2709,7 +2709,7 @@ export function createSupabaseWorkspaceBackend(): WorkspaceBackend {
       const { error } = await client.from('table_snapshots').insert({
         table_id: session.tableId,
         created_by: authUser.user?.id || null,
-        label: label.trim() || 'Snapshot manual',
+        label: label.trim() || 'Ponto manual',
         state: serializeStateForSnapshot(state) as unknown as Json
       });
 

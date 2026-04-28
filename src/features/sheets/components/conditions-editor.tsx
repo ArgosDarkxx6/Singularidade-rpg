@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { SectionTitle } from '@components/shared/section-title';
 import { Button } from '@components/ui/button';
 import { Card } from '@components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select, Textarea } from '@components/ui/field';
 import { CONDITION_COLORS } from '@lib/domain/constants';
@@ -48,7 +48,7 @@ export function ConditionsEditor({ editable = true }: { editable?: boolean }) {
           activeCharacter.conditions.map((condition) => (
             <div
               key={condition.id}
-              className="rounded-lg border px-4 py-4"
+              className="rounded-[10px] border px-4 py-4"
               style={{
                 background: CONDITION_COLORS[condition.color].bg,
                 borderColor: CONDITION_COLORS[condition.color].border
@@ -75,7 +75,7 @@ export function ConditionsEditor({ editable = true }: { editable?: boolean }) {
             </div>
           ))
         ) : (
-          <EmptyState title="Nenhuma condição ativa." body="Use o botão de ação para sinalizar estados importantes da cena." />
+          <EmptyState title="Nenhuma condição ativa." body="Adicione um estado quando precisar." />
         )}
       </div>
 
@@ -91,7 +91,6 @@ export function ConditionsEditor({ editable = true }: { editable?: boolean }) {
         <DialogContent>
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Condição</p>
           <DialogTitle className="mt-2 font-display text-2xl font-semibold leading-tight text-white">Adicionar estado</DialogTitle>
-          <DialogDescription className="mt-3 text-sm leading-6 text-soft">Registre pressão, ferimento, buff ou restrição.</DialogDescription>
 
           <form
             className="mt-6 grid gap-4"

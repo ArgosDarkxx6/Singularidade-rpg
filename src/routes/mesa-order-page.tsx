@@ -141,7 +141,7 @@ export function MesaOrderPage() {
                 return (
                   <UtilityPanel
                     key={entry.id}
-                    className={`rounded-lg px-4 py-4 ${isActive ? 'border-sky-300/20 bg-sky-500/10' : ''}`}
+                    className={`rounded-[10px] px-4 py-4 ${isActive ? 'border-sky-300/20 bg-sky-500/10' : ''}`}
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
@@ -175,7 +175,7 @@ export function MesaOrderPage() {
                 );
               })
             ) : (
-              <EmptyState title="Nenhum combatente cadastrado." body="Abra a ordem como GM para preencher a primeira fila de iniciativa." />
+              <EmptyState title="Nenhum combatente cadastrado." body="Adicione combatentes para iniciar a rodada." />
             )}
           </MesaSectionPanel>
         </div>
@@ -199,7 +199,7 @@ export function MesaOrderPage() {
                 </div>
               </>
             ) : (
-              <EmptyState title="Sem turno ativo." body="Adicione combatentes e role iniciativa para abrir o ciclo tático." />
+              <EmptyState title="Sem turno ativo." body="Adicione combatentes e role iniciativa." />
             )}
           </MesaSectionPanel>
         </div>

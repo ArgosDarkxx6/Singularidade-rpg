@@ -8,7 +8,8 @@ import { Avatar } from '@components/ui/avatar';
 import { Button } from '@components/ui/button';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input } from '@components/ui/field';
-import { Panel, UtilityPanel } from '@components/ui/panel';
+import { NexusPanel, NexusSectionHeader } from '@components/ui/nexus';
+import { UtilityPanel } from '@components/ui/panel';
 import { useAuth } from '@features/auth/hooks/use-auth';
 import { useAccountCharacters, usePlatformTables } from '@features/workspace/hooks/use-workspace-segments';
 import { getGameSystem } from '@features/systems/registry';
@@ -77,10 +78,10 @@ export function ProfilePage() {
   const linkedCharacters = useMemo(() => characters.filter((character) => character.tableName), [characters]);
 
   return (
-    <div className="grid items-start gap-4 pb-8 xl:grid-cols-[minmax(0,1.45fr)_320px]">
-      <div className="grid gap-4">
-        <Panel className="p-3.5 sm:p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="grid items-start gap-3 pb-8 xl:grid-cols-[minmax(0,1.45fr)_304px]">
+      <div className="grid gap-3">
+        <NexusPanel>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-4">
               <Avatar src={profile?.avatarUrl || user?.avatarUrl || undefined} name={profile?.displayName || user?.displayName || 'Perfil'} size="lg" className="size-16 text-xl" />
               <div className="min-w-0">
@@ -93,7 +94,7 @@ export function ProfilePage() {
               </div>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 sm:min-w-44">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -141,12 +142,12 @@ export function ProfilePage() {
               </Button>
             </div>
           </div>
-        </Panel>
+        </NexusPanel>
 
-        <Panel className="p-3.5 sm:p-4">
+        <NexusPanel>
           <h2 className="font-display text-lg font-semibold text-white">Identidade</h2>
           <form
-            className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]"
+            className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
             onSubmit={form.handleSubmit(async (values) => {
               try {
                 await updateProfile(values);
@@ -166,25 +167,20 @@ export function ProfilePage() {
               </Button>
             </div>
           </form>
-        </Panel>
+        </NexusPanel>
 
-        <Panel className="p-3.5 sm:p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Mesas</p>
-              <h2 className="mt-1 text-lg font-semibold text-white">Participação</h2>
-            </div>
-          </div>
+        <NexusPanel>
+          <NexusSectionHeader kicker="Mesas" title="Participação" />
 
-          <div className="mt-4 grid gap-2">
+          <div className="mt-3 grid gap-2">
             {tables.length ? (
               tables.map((table) => (
-                <UtilityPanel key={table.id} className="rounded-lg px-3.5 py-3">
+                <UtilityPanel key={table.id} className="rounded-[9px] px-3 py-2.5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-white">{table.name}</p>
                       <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-muted">
-                        {getGameSystem(table.systemKey).name} · {table.status || 'Sem sessão'} · {table.role === 'gm' ? 'GM' : table.role === 'player' ? 'Player' : 'Viewer'}
+                        {getGameSystem(table.systemKey).name} · {table.status || 'Sem sessão'} · {table.role === 'gm' ? 'GM' : table.role === 'player' ? 'Jogador' : 'Visitante'}
                       </p>
                     </div>
                     <Link
@@ -200,38 +196,38 @@ export function ProfilePage() {
               <EmptyState title="Nenhuma mesa vinculada." body="Entre ou crie uma mesa." />
             )}
           </div>
-        </Panel>
+        </NexusPanel>
       </div>
 
       <div className="page-right-rail xl:grid-cols-1">
-        <Panel className="p-3.5">
+        <NexusPanel>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Resumo</p>
           <div className="mt-4 grid gap-2">
-            <UtilityPanel className="rounded-lg px-3.5 py-3">
+            <UtilityPanel className="rounded-[9px] px-3 py-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Mesas</p>
               <p className="mt-1 text-lg font-semibold text-white">{tables.length}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-lg px-3.5 py-3">
+            <UtilityPanel className="rounded-[9px] px-3 py-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Personagens</p>
               <p className="mt-1 text-lg font-semibold text-white">{characters.length}</p>
             </UtilityPanel>
-            <UtilityPanel className="rounded-lg px-3.5 py-3">
+            <UtilityPanel className="rounded-[9px] px-3 py-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Atualização</p>
               <p className="mt-1 text-sm font-semibold text-white">{formatDate(profile?.updatedAt || '')}</p>
             </UtilityPanel>
           </div>
-        </Panel>
+        </NexusPanel>
 
-        <Panel className="p-3.5">
+        <NexusPanel>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Personagens vinculados</p>
           <div className="mt-4 grid gap-2">
             {charactersLoading ? (
-              <UtilityPanel className="rounded-lg px-3.5 py-3">
+              <UtilityPanel className="rounded-[9px] px-3 py-2.5">
                 <p className="text-sm text-soft">Carregando personagens...</p>
               </UtilityPanel>
             ) : linkedCharacters.length ? (
               linkedCharacters.slice(0, 4).map((character) => (
-                <UtilityPanel key={character.id} className="rounded-lg px-3.5 py-3">
+                <UtilityPanel key={character.id} className="rounded-[9px] px-3 py-2.5">
                   <div className="flex items-start gap-3">
                     <Avatar src={character.avatarUrl || undefined} name={character.name} size="sm" />
                     <div className="min-w-0 flex-1">
@@ -242,10 +238,10 @@ export function ProfilePage() {
                 </UtilityPanel>
               ))
             ) : (
-              <EmptyState title="Sem vínculos." body="Personagens vinculados aparecem aqui." />
+              <EmptyState title="Sem vínculos." body="Nenhum personagem vinculado." />
             )}
           </div>
-        </Panel>
+        </NexusPanel>
       </div>
     </div>
   );
