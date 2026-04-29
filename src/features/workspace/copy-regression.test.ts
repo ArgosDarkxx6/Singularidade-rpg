@@ -85,6 +85,14 @@ function stringLiterals(text: string) {
   return Array.from(text.matchAll(/(['"`])((?:\\.|(?!\1).)*?)\1/gs), (match) => match[2]);
 }
 
+function importSpecifiers(text: string) {
+  return [
+    ...text.matchAll(/\bimport\s+(?:type\s+)?(?:[^'"`]*?\s+from\s+)?['"`]([^'"`]+)['"`]/gs),
+    ...text.matchAll(/\bexport\s+(?:type\s+)?[^'"`]*?\s+from\s+['"`]([^'"`]+)['"`]/gs),
+    ...text.matchAll(/\bimport\(\s*['"`]([^'"`]+)['"`]\s*\)/gs)
+  ].map((match) => match[1]);
+}
+
 const v2SourceFiles = [
   ...collectSourceFiles('src/components/nexus-v2'),
   ...collectSourceFiles('src/layouts').filter((file) => /src\/layouts\/nexus-.*\.tsx?$/.test(file))
@@ -97,6 +105,15 @@ const v2BannedImports = [
   '@components/shared/section-title',
   '@features/mesa/components/mesa-page-primitives',
   '@features/mesa/components/mesa-section-primitives'
+];
+
+const v2BannedImportSuffixes = [
+  'components/ui/nexus',
+  'components/ui/panel',
+  'components/ui/card',
+  'components/shared/section-title',
+  'features/mesa/components/mesa-page-primitives',
+  'features/mesa/components/mesa-section-primitives'
 ];
 
 const v2BannedCopyPhrases = [
@@ -116,6 +133,31 @@ const v2BannedCopyPhrases = [
   'snapshot'
 ];
 
+const v2BannedLegacyShellStrings = [
+  'app-shell-root',
+  'app-shell-grid',
+  'app-topbar',
+  'app-content-shell',
+  'rail-shell',
+  'rail-shell-content',
+  'page-grid',
+  'page-shell',
+  'page-right-rail',
+  'nexus-panel',
+  'nexus-row',
+  'data-shell-layer',
+  'data-scroll-region'
+];
+
+function matchesBannedImport(specifier: string) {
+  const normalized = specifier.replace(/\\/g, '/').replace(/^@\//, '').replace(/^@/, '');
+
+  return (
+    v2BannedImports.includes(specifier) ||
+    v2BannedImportSuffixes.some((suffix) => normalized === suffix || normalized.endsWith(`/${suffix}`))
+  );
+}
+
 describe('user-facing copy', () => {
   it('keeps product screens free from internal architecture language', () => {
     const violations = userFacingRoutes.flatMap((file) => {
@@ -130,8 +172,8 @@ describe('user-facing copy', () => {
 describe('nexus v2 guardrails', () => {
   it('keeps V2 files from importing legacy visual primitives', () => {
     const violations = v2SourceFiles.flatMap((file) => {
-      const text = readFileSync(join(process.cwd(), file), 'utf8');
-      return v2BannedImports.filter((bannedImport) => text.includes(bannedImport)).map((bannedImport) => `${file}: ${bannedImport}`);
+      const imports = importSpecifiers(readFileSync(join(process.cwd(), file), 'utf8'));
+      return imports.filter(matchesBannedImport).map((bannedImport) => `${file}: ${bannedImport}`);
     });
 
     expect(violations).toEqual([]);
@@ -143,6 +185,17 @@ describe('nexus v2 guardrails', () => {
       return v2BannedCopyPhrases
         .filter((phrase) => literals.some((literal) => literal.includes(phrase)))
         .map((phrase) => `${file}: ${phrase}`);
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it('keeps V2 files from reusing legacy shell and page class contracts', () => {
+    const violations = v2SourceFiles.flatMap((file) => {
+      const literals = stringLiterals(readFileSync(join(process.cwd(), file), 'utf8')).map((literal) => literal.toLowerCase());
+      return v2BannedLegacyShellStrings
+        .filter((legacyString) => literals.some((literal) => literal.includes(legacyString)))
+        .map((legacyString) => `${file}: ${legacyString}`);
     });
 
     expect(violations).toEqual([]);
