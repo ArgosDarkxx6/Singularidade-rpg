@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ProtectedAppShell } from './protected-app-shell';
+import { NexusPlatformLayout } from './nexus-platform-layout';
 
 const signOutMock = vi.fn();
 
@@ -72,16 +72,16 @@ vi.mock('@components/shared/logo-lockup', () => ({
   LogoLockup: () => <div>Project Nexus</div>
 }));
 
-describe('ProtectedAppShell', () => {
+describe('NexusPlatformLayout', () => {
   beforeEach(() => {
     signOutMock.mockReset();
   });
 
-  it('renders the platform shell around the portal and exposes active mesa context', () => {
+  it('renders the V2 platform shell around the portal and exposes active mesa context', () => {
     render(
       <MemoryRouter initialEntries={['/mesas']}>
         <Routes>
-          <Route element={<ProtectedAppShell />}>
+          <Route element={<NexusPlatformLayout />}>
             <Route path="/mesas" element={<div>Portal content</div>} />
             <Route path="/conta" element={<div>Profile content</div>} />
           </Route>
@@ -95,9 +95,13 @@ describe('ProtectedAppShell', () => {
     expect(screen.getAllByRole('link', { name: /Hub/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /Conta/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /Mesa ativa/i })).toBeVisible();
-    expect(document.querySelector('[data-shell-layer="rail"]')).toBeTruthy();
-    expect(document.querySelector('[data-shell-layer="header"]')).toBeTruthy();
-    expect(document.querySelector('[data-shell-layer="content"]')).toBeTruthy();
+    expect(screen.getByRole('complementary', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Plataforma' })).toBeInTheDocument();
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(document.querySelector('[data-shell-layer="rail"]')).toBeNull();
+    expect(document.querySelector('[data-shell-layer="header"]')).toBeNull();
+    expect(document.querySelector('[data-shell-layer="content"]')).toBeNull();
+    expect(document.querySelector('[data-scroll-region="content"]')).toBeNull();
   });
 
   it('navigates between platform routes through the persistent shell', async () => {
@@ -106,7 +110,7 @@ describe('ProtectedAppShell', () => {
     render(
       <MemoryRouter initialEntries={['/mesas']}>
         <Routes>
-          <Route element={<ProtectedAppShell />}>
+          <Route element={<NexusPlatformLayout />}>
             <Route path="/mesas" element={<div>Portal content</div>} />
             <Route path="/conta" element={<div>Profile content</div>} />
           </Route>

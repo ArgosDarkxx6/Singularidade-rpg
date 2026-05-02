@@ -142,7 +142,10 @@ async function signInUser(page: Page, identifier: string) {
   await page.getByRole('button', { name: 'Entrar no Project Nexus' }).click();
 
   await expect(page).toHaveURL(/\/mesas$/, { timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: 'Campanhas ativas' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mesas', level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Hub' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Nova mesa', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible();
 }
 
 async function expectInvalidLogin(page: Page, identifier: string, password = 'senhaerrada') {
@@ -203,7 +206,7 @@ async function signOutCurrentUser(page: Page) {
 
 async function openCreateTableDialog(page: Page) {
   await page.goto('/mesas');
-  await page.getByRole('button', { name: /^(Criar mesa|Nova mesa)$/ }).first().click();
+  await page.locator('[data-action="create-table"]').click();
   await expect(page.getByRole('heading', { name: 'Criar mesa' })).toBeVisible();
 }
 
@@ -364,7 +367,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-test('registers, creates a mesa, and keeps legacy routes inside the mesa shell', async ({ page }, testInfo) => {
+test('registers, creates a mesa, and keeps platform and mesa navigation usable', async ({ page }, testInfo) => {
   await registerUser(page, 'GM Alpha');
   await expectNoHorizontalOverflow(page);
   const tableName = uniqueLabel('Mesa Alpha');
@@ -372,60 +375,18 @@ test('registers, creates a mesa, and keeps legacy routes inside the mesa shell',
   const slug = slugify(tableName);
   const isMobileProject = testInfo.project.name === 'mobile-chrome';
 
-  const rail = page.locator('[data-shell-layer="rail"]');
-  const railContent = page.locator('.rail-shell-content');
-  const header = page.locator('[data-shell-layer="header"]');
-  const contentShell = page.locator('[data-scroll-region="content"]');
-
-  await expect(header).toBeVisible();
-  await expect(contentShell).toBeVisible();
-
   await expect(page.getByRole('heading', { name: new RegExp(tableName) }).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
-
-  const headerBoxBefore = await header.boundingBox();
-  const contentBoxBefore = await contentShell.boundingBox();
-  let railBoxBefore = null;
 
   if (isMobileProject) {
     await expect(page.getByRole('button', { name: /Abrir navega/i })).toBeVisible();
     await page.getByRole('button', { name: /Abrir navega/i }).click();
     await expect(page.getByRole('dialog').getByRole('link', { name: 'Geral' })).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: 'Fechar' }).click();
   } else {
-    await expect(rail).toBeVisible();
-    const railWidthBefore = (await railContent.boundingBox())?.width || 0;
-    railBoxBefore = await rail.boundingBox();
-
-    await rail.hover();
-    await page.waitForTimeout(260);
-
-    const expandedRailBox = await railContent.boundingBox();
-    const contentBoxAfterHover = await contentShell.boundingBox();
-    expect(expandedRailBox).not.toBeNull();
-    expect(contentBoxAfterHover).not.toBeNull();
-    expect((expandedRailBox?.width || 0) - railWidthBefore).toBeGreaterThan(120);
-    expect(Math.abs((contentBoxAfterHover?.x || 0) - (contentBoxBefore?.x || 0))).toBeLessThanOrEqual(1);
-
-    const overlayDominates = await page.evaluate(({ x, y }) => {
-      const element = document.elementFromPoint(x, y);
-      return Boolean(element?.closest('.rail-shell-content'));
-    }, {
-      x: Math.floor((expandedRailBox?.x || 0) + (expandedRailBox?.width || 0) - 12),
-      y: Math.floor((expandedRailBox?.y || 0) + 44)
-    });
-    expect(overlayDominates).toBeTruthy();
-  }
-
-  await contentShell.evaluate((node) => {
-    node.scrollTop = 640;
-  });
-  await page.waitForTimeout(120);
-
-  const headerBoxAfterScroll = await header.boundingBox();
-  expect(Math.abs((headerBoxAfterScroll?.y || 0) - (headerBoxBefore?.y || 0))).toBeLessThanOrEqual(1);
-  if (!isMobileProject) {
-    const railBoxAfterScroll = await rail.boundingBox();
-    expect(Math.abs((railBoxAfterScroll?.y || 0) - (railBoxBefore?.y || 0))).toBeLessThanOrEqual(1);
+    await expect(page.getByRole('link', { name: 'Geral', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Fichas', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Rolagens', exact: true })).toBeVisible();
   }
 
   await page.goto('/mesa');

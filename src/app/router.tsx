@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { ProtectedAppShell } from '@layouts/protected-app-shell';
+import { NexusPlatformLayout } from '@layouts/nexus-platform-layout';
 import { GuestLayout } from '@routes/guest-layout';
 import { LegacyRouteRedirect } from '@routes/legacy-route-redirect';
 import { NotFoundPage } from '@routes/not-found-page';
@@ -33,7 +33,7 @@ export const router = createBrowserRouter([
     element: <ProtectedLayout />,
     children: [
       {
-        element: <ProtectedAppShell />,
+        element: <NexusPlatformLayout />,
         children: [
           {
             path: '/hub',

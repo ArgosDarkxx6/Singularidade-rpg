@@ -95,7 +95,9 @@ function importSpecifiers(text: string) {
 
 const v2SourceFiles = [
   ...collectSourceFiles('src/components/nexus-v2'),
-  ...collectSourceFiles('src/layouts').filter((file) => /src\/layouts\/nexus-.*\.tsx?$/.test(file))
+  ...collectSourceFiles('src/layouts').filter((file) => /src\/layouts\/nexus-.*\.tsx?$/.test(file)),
+  ...collectSourceFiles('src/routes/hub-page.tsx'),
+  ...collectSourceFiles('src/routes/mesas-page.tsx')
 ];
 
 const v2BannedImports = [
@@ -158,6 +160,11 @@ function matchesBannedImport(specifier: string) {
   );
 }
 
+function userVisibleLiterals(text: string) {
+  const modules = new Set(importSpecifiers(text));
+  return stringLiterals(text).filter((literal) => !modules.has(literal));
+}
+
 describe('user-facing copy', () => {
   it('keeps product screens free from internal architecture language', () => {
     const violations = userFacingRoutes.flatMap((file) => {
@@ -181,7 +188,7 @@ describe('nexus v2 guardrails', () => {
 
   it('keeps V2 visible copy free from backstage language', () => {
     const violations = v2SourceFiles.flatMap((file) => {
-      const literals = stringLiterals(readFileSync(join(process.cwd(), file), 'utf8')).map((literal) => literal.toLowerCase());
+      const literals = userVisibleLiterals(readFileSync(join(process.cwd(), file), 'utf8')).map((literal) => literal.toLowerCase());
       return v2BannedCopyPhrases
         .filter((phrase) => literals.some((literal) => literal.includes(phrase)))
         .map((phrase) => `${file}: ${phrase}`);
@@ -192,7 +199,7 @@ describe('nexus v2 guardrails', () => {
 
   it('keeps V2 files from reusing legacy shell and page class contracts', () => {
     const violations = v2SourceFiles.flatMap((file) => {
-      const literals = stringLiterals(readFileSync(join(process.cwd(), file), 'utf8')).map((literal) => literal.toLowerCase());
+      const literals = userVisibleLiterals(readFileSync(join(process.cwd(), file), 'utf8')).map((literal) => literal.toLowerCase());
       return v2BannedLegacyShellStrings
         .filter((legacyString) => literals.some((literal) => literal.includes(legacyString)))
         .map((legacyString) => `${file}: ${legacyString}`);

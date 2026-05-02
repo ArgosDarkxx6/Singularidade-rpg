@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, Compass, DoorOpen, Plus, RadioTower } from 'lucide-react';
+import { ArrowRight, Compass, DoorOpen, Plus, RadioTower, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
@@ -8,19 +8,27 @@ import { Button } from '@components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@components/ui/dialog';
 import { EmptyState } from '@components/ui/empty-state';
 import { Field, Input, Select, Textarea } from '@components/ui/field';
-import { NexusPageHeader, NexusPanel, NexusSectionHeader } from '@components/ui/nexus';
-import { UtilityPanel } from '@components/ui/panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
+import {
+  V2AvatarStack,
+  V2List,
+  V2ListRow,
+  V2Panel,
+  V2PanelHeader,
+  V2StatusChip,
+  V2Toolbar
+} from '@components/nexus-v2';
 import { useAuth } from '@features/auth/hooks/use-auth';
-import { usePlatformTables } from '@features/workspace/hooks/use-workspace-segments';
 import { GAME_SYSTEM_OPTIONS, getDefaultTableMetaForSystem, getGameSystem } from '@features/systems/registry';
+import { usePlatformTables } from '@features/workspace/hooks/use-workspace-segments';
 import { createTableSchema, joinCodeSchema, joinInviteSchema } from '@schemas/mesa';
+import type { TableListItem } from '@/types/domain';
 
 type CreateTableValues = import('zod').infer<typeof createTableSchema>;
 type JoinCodeValues = import('zod').infer<typeof joinCodeSchema>;
 type JoinInviteValues = import('zod').infer<typeof joinInviteSchema>;
 
-function formatRoleLabel(role: 'gm' | 'player' | 'viewer') {
+function formatRoleLabel(role: TableListItem['role']) {
   if (role === 'gm') return 'GM';
   if (role === 'player') return 'Jogador';
   return 'Visitante';
@@ -33,6 +41,12 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric'
   });
+}
+
+function roleTone(role: TableListItem['role']) {
+  if (role === 'gm') return 'accent';
+  if (role === 'player') return 'success';
+  return 'neutral';
 }
 
 function buildCreateDefaults(nickname: string): CreateTableValues {
@@ -142,117 +156,270 @@ export function MesasPage() {
   });
 
   return (
-    <div className="grid items-start gap-3 pb-8 xl:grid-cols-[minmax(0,1.6fr)_304px]">
-      <div className="grid gap-3">
-        <NexusPageHeader
-          kicker="Mesas"
-          title="Campanhas ativas"
-          actions={
-            <>
-              <Button
-                data-action="create-table"
-                onClick={() => {
-                  createForm.reset(buildCreateDefaults(defaultNickname));
-                  setCreateOpen(true);
-                }}
-              >
-                <Plus className="size-4" />
-                Nova mesa
-              </Button>
-              <Button data-action="join-table" variant="secondary" onClick={() => setJoinOpen(true)}>
-                <DoorOpen className="size-4" />
-                Entrar
-              </Button>
-            </>
-          }
-        />
+    <div className="grid min-w-0 items-start gap-3 xl:grid-cols-[minmax(0,1.14fr)_minmax(280px,0.9fr)_300px]">
+      <div className="grid min-w-0 gap-3">
+        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-blue-200/80">Mesas</p>
+            <h1 className="mt-1 font-display text-2xl font-bold leading-tight text-white sm:text-3xl">Mesas</h1>
+            <p className="mt-1 text-sm leading-5 text-slate-300/72">Campanhas, sessões e convites ativos.</p>
+          </div>
+          <V2Toolbar>
+            <Button
+              data-action="create-table"
+              onClick={() => {
+                createForm.reset(buildCreateDefaults(defaultNickname));
+                setCreateOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              Nova mesa
+            </Button>
+            <Button data-action="join-table" variant="secondary" onClick={() => setJoinOpen(true)}>
+              <DoorOpen className="size-4" />
+              Entrar
+            </Button>
+          </V2Toolbar>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            className="rounded-xl border border-blue-300/18 bg-blue-500/10 px-3 py-2.5 text-left transition hover:border-blue-200/34 hover:bg-blue-400/14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60"
+            onClick={() => activeTable && void handleContinueTable(activeTable.slug)}
+            disabled={!activeTable}
+          >
+            <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-blue-100/80">Mesa ativa</span>
+            <span className="mt-1 block truncate text-sm font-bold text-white">{activeTable?.name || 'Nenhuma mesa'}</span>
+          </button>
+          <button
+            type="button"
+            className="rounded-xl border border-white/8 bg-white/[0.026] px-3 py-2.5 text-left transition hover:border-blue-300/24 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60"
+            onClick={() => {
+              createForm.reset(buildCreateDefaults(defaultNickname));
+              setCreateOpen(true);
+            }}
+          >
+            <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Campanhas</span>
+            <span className="mt-1 block text-xl font-bold text-white">{tables.length}</span>
+          </button>
+          <button
+            type="button"
+            className="rounded-xl border border-white/8 bg-white/[0.026] px-3 py-2.5 text-left transition hover:border-blue-300/24 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60"
+            onClick={() => setJoinOpen(true)}
+          >
+            <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Entrada</span>
+            <span className="mt-1 block text-sm font-bold text-white">Código ou convite</span>
+          </button>
+        </div>
 
         {tableActionError ? (
-          <UtilityPanel className="rounded-[9px] border border-rose-300/18 bg-rose-500/10 px-3.5 py-3">
-            <p className="text-sm leading-6 text-soft">{tableActionError}</p>
-          </UtilityPanel>
+          <V2Panel tone="flat" className="border-rose-300/18 bg-rose-500/10 px-3.5 py-3">
+            <p className="text-sm leading-6 text-rose-100">{tableActionError}</p>
+          </V2Panel>
         ) : null}
 
-        <NexusPanel>
-          <div className="grid gap-2.5">
+        <V2Panel className="p-3">
+          <V2PanelHeader eyebrow="Suas mesas" title="Campanhas e espaços ativos" />
+          <V2List className="mt-3 gap-2">
             {tables.length ? (
               tables.map((table) => (
-                <div
+                <V2ListRow
                   key={table.id}
-                  className="nexus-row px-3 py-2.5"
+                  className="px-3 py-2"
+                  action={
+                    <Button disabled={openingTableSlug === table.slug} onClick={() => void handleContinueTable(table.slug)}>
+                      <ArrowRight className="size-4" />
+                      {openingTableSlug === table.slug ? 'Abrindo...' : 'Abrir mesa'}
+                    </Button>
+                  }
                 >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0 max-w-3xl">
+                  <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="chip-accent inline-flex rounded-[8px] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
-                          {formatRoleLabel(table.role)}
-                        </span>
-                        <span className="chip-muted inline-flex rounded-[8px] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
-                          {getGameSystem(table.systemKey).name}
-                        </span>
-                        {table.isOwner ? (
-                          <span className="chip-muted inline-flex rounded-[8px] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
-                            Criador
-                          </span>
-                        ) : null}
+                        <V2StatusChip tone={roleTone(table.role)}>{formatRoleLabel(table.role)}</V2StatusChip>
+                        <V2StatusChip tone="neutral">{getGameSystem(table.systemKey).name}</V2StatusChip>
+                        {table.isOwner ? <V2StatusChip tone="warning">Criador</V2StatusChip> : null}
                       </div>
-                      <h2 className="mt-2 font-display text-base font-semibold leading-tight text-white sm:text-lg">{table.name}</h2>
-                      <p className="mt-1.5 text-sm leading-6 text-soft">
-                        {table.seriesName || 'Sem série'} · {table.campaignName || 'Sem campanha'} · atualizado em {formatDate(table.updatedAt)}
+                      <h2 className="mt-1.5 truncate font-display text-base font-bold text-white sm:text-lg">{table.name}</h2>
+                      <p className="mt-1 truncate text-sm leading-5 text-slate-300/72">
+                        {table.seriesName || 'Sem série'} · {table.campaignName || 'Sem campanha'} · {formatDate(table.updatedAt)}
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button disabled={openingTableSlug === table.slug} onClick={() => void handleContinueTable(table.slug)}>
-                        <ArrowRight className="size-4" />
-                        {openingTableSlug === table.slug ? 'Abrindo...' : 'Abrir mesa'}
-                      </Button>
-                    </div>
+                    <V2AvatarStack
+                      items={[
+                        {
+                          id: `${table.id}:role`,
+                          name: formatRoleLabel(table.role)
+                        },
+                        {
+                          id: `${table.id}:system`,
+                          name: getGameSystem(table.systemKey).name
+                        }
+                      ]}
+                      limit={2}
+                    />
                   </div>
-                </div>
+                </V2ListRow>
               ))
             ) : (
               <EmptyState title="Nenhuma mesa ainda." body="Crie uma campanha ou entre por convite." />
             )}
+          </V2List>
+        </V2Panel>
+
+        <V2Panel className="p-3">
+          <V2PanelHeader eyebrow="Descubra mesas" title="Entrada e descoberta" />
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              className="rounded-lg border border-white/8 bg-white/[0.026] px-3 py-2.5 text-left transition hover:border-blue-300/22 hover:bg-white/[0.045]"
+              onClick={() => setJoinOpen(true)}
+            >
+              <p className="text-sm font-bold text-white">Código ou convite</p>
+              <p className="mt-1 text-sm leading-5 text-slate-300/72">Entrar com acesso recebido.</p>
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-white/8 bg-white/[0.026] px-3 py-2.5 text-left transition hover:border-blue-300/22 hover:bg-white/[0.045]"
+              onClick={() => {
+                createForm.reset(buildCreateDefaults(defaultNickname));
+                setCreateOpen(true);
+              }}
+            >
+              <p className="text-sm font-bold text-white">Nova mesa</p>
+              <p className="mt-1 text-sm leading-5 text-slate-300/72">Criar como GM.</p>
+            </button>
           </div>
-        </NexusPanel>
+        </V2Panel>
       </div>
 
-      <div className="page-right-rail xl:grid-cols-1">
-        <NexusPanel>
-          <NexusSectionHeader kicker="Mesa ativa" title={activeTable?.name || 'Nenhuma mesa aberta'} actions={<RadioTower className="size-4 text-accent" />} />
-          <div className="mt-4 grid gap-2">
+      <div className="grid min-w-0 gap-3">
+        <V2Panel tone="strong" className="p-3">
+          <V2PanelHeader
+            eyebrow="Sessões ativas"
+            title={activeTable?.name || 'Nenhuma mesa aberta'}
+            action={<RadioTower className="size-4 text-blue-200" />}
+          />
+          <div className="mt-3 grid gap-2">
             {activeTable ? (
               <>
-                <UtilityPanel className="rounded-[9px] px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Status</p>
-                  <p className="mt-1 text-sm font-semibold text-white">{activeTable.status || 'Planejamento'}</p>
-                </UtilityPanel>
-                <UtilityPanel className="rounded-[9px] px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Seu papel</p>
-                  <p className="mt-1 text-sm font-semibold text-white">{formatRoleLabel(activeTable.role)}</p>
-                </UtilityPanel>
-                <Button onClick={() => void handleContinueTable(activeTable.slug)}>Abrir mesa</Button>
+                <div className="rounded-lg border border-white/8 bg-white/[0.026] px-3 py-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Status</p>
+                  <p className="mt-1 text-sm font-bold text-white">{activeTable.status || 'Planejamento'}</p>
+                </div>
+                <div className="rounded-lg border border-white/8 bg-white/[0.026] px-3 py-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Seu papel</p>
+                  <p className="mt-1 text-sm font-bold text-white">{formatRoleLabel(activeTable.role)}</p>
+                </div>
+                <Button onClick={() => void handleContinueTable(activeTable.slug)}>Abrir sessão</Button>
               </>
             ) : (
               <EmptyState title="Sem mesa aberta." body="Entre em uma mesa." />
             )}
           </div>
-        </NexusPanel>
+        </V2Panel>
 
-        <NexusPanel>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Entrar</p>
-          <h2 className="mt-1 text-lg font-semibold text-white">Código ou convite</h2>
-          <div className="mt-4 grid gap-2">
-            <UtilityPanel className="rounded-[9px] px-3 py-2.5">
-              <p className="text-sm leading-6 text-soft">Código ou link de convite.</p>
-            </UtilityPanel>
+        <V2Panel className="p-3">
+          <V2PanelHeader eyebrow="Sessões recentes" title={`${tables.length} mesas`} />
+          <V2List className="mt-3">
+            {tables.length ? (
+              tables.slice(0, 4).map((table) => (
+                <V2ListRow
+                  key={table.id}
+                  action={
+                    <Button variant="secondary" disabled={openingTableSlug === table.slug} onClick={() => void handleContinueTable(table.slug)}>
+                      Abrir sessão
+                    </Button>
+                  }
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <V2AvatarStack
+                      items={[
+                        {
+                          id: `${table.id}:role`,
+                          name: formatRoleLabel(table.role)
+                        }
+                      ]}
+                      limit={1}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-white">{table.name}</p>
+                      <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-slate-400">{table.status || 'Planejamento'}</p>
+                    </div>
+                  </div>
+                </V2ListRow>
+              ))
+            ) : (
+              <EmptyState title="Sem sessões." body="Abra uma mesa para iniciar." />
+            )}
+          </V2List>
+        </V2Panel>
+
+        <V2Panel className="p-3">
+          <V2PanelHeader eyebrow="Convites pendentes" title="Gerenciar acesso" />
+          <V2List className="mt-3">
+            <V2ListRow>
+              <div className="flex min-w-0 items-center gap-3">
+                <Compass className="size-4 shrink-0 text-blue-200" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white">Código ou convite</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300/72">Cole o acesso recebido.</p>
+                </div>
+              </div>
+            </V2ListRow>
+          </V2List>
+          <Button className="mt-3 w-full" variant="secondary" onClick={() => setJoinOpen(true)}>
+            Abrir entrada
+          </Button>
+        </V2Panel>
+      </div>
+
+      <aside className="grid min-w-0 gap-3">
+        <V2Panel className="p-3">
+          <V2PanelHeader eyebrow="Sistemas ativos" title="Camada de jogo" />
+          <V2List className="mt-3">
+            <V2ListRow>
+              <div className="flex min-w-0 items-start gap-3">
+                <Users className="mt-0.5 size-4 shrink-0 text-blue-200" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white">Singularidade disponível</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300/72">Pronto para novas campanhas.</p>
+                </div>
+              </div>
+            </V2ListRow>
+            <V2ListRow>
+              <div className="flex min-w-0 items-start gap-3">
+                <RadioTower className="mt-0.5 size-4 shrink-0 text-blue-200" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white">Estado compartilhado</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300/72">Presença, pontos e sessão ficam na mesa ativa.</p>
+                </div>
+              </div>
+            </V2ListRow>
+          </V2List>
+        </V2Panel>
+
+        <V2Panel className="p-3">
+          <V2PanelHeader eyebrow="Ações rápidas" title="Mesa ativa" />
+          <div className="mt-3 grid gap-2">
+            <Button
+              onClick={() => {
+                createForm.reset(buildCreateDefaults(defaultNickname));
+                setCreateOpen(true);
+              }}
+            >
+              Criar mesa
+            </Button>
             <Button variant="secondary" onClick={() => setJoinOpen(true)}>
-              <Compass className="size-4" />
-              Abrir entrada
+              Entrar por convite
+            </Button>
+            <Button variant="ghost" onClick={() => activeTable && void handleContinueTable(activeTable.slug)} disabled={!activeTable}>
+              Abrir mesa ativa
             </Button>
           </div>
-        </NexusPanel>
-      </div>
+        </V2Panel>
+      </aside>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[88vh] overflow-y-auto rounded-xl">
@@ -290,15 +457,15 @@ export function MesasPage() {
               </Field>
             </div>
 
-            <UtilityPanel className="rounded-lg border border-blue-300/16 bg-blue-500/10 p-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/80">Sistema</p>
-              <h3 className="mt-2 text-lg font-semibold text-white">{selectedSystem.name}</h3>
+            <V2Panel tone="flat" className="border-blue-300/16 bg-blue-500/10 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">Sistema</p>
+              <h3 className="mt-2 text-lg font-bold text-white">{selectedSystem.name}</h3>
               <p className="mt-2 text-sm leading-6 text-soft">{selectedSystem.tagline}</p>
-            </UtilityPanel>
+            </V2Panel>
 
             <div className="flex flex-wrap gap-2">
               <Button type="submit" size="lg" disabled={createForm.formState.isSubmitting}>
-                {createForm.formState.isSubmitting ? 'Criando…' : 'Criar e entrar'}
+                {createForm.formState.isSubmitting ? 'Criando...' : 'Criar e entrar'}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
                 Cancelar
